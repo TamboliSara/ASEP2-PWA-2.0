@@ -1,0 +1,11 @@
+{
+  "name": "ecolocker-workspace",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:functions": "cd functions && npm run serve",
+    "build:frontend": "cd frontend && npm run build",
+    "build:functions": "cd functions && npm run build",
+    "deploy": "firebase deploy"
+  }
+}
