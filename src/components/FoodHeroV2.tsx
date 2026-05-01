@@ -51,11 +51,15 @@ function getBadges(item: DonationRecord | undefined, t: (key: string) => string)
 export function FoodHeroV2({
   donation,
   items,
-  onActiveItemChange
+  onActiveItemChange,
+  onPrevLocker,
+  onNextLocker
 }: {
   donation?: DonationRecord;
   items?: DonationRecord[];
   onActiveItemChange?: (item?: DonationRecord) => void;
+  onPrevLocker?: () => void;
+  onNextLocker?: () => void;
 }) {
   const { t } = useTranslation();
   const { state } = useAppContext();
@@ -111,6 +115,26 @@ export function FoodHeroV2({
             <span className="btn-label">{t("donateNow") || "Start Donation"}</span>
             <span className="btn-icon">→</span>
           </button>
+
+          {/* Safe Navigation Controller */}
+          <div className="safe-navigation-controller is-empty-state">
+            <button type="button" className="safe-nav-trigger is-prev" onClick={onPrevLocker} aria-label="Previous safe">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            
+            <div className="safe-index-display">
+              <div className="index-glow" />
+              <span className="index-label">SAFE</span>
+              <strong className="index-current">
+                {((state.lockers.findIndex(l => l.lockerId === state.selectedLockerId) + 1) || 1).toString().padStart(2, '0')}
+              </strong>
+              <span className="index-total">/ {state.lockers.length.toString().padStart(2, '0')}</span>
+            </div>
+
+            <button type="button" className="safe-nav-trigger is-next" onClick={onNextLocker} aria-label="Next safe">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
         </div>
         <style>{`
           .food-hero-luxe.is-empty {
@@ -118,19 +142,19 @@ export function FoodHeroV2({
             place-items: center;
             text-align: center;
             background: radial-gradient(circle at center, rgba(82, 196, 106, 0.08), transparent 70%);
-            min-height: 500px;
+            min-height: 420px;
           }
           .empty-state-content {
             display: grid;
-            gap: 2rem;
+            gap: 1.25rem;
             max-width: 360px;
-            padding: 3rem;
+            padding: 2.5rem 2rem;
             animation: fadeIn 0.8s ease-out;
           }
           .empty-locker-illustration-premium {
             position: relative;
-            width: 200px;
-            height: 200px;
+            width: 160px;
+            height: 160px;
             margin: 0 auto;
             animation: floatLuxe 6s ease-in-out infinite;
           }
@@ -209,6 +233,87 @@ export function FoodHeroV2({
             transform: rotate(-45deg);
           }
           .diet-dot.is-vegan::after { display: none; }
+          .safe-navigation-controller {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center;
+            justify-content: center;
+            gap: 1.25rem;
+            padding: 0.6rem 1.25rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 99px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 100;
+            margin: 2rem auto;
+            min-width: 240px;
+          }
+          .safe-navigation-controller.is-empty-state {
+            margin: 2rem auto 0;
+          }
+          .safe-nav-trigger {
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.2, 1, 0.3, 1);
+          }
+          .safe-nav-trigger svg { 
+            width: 20px; 
+            height: 20px; 
+            display: block;
+            stroke: var(--accent);
+            stroke-width: 3.5;
+          }
+          .safe-nav-trigger:hover {
+            background: var(--accent);
+            color: #000;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.3);
+            border-color: var(--accent);
+          }
+          .safe-index-display {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            padding: 0 1.5rem;
+            position: relative;
+          }
+          .index-glow {
+            position: absolute;
+            inset: -10px;
+            background: var(--accent);
+            filter: blur(20px);
+            opacity: 0.1;
+            border-radius: 50%;
+          }
+          .index-label {
+            font-size: 0.6rem;
+            font-weight: 900;
+            letter-spacing: 0.2em;
+            color: var(--accent);
+            opacity: 0.8;
+          }
+          .index-current {
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: var(--text);
+            font-family: var(--font-mono);
+          }
+          .index-total {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            opacity: 0.5;
+          }
         `}</style>
       </section>
     );
@@ -242,18 +347,6 @@ export function FoodHeroV2({
         </header>
 
         <div className="food-hero-main-stage">
-          {/* Navigation Layer */}
-          {heroItems && heroItems.length > 1 && (
-            <div className="hero-navigation-layer">
-              <button type="button" className="hero-nav-btn is-prev" onClick={() => cycle(-1)} aria-label="Previous item">
-                ‹
-              </button>
-              <button type="button" className="hero-nav-btn is-next" onClick={() => cycle(1)} aria-label="Next item">
-                ›
-              </button>
-            </div>
-          )}
-
           <div className="hero-content-stack">
             <div className={`food-visual-container is-${heroShape} animate-luxe-entry`}>
               <div className="visual-detail-aura" />
@@ -312,6 +405,38 @@ export function FoodHeroV2({
               </div>
             </div>
           </div>
+
+          {/* Safe Navigation Controller */}
+          <div className="safe-navigation-controller">
+            <button type="button" className="safe-nav-trigger is-prev" onClick={onPrevLocker} aria-label="Previous safe">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            
+            <div className="safe-index-display">
+              <div className="index-glow" />
+              <span className="index-label">SAFE</span>
+              <strong className="index-current">
+                {((state.lockers.findIndex(l => l.lockerId === state.selectedLockerId) + 1) || 1).toString().padStart(2, '0')}
+              </strong>
+              <span className="index-total">/ {state.lockers.length.toString().padStart(2, '0')}</span>
+            </div>
+
+            <button type="button" className="safe-nav-trigger is-next" onClick={onNextLocker} aria-label="Next safe">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+
+          {/* Navigation Layer (Items) */}
+          {heroItems && heroItems.length > 1 && (
+            <div className="hero-navigation-layer">
+              <button type="button" className="hero-nav-btn is-prev" onClick={() => cycle(-1)} aria-label="Previous item">
+                ‹
+              </button>
+              <button type="button" className="hero-nav-btn is-next" onClick={() => cycle(1)} aria-label="Next item">
+                ›
+              </button>
+            </div>
+          )}
         </div>
 
         {previews.length > 0 && (
@@ -400,10 +525,33 @@ export function FoodHeroV2({
 
         .food-hero-main-stage {
           position: relative;
-          min-height: 220px;
+          flex: 1;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
+          padding: 1.5rem 0;
+          gap: 1rem;
+        }
+        
+        .safe-navigation-controller {
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center;
+          justify-content: center;
+          gap: 1.25rem;
+          padding: 0.6rem 1.25rem;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid var(--glass-border);
+          border-radius: 99px;
+          backdrop-filter: blur(20px);
+          box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+          z-index: 100;
+          margin: 2rem auto;
+          min-width: 240px;
+        }
+        .safe-navigation-controller.is-empty-state {
+          margin: 3rem auto 0;
         }
         .hero-navigation-layer {
           position: absolute;
@@ -436,6 +584,85 @@ export function FoodHeroV2({
           transform: scale(1.1) translateY(-2px);
           box-shadow: var(--shadow-glow);
           border-color: var(--accent);
+        }
+
+        .safe-navigation-controller {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 0.5rem;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid var(--glass-border);
+          border-radius: 99px;
+          backdrop-filter: blur(20px);
+          box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+          z-index: 100;
+          margin-top: 1rem;
+        }
+        .safe-nav-trigger {
+          width: 44px;
+          height: 44px;
+          flex-shrink: 0;
+          border-radius: 50%;
+          border: 1px solid var(--glass-border);
+          background: rgba(255, 255, 255, 0.1);
+          color: var(--text);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.4s cubic-bezier(0.2, 1, 0.3, 1);
+        }
+        .safe-nav-trigger svg { 
+          width: 20px; 
+          height: 20px; 
+          display: block;
+          stroke: var(--accent);
+          stroke-width: 3.5;
+        }
+        .safe-nav-trigger:hover {
+          background: var(--accent);
+          color: #000;
+          transform: scale(1.1);
+          box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.3);
+          border-color: var(--accent);
+        }
+        .safe-nav-trigger:hover svg { opacity: 1; }
+        .safe-nav-trigger:active { transform: scale(0.95); }
+
+        .safe-index-display {
+          display: flex;
+          align-items: baseline;
+          gap: 0.5rem;
+          padding: 0 1.5rem;
+          position: relative;
+        }
+        .index-glow {
+          position: absolute;
+          inset: -10px;
+          background: var(--accent);
+          filter: blur(20px);
+          opacity: 0.1;
+          border-radius: 50%;
+        }
+        .index-label {
+          font-size: 0.6rem;
+          font-weight: 900;
+          letter-spacing: 0.2em;
+          color: var(--accent);
+          opacity: 0.8;
+        }
+        .index-current {
+          font-size: 1.25rem;
+          font-weight: 900;
+          color: var(--text);
+          font-family: var(--font-mono);
+        }
+        .index-total {
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          opacity: 0.5;
         }
 
         .hero-content-stack {

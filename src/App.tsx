@@ -7,6 +7,8 @@ import { DonorPage } from "./routes/DonorPage";
 import { KioskPage } from "./routes/KioskPage";
 import { ModeSelectPage } from "./routes/ModeSelectPage";
 import { SignInPageV2 } from "./routes/SignInPageV2";
+import { LandingPage } from "./routes/LandingPage";
+import { DemoOne } from "./components/demo";
 import { useAppContext } from "./store/AppContext";
 
 export default function App() {
@@ -35,6 +37,8 @@ export default function App() {
         <Route path="/public" element={<Navigate to="/receive" replace />} />
         <Route path="/admin" element={<AdminPageV2 />} />
         <Route path="/admin/sign-in" element={<SignInPageV2 />} />
+        <Route path="/welcome" element={<LandingPage />} />
+        <Route path="/demo" element={<DemoOne />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

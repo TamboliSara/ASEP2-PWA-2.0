@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { FoodHeroV2 } from "../components/FoodHeroV2";
 import { SlideConfirm } from "../components/SlideConfirm";
@@ -95,6 +96,12 @@ export function KioskPage() {
     }
   }
 
+  const navigateLocker = (direction: -1 | 1) => {
+    const currentIndex = state.lockers.findIndex(l => l.lockerId === currentLocker.lockerId);
+    const nextIndex = (currentIndex + direction + state.lockers.length) % state.lockers.length;
+    selectLocker(state.lockers[nextIndex].lockerId);
+  };
+
   return (
     <div className="page-grid receiver-grid">
       {isSanitizing && (
@@ -139,7 +146,7 @@ export function KioskPage() {
               {authError && <p className="auth-error-msg">{authError}</p>}
               <div className="modal-actions">
                 <button type="button" className="ghost-button" onClick={() => setShowAdminAuth(false)}>Cancel</button>
-                <button type="submit" className="primary-button">Verify & Clear Chamber</button>
+                <button type="submit" className="primary-button">Verify & Clear Unit</button>
               </div>
             </form>
           </div>
@@ -179,53 +186,114 @@ export function KioskPage() {
           </div>
           {state.syncMessage ? <div className="status-banner">{state.syncMessage}</div> : null}
         </div>
-        <FoodHeroV2 donation={donation} items={state.donationHistory} onActiveItemChange={setSelectedDonation} />
+        <FoodHeroV2 
+          donation={donation} 
+          items={state.donationHistory} 
+          onActiveItemChange={setSelectedDonation} 
+          onPrevLocker={() => navigateLocker(-1)}
+          onNextLocker={() => navigateLocker(1)}
+        />
       </section>
 
       <section className="chamber-selection-grid">
-        <div className="selection-header">
+        <motion.div 
+          className="selection-header"
+          initial={{ opacity: 0, x: -20 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
+
           <p className="eyebrow-accent">UNIT COMPARTMENTS</p>
           <h3 className="premium-h3">Select Safe to Analyze</h3>
-        </div>
-        <div className="chamber-grid-layout">
+          <div className="header-divider-mini" />
+        </motion.div>
+
+        <motion.div 
+          className="chamber-grid-layout"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.05
+              }
+            }
+          }}
+        >
           {state.lockers.map((locker, idx) => {
             const safeNum = (idx + 1).toString().padStart(2, '0');
+            const isActive = state.selectedLockerId === locker.lockerId;
+            
             return (
-              <button
+              <motion.button
                 key={locker.lockerId}
-                className={`chamber-node-luxe ${state.selectedLockerId === locker.lockerId ? 'active' : ''} is-${locker.occupancyState}`}
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  show: { opacity: 1, y: 0 }
+                }}
+                whileHover={{ y: -5, scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`chamber-node-luxe ${isActive ? 'active' : ''} is-${locker.occupancyState}`}
                 onClick={() => selectLocker(locker.lockerId)}
               >
                 <div className="chamber-node-inner">
                   <div className="chamber-node-number">{safeNum}</div>
                   <div className="chamber-node-info">
-                    <span className="chamber-label">SAFE</span>
+                    <div className="chamber-header-row">
+                      <span className="chamber-label">SAFE</span>
+                      <div className="chamber-node-tag">UNIT_{locker.lockerId.split('-')[1] || '00'}</div>
+                    </div>
                     <strong className="chamber-id">{safeNum}</strong>
-                  <div className="chamber-status-stack">
-                    <StatusPill 
-                      value={locker.occupancyState} 
-                      tone={
-                        locker.occupancyState === 'occupied' ? 'warning' : 
-                        locker.occupancyState === 'empty' ? 'success' : 
-                        locker.occupancyState === 'spoiled' ? 'spoiled' : 
-                        'danger'
-                      } 
-                    />
-                    {locker.occupancyState !== 'empty' && locker.occupancyState !== 'maintenance' && (
-                      <div className={`quality-mini-pill ${locker.foodQualityScore}`}>
-                        <span className="dot"></span>
-                        {locker.foodQualityScore}
-                      </div>
-                    )}
+                    
+                    <div className="chamber-status-stack">
+                      <StatusPill 
+                        value={locker.occupancyState} 
+                        tone={
+                          locker.occupancyState === 'occupied' ? 'warning' : 
+                          locker.occupancyState === 'empty' ? 'success' : 
+                          locker.occupancyState === 'spoiled' ? 'spoiled' : 
+                          'danger'
+                        } 
+                      />
+                      
+                      <AnimatePresence>
+                        {locker.occupancyState !== 'empty' && locker.occupancyState !== 'maintenance' && (
+                          <motion.div 
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            className={`quality-mini-pill ${locker.foodQualityScore}`}
+                          >
+                            <span className="dot"></span>
+                            {locker.foodQualityScore}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="chamber-node-glow" />
-              <div className="chamber-active-ring" />
-            </button>
-          );
-        })}
-        </div>
+                
+                {isActive && (
+                  <motion.div 
+                    layoutId="active-ring"
+                    className="chamber-active-ring"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  />
+                )}
+                
+                <div className="chamber-node-glow" />
+                <div className="scanline-effect" />
+                <div className="corner-decor top-right" />
+                <div className="corner-decor bottom-left" />
+              </motion.button>
+            );
+          })}
+        </motion.div>
       </section>
 
       <style>{`
@@ -630,66 +698,101 @@ export function KioskPage() {
             .telemetry-bento-grid-enhanced {
               display: grid;
               grid-template-columns: 1fr 1fr;
-              gap: 1rem;
+              gap: 1.25rem;
             }
             .bento-item-luxe {
-              padding: 1.15rem;
+              padding: 1.5rem;
               background: var(--panel-elevated) !important;
               border: 1px solid var(--glass-border);
-              border-radius: 20px;
+              border-radius: 24px;
               display: flex;
               align-items: center;
-              gap: 1.25rem;
+              gap: 1.5rem;
               position: relative;
               overflow: hidden;
-              transition: all 0.3s ease;
+              transition: all 0.4s var(--ease-spring);
+              backdrop-filter: blur(10px);
             }
             .bento-item-luxe:hover {
               border-color: var(--accent);
-              transform: translateY(-4px);
-              box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+              transform: translateY(-6px) scale(1.02);
+              box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+              background: var(--panel-light) !important;
             }
             
+            .bento-copy {
+              display: flex;
+              flex-direction: column;
+              gap: 0.25rem;
+            }
+            .bento-label {
+              font-size: 0.65rem;
+              font-weight: 800;
+              color: var(--text-muted);
+              text-transform: uppercase;
+              letter-spacing: 0.1em;
+              opacity: 0.8;
+            }
+            .bento-value {
+              font-size: 1.25rem;
+              font-weight: 900;
+              color: var(--text);
+              letter-spacing: -0.02em;
+            }
+            .bento-unit {
+              font-size: 0.7rem;
+              font-weight: 700;
+              color: var(--accent);
+              margin-left: 0.15rem;
+            }
+
             .mini-gauge {
-              width: 40px; height: 40px;
+              width: 54px; height: 54px;
               position: relative;
+              flex-shrink: 0;
             }
             .circular-chart {
               width: 100%; height: 100%;
+              transform: rotate(-90deg);
             }
             .circle-bg {
               fill: none;
               stroke: var(--line);
-              stroke-width: 2.8;
+              stroke-width: 2.5;
+              opacity: 0.3;
             }
             .circle {
               fill: none;
-              stroke-width: 2.8;
+              stroke-width: 3.5;
               stroke-linecap: round;
-              transition: stroke-dasharray 0.3s ease;
+              transition: stroke-dasharray 1s cubic-bezier(0.4, 0, 0.2, 1);
             }
             .circular-chart.green .circle { stroke: var(--accent); }
             .circular-chart.blue .circle { stroke: #3B82F6; }
+            
             .gauge-icon {
               position: absolute;
               inset: 0;
               display: grid;
               place-items: center;
-              font-size: 0.8rem;
+              font-size: 1.1rem;
+              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
             }
 
             .bento-icon-bg {
-              width: 40px; height: 40px;
+              width: 54px; height: 54px;
               background: rgba(var(--accent-rgb), 0.05);
-              border-radius: 12px;
+              border-radius: 16px;
               display: grid; place-items: center;
-              font-size: 1.2rem;
+              font-size: 1.4rem;
+              flex-shrink: 0;
+              border: 1px solid rgba(var(--accent-rgb), 0.1);
             }
 
             .value-group {
               display: flex;
               align-items: baseline;
-              gap: 0.25rem;
+              gap: 0.15rem;
             }
             
             /* Gas Analysis Enhancements */
@@ -847,7 +950,7 @@ export function KioskPage() {
             .luxe-retrieve-card {
               position: relative;
               overflow: hidden;
-              background: var(--bg) !important;
+              background: var(--panel) !important;
             }
             .retrieve-accent-glow {
               position: absolute;
@@ -1055,9 +1158,17 @@ export function KioskPage() {
               gap: 1rem;
               width: 100%;
             }
-            .retrieve-action-area-luxe .slide-track {
+            .retrieve-action-area-luxe .premium-slider-container {
               width: 100% !important;
               max-width: none !important;
+              height: 64px !important;
+              border-radius: 32px !important;
+              padding: 4px !important;
+            }
+            .retrieve-action-area-luxe .slider-thumb-premium {
+              width: 56px !important;
+              height: 56px !important;
+              border-radius: 28px !important;
             }
             .safety-footer-text {
               font-size: 0.7rem;
@@ -1107,21 +1218,35 @@ export function KioskPage() {
             .system-status-badge-premium {
               display: flex;
               align-items: center;
-              gap: 0.5rem;
+              gap: 0.6rem;
               font-size: 0.55rem;
               font-weight: 900;
               color: var(--accent);
-              letter-spacing: 0.15em;
-              padding: 0.4rem 0.8rem;
-              background: rgba(var(--accent-rgb), 0.1);
-              border: 1px solid rgba(var(--accent-rgb), 0.2);
+              letter-spacing: 0.2em;
+              padding: 0.5rem 1rem;
+              background: rgba(var(--accent-rgb), 0.05);
+              border: 1px solid rgba(var(--accent-rgb), 0.15);
               border-radius: 99px;
+              backdrop-filter: blur(10px);
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            }
+            .pulse-dot {
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              background: var(--accent);
+              box-shadow: 0 0 12px var(--accent);
+              animation: pulseGlow 2s infinite;
+            }
+            .luxe-actions-card {
+              padding: 2rem !important;
+              background: var(--panel) !important;
             }
             .mission-control-layout {
               display: grid;
-              grid-template-columns: 200px 1fr;
-              gap: 2.5rem;
-              margin-top: 1.5rem;
+              grid-template-columns: 180px 1fr;
+              gap: 2rem;
+              margin-top: 1.25rem;
               position: relative;
               z-index: 2;
             }
@@ -1133,14 +1258,17 @@ export function KioskPage() {
             .stat-row {
               display: flex;
               flex-direction: column;
-              gap: 0.3rem;
+              gap: 0.4rem;
             }
             .stat-label-luxe {
               font-size: 0.55rem;
               font-weight: 800;
               color: var(--text-muted);
               text-transform: uppercase;
-              letter-spacing: 0.05em;
+              letter-spacing: 0.1em;
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
             }
             .stat-value-luxe {
               font-size: 0.85rem;
@@ -1149,56 +1277,52 @@ export function KioskPage() {
             }
             .stat-value-luxe.mono {
               font-family: var(--font-mono);
-              letter-spacing: -0.02em;
+              letter-spacing: 0.02em;
               color: var(--accent) !important;
+              font-size: 0.9rem;
+              background: rgba(var(--accent-rgb), 0.05);
+              padding: 0.2rem 0.6rem;
+              border-radius: 4px;
             }
 
-            .sensor-health-grid {
-              display: grid;
-              grid-template-columns: repeat(4, 1fr);
-              gap: 6px;
-              width: 80px;
-              margin-top: 1rem;
-            }
-            .sensor-dot {
-              width: 14px; height: 14px;
-              background: var(--panel-elevated);
-              border: 1px solid var(--glass-border);
-              border-radius: 4px;
-              position: relative;
-            }
-            .sensor-dot.active { background: var(--accent); opacity: 0.8; box-shadow: 0 0 5px var(--accent); animation: pulseSafe 3s infinite; }
-            .sensor-dot.warning { background: var(--warning); opacity: 0.8; box-shadow: 0 0 5px var(--warning); animation: pulseWarn 2s infinite; }
-            
-            @keyframes pulseSafe { 0%, 100% { opacity: 0.8; } 50% { opacity: 0.4; } }
-            @keyframes pulseWarn { 0%, 100% { opacity: 0.8; } 50% { opacity: 0.2; } }
+
 
             .action-sector {
               display: flex;
               flex-direction: column;
-              gap: 1.5rem;
+              gap: 1.25rem;
             }
             .glass-button-stack {
               display: flex;
               flex-direction: column;
-              gap: 1.25rem;
+              gap: 1rem;
             }
             .glass-action-btn {
               position: relative;
               overflow: hidden;
-              background: rgba(var(--accent-rgb), 0.04);
+              background: rgba(var(--accent-rgb), 0.03);
               border: 1px solid var(--glass-border);
-              padding: 1rem 1.5rem !important;
+              padding: 0.85rem 1.25rem !important;
               border-radius: 12px !important;
-              font-size: 0.8rem !important;
+              font-size: 0.75rem !important;
               font-weight: 900 !important;
-              letter-spacing: 0.1em;
+              letter-spacing: 0.08em;
               color: var(--text) !important;
               transition: all 0.4s cubic-bezier(0.2, 1, 0.3, 1);
               backdrop-filter: blur(10px);
               display: flex;
-              justify-content: center;
+              justify-content: space-between;
               align-items: center;
+            }
+            .glass-action-btn::after {
+              content: "→";
+              font-size: 1.1rem;
+              opacity: 0.5;
+              transition: transform 0.3s ease;
+            }
+            .glass-action-btn:hover::after {
+              transform: translateX(4px);
+              opacity: 1;
             }
             .glass-action-btn.sync { border-color: rgba(var(--accent-rgb), 0.3); }
             .glass-action-btn.lockdown { border-color: rgba(239, 68, 68, 0.3); color: #EF4444 !important; background: rgba(239, 68, 68, 0.03); }
@@ -1251,60 +1375,80 @@ export function KioskPage() {
             @keyframes scanlineMove { from { transform: translateY(-100%); } to { transform: translateY(100%); } }
 
             .sector-title {
-              font-size: 0.65rem;
+              font-size: 0.6rem;
               font-weight: 900;
               color: var(--accent);
-              letter-spacing: 0.15em;
+              letter-spacing: 0.2em;
               margin-bottom: 1rem;
               display: flex;
               align-items: center;
-              gap: 0.5rem;
-              opacity: 0.9;
+              gap: 0.6rem;
+              opacity: 0.8;
+              text-transform: uppercase;
             }
             .sector-title::before {
-              content: "";
-              width: 8px; height: 1px;
-              background: var(--accent);
+              content: "[";
+              font-weight: 400;
+              opacity: 0.5;
             }
+            .sector-title::after {
+              content: "]";
+              font-weight: 400;
+              opacity: 0.5;
+            }
+            
             .cyber-stats-grid {
               display: flex;
               flex-direction: column;
-              gap: 0.5rem;
+              gap: 0.6rem;
             }
             .cyber-box {
-              padding: 0.6rem 1rem;
+              padding: 0.75rem 1rem;
               background: rgba(var(--accent-rgb), 0.03);
-              border-left: 2px solid var(--accent);
-              border-radius: 0 12px 12px 0;
+              border: 1px solid rgba(var(--accent-rgb), 0.1);
+              border-left: 3px solid var(--accent);
+              border-radius: 4px 12px 12px 4px;
               display: flex;
               justify-content: space-between;
               align-items: center;
-              transition: all 0.3s ease;
+              transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+              backdrop-filter: blur(8px);
+              position: relative;
+              overflow: hidden;
+            }
+            .cyber-box::before {
+              content: "";
+              position: absolute;
+              left: 0; top: 0; width: 100%; height: 100%;
+              background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.1), transparent);
+              opacity: 0;
+              transition: opacity 0.3s ease;
             }
             .cyber-box:hover {
               background: rgba(var(--accent-rgb), 0.06);
-              border-left-width: 4px;
-              transform: translateX(4px);
+              border-color: rgba(var(--accent-rgb), 0.2);
+              transform: translateX(6px);
+              box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            }
+            .cyber-box:hover::before {
+              opacity: 1;
             }
             .stat-label-luxe {
-              font-size: 0.6rem;
+              font-size: 0.55rem;
               font-weight: 800;
               color: var(--text-muted);
-              letter-spacing: 0.05em;
+              letter-spacing: 0.08em;
+              z-index: 1;
             }
             .stat-value-luxe.mono {
               font-family: var(--font-mono);
               font-size: 0.75rem;
-              font-weight: 700;
+              font-weight: 800;
               color: var(--accent);
+              z-index: 1;
+              text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2);
             }
-            .sensor-map-container {
-              margin-top: 1.25rem;
-              padding: 1rem;
-              background: rgba(0, 0, 0, 0.15);
-              border-radius: 16px;
-              border: 1px solid var(--glass-border);
-            }
+
             
             .admin-override-area {
               margin-top: 2rem;
@@ -1351,19 +1495,17 @@ export function KioskPage() {
               opacity: 0.2;
             }
             .admin-slide {
-              border-color: rgba(245, 158, 11, 0.2) !important;
-              background: rgba(245, 158, 11, 0.05) !important;
-              width: 100% !important;
-              max-width: none !important;
+              border-color: rgba(245, 158, 11, 0.3) !important;
+              background: rgba(245, 158, 11, 0.03) !important;
             }
-            .admin-slide .slide-thumb-button {
+            .admin-slide .slider-thumb-premium {
               background: linear-gradient(180deg, #F59E0B, #D97706) !important;
               box-shadow: 0 8px 20px rgba(217, 119, 6, 0.35) !important;
             }
-            .admin-slide .slide-label {
+            .admin-slide .slider-label-text {
               color: #F59E0B !important;
+              opacity: 0.8 !important;
               font-weight: 800;
-              font-size: 0.85rem;
             }
             
             .feature-header {
@@ -1434,12 +1576,30 @@ export function KioskPage() {
 
             .technical-corner-mark {
               position: absolute;
-              width: 15px; height: 15px;
-              border: 1px solid var(--accent);
-              opacity: 0.4;
+              width: 24px; height: 24px;
+              border: 2px solid var(--accent);
+              opacity: 0.3;
+              pointer-events: none;
             }
-            .technical-corner-mark.top-right { top: 15px; right: 15px; border-left: none; border-bottom: none; }
-            .technical-corner-mark.bottom-left { bottom: 15px; left: 15px; border-right: none; border-top: none; }
+            .technical-corner-mark.top-right { 
+              top: 10px; right: 10px; 
+              border-left: none; border-bottom: none; 
+              border-radius: 0 8px 0 0;
+            }
+            .technical-corner-mark.bottom-left { 
+              bottom: 10px; left: 10px; 
+              border-right: none; border-top: none; 
+              border-radius: 0 0 0 8px;
+            }
+            .technical-corner-mark::after {
+              content: "";
+              position: absolute;
+              width: 4px; height: 4px;
+              background: var(--accent);
+              border-radius: 50%;
+            }
+            .technical-corner-mark.top-right::after { top: -3px; right: -3px; }
+            .technical-corner-mark.bottom-left::after { bottom: -3px; left: -3px; }
 
             .glass-action-btn.lockdown { 
               border-color: rgba(239, 68, 68, 0.3); 
@@ -1460,7 +1620,7 @@ export function KioskPage() {
           `}</style>
         </SurfaceCard>
 
-        <SurfaceCard className="receiver-card receiver-card-profile luxe-profile-card">
+        <SurfaceCard className={`receiver-card receiver-card-profile luxe-profile-card ${!donation ? 'is-empty-luxe' : ''}`}>
           <div className="card-header-mini">
             <p className="card-label">{t("publicFoodProfile")}</p>
             <span className="mini-icon">🌿</span>
@@ -1488,7 +1648,7 @@ export function KioskPage() {
           </div>
         </SurfaceCard>
 
-        <SurfaceCard className="receiver-card receiver-card-telemetry luxe-telemetry-card">
+        <SurfaceCard className={`receiver-card receiver-card-telemetry luxe-telemetry-card ${!donation ? 'is-empty-luxe' : ''}`}>
           <div className="card-header-mini">
             <p className="card-label">{t("liveTelemetry")}</p>
             <div className="telemetry-meta-group">
@@ -1515,7 +1675,10 @@ export function KioskPage() {
               </div>
               <div className="bento-copy">
                 <span className="bento-label">{t("internalTemp")}</span>
-                <span className="bento-value">{telemetry.internalTempC}°C</span>
+                <div className="value-group">
+                  <span className="bento-value">{telemetry.internalTempC}</span>
+                  <span className="bento-unit">°C</span>
+                </div>
               </div>
             </div>
             <div className="bento-item-luxe">
@@ -1528,11 +1691,14 @@ export function KioskPage() {
               </div>
               <div className="bento-copy">
                 <span className="bento-label">{t("humidity")}</span>
-                <span className="bento-value">{telemetry.humidityPct}%</span>
+                <div className="value-group">
+                  <span className="bento-value">{telemetry.humidityPct}</span>
+                  <span className="bento-unit">%</span>
+                </div>
               </div>
             </div>
             <div className="bento-item-luxe">
-              <div className="bento-icon-bg">⏲️</div>
+              <div className="bento-icon-bg">📊</div>
               <div className="bento-copy">
                 <span className="bento-label">{t("pressure")}</span>
                 <div className="value-group">
@@ -1542,7 +1708,7 @@ export function KioskPage() {
               </div>
             </div>
             <div className="bento-item-luxe">
-              <div className="bento-icon-bg">👃</div>
+              <div className="bento-icon-bg">✨</div>
               <div className="bento-copy">
                 <span className="bento-label">{t("airQuality")}</span>
                 <div className="value-group">
@@ -1555,7 +1721,7 @@ export function KioskPage() {
           <div className="botanical-corner-accent top-right">🌿</div>
         </SurfaceCard>
 
-        <SurfaceCard className="receiver-card receiver-card-gas luxe-gas-card">
+        <SurfaceCard className={`receiver-card receiver-card-gas luxe-gas-card ${!donation ? 'is-empty-luxe' : ''}`}>
           <div className="vapor-ambient-effect" />
           <div className="vapor-waveform-container">
             <div className="wave wave-1" />
@@ -1606,6 +1772,7 @@ export function KioskPage() {
         </SurfaceCard>
 
         <SurfaceCard className="receiver-card receiver-card-retrieve luxe-retrieve-card">
+          <div className="vapor-ambient-effect" />
           <div className="retrieve-accent-glow" />
           <div className="vault-chamber-bg" />
           
@@ -1733,83 +1900,145 @@ export function KioskPage() {
         </SurfaceCard>
 
         <SurfaceCard className="receiver-card receiver-card-actions luxe-actions-card">
+          <div className="vapor-ambient-effect" />
           <div className="security-shield-bg" />
           <div className="mission-scanline" />
+          <div className="technical-corner-mark top-right" />
+          <div className="technical-corner-mark bottom-left" />
           
-          <div className="card-header-mini">
-            <p className="card-label">{t("safetyControls")}</p>
+          <div className="card-header-mini" style={{ marginBottom: '2rem' }}>
+            <div className="header-title-stack">
+              <span className="sector-title" style={{ marginBottom: '0.25rem', opacity: 0.6 }}>COMMAND_NODE_01 // SEC_ALPHA</span>
+              <p className="card-label" style={{ fontSize: '1.75rem', fontWeight: 950, letterSpacing: '-0.02em', color: 'var(--text)' }}>SYSTEM_CONTROLS</p>
+            </div>
             <div className="system-status-badge-premium">
-              <span className="pulse-dot green" />
+              <span className="pulse-dot" />
               AUTH_LEVEL_01: SECURE
             </div>
           </div>
           
           <div className="mission-control-layout">
             <div className="status-display-sector">
-              <span className="sector-title">DIAGNOSTIC_TELEMETRY</span>
-              <div className="cyber-stats-grid">
-                <div className="cyber-box">
-                  <span className="stat-label-luxe">NETWORK_INTEGRITY</span>
-                  <span className="stat-value-luxe mono">0.9984_STABLE</span>
-                </div>
-                <div className="cyber-box">
-                  <span className="stat-label-luxe">ACTIVE_ID</span>
-                  <span className="stat-value-luxe mono">
-                    {displayDonation?.id ? `#${displayDonation.id.slice(0, 4)}...${displayDonation.id.slice(-4)}` : "—"}
-                  </span>
-                </div>
-                <div className="cyber-box">
-                  <span className="stat-label-luxe">UPTIME_INDEX</span>
-                  <span className="stat-value-luxe mono">142:31:05</span>
-                </div>
+              <div className="sector-header-stack" style={{ marginBottom: '1rem' }}>
+                <span className="sector-title">DIAGNOSTIC_TELEMETRY</span>
               </div>
               
-              <div className="sensor-map-container">
-                <span className="stat-label-luxe">NODE_HEALTH_MAP</span>
-                <div className="sensor-health-grid">
-                  {[...Array(16)].map((_, i) => (
-                    <div key={i} className={`sensor-dot ${i === 7 || i === 12 ? 'warning' : 'active'}`} />
-                  ))}
+              <div className="cyber-stats-grid">
+                <div className="cyber-box">
+                  <div className="stat-info">
+                    <span className="stat-label-luxe">🌐 NETWORK_INTEGRITY</span>
+                    <div className="stat-sub-label" style={{ fontSize: '0.45rem', opacity: 0.4, marginTop: '2px' }}>SIGNAL: 98.4dBm</div>
+                  </div>
+                  <span className="stat-value-luxe mono">0.9984_STABLE</span>
+                </div>
+                
+                <div className="cyber-box">
+                  <div className="stat-info">
+                    <span className="stat-label-luxe">🔒 LOCKER_SESSION</span>
+                    <div className="stat-sub-label" style={{ fontSize: '0.45rem', opacity: 0.4, marginTop: '2px' }}>KEY: RSA_4096</div>
+                  </div>
+                  <span className="stat-value-luxe mono">
+                    {displayDonation?.lockerId ? `SAFE_${displayDonation.lockerId.padStart(2, '0')}` : "NULL_STATE"}
+                  </span>
+                </div>
+                
+                <div className="cyber-box">
+                  <div className="stat-info">
+                    <span className="stat-label-luxe">⏱️ SYSTEM_UPTIME</span>
+                    <div className="stat-sub-label" style={{ fontSize: '0.45rem', opacity: 0.4, marginTop: '2px' }}>BOOT: 2026-04-20</div>
+                  </div>
+                  <span className="stat-value-luxe mono">142:31:05</span>
                 </div>
               </div>
             </div>
 
             <div className="action-sector">
-              <span className="sector-title">OVERRIDE_PROTOCOLS</span>
-              <p className="premium-p mb-2">
-                Mission critical overrides for cloud sync and emergency containment.
-              </p>
+              <div className="override-header" style={{ marginBottom: '1.5rem' }}>
+                <span className="sector-title">OVERRIDE_PROTOCOLS</span>
+                <p className="premium-p" style={{ fontSize: '0.8rem', opacity: 0.6, lineHeight: 1.6, marginTop: '0.5rem', maxWidth: '300px' }}>
+                  Administrative terminal for manual cloud synchronization and emergency container containment.
+                </p>
+              </div>
+              
               <div className="glass-button-stack">
                 <button className="glass-action-btn sync" type="button" onClick={syncNow} disabled={isBusy}>
                   <div className="btn-shine" />
-                  EXECUTE_SYNC
+                  <span className="btn-text">EXECUTE_SYNC</span>
                 </button>
                 <button className="glass-action-btn lockdown" type="button" onClick={triggerMaintenanceLockdown}>
                   <div className="btn-shine" />
-                  INITIATE_LOCKDOWN
+                  <span className="btn-text">INITIATE_LOCKDOWN</span>
                 </button>
+              </div>
+              
+              <div className="action-footer-telemetry" style={{ marginTop: '3rem', borderTop: '1px solid rgba(var(--accent-rgb), 0.1)', paddingTop: '1rem' }}>
+                <div className="micro-telemetry-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', fontFamily: 'var(--font-mono)', fontWeight: 900, opacity: 0.4, letterSpacing: '0.1em' }}>
+                  <span>ENC_MODE: AES_256</span>
+                  <span>SYNC_INT: 15S</span>
+                  <span>NODE: G7_X9</span>
+                </div>
               </div>
             </div>
           </div>
-          <div className="technical-corner-mark top-right" />
-          <div className="technical-corner-mark bottom-left" />
         </SurfaceCard>
 
         <div className="receiver-card-chart bento-chart-container">
           <TelemetryChart deadlineHours={dynamicHoursRemaining} />
         </div>
 
-        <SurfaceCard className="receiver-card receiver-card-logs">
-          <p className="card-label">{t("logs")}</p>
-          <div className="log-list">
-            {state.logs.slice(0, 8).map((event) => (
-              <article key={event.id} className="log-item">
-                <strong>{event.type}</strong>
-                <p>{event.detail}</p>
-                <span>{formatDateTime(event.createdAt)}</span>
-              </article>
-            ))}
+        <SurfaceCard className="receiver-card receiver-card-logs luxe-logs-card">
+          <div className="vapor-ambient-effect" />
+          <div className="card-header-mini">
+            <div className="header-title-stack">
+              <span className="sector-title" style={{ marginBottom: '0.25rem' }}>EVENT_PROTOCOL_04</span>
+              <p className="card-label" style={{ fontSize: '1.25rem', fontWeight: 900 }}>{t("logs").toUpperCase()}</p>
+            </div>
+            <div className="log-status-badge">
+              <span className="pulse-dot green" />
+              RECORDING_LIVE
+            </div>
           </div>
+
+          <div className="log-list-enhanced">
+            {state.logs.slice(0, 8).map((event, idx) => {
+              const getEventIcon = (type: string) => {
+                if (type.includes('lock')) return '🔒';
+                if (type.includes('door')) return '🚪';
+                if (type.includes('sync')) return '☁️';
+                if (type.includes('fault')) return '⚠️';
+                if (type.includes('sanit')) return '✨';
+                if (type.includes('deposit') || type.includes('regis')) return '🥗';
+                if (type.includes('retriev')) return '📦';
+                return '🔹';
+              };
+
+              const getEventTone = (type: string) => {
+                if (type.includes('fault')) return 'danger';
+                if (type.includes('lock') || type.includes('door')) return 'accent';
+                if (type.includes('sanit')) return 'success';
+                return 'neutral';
+              };
+
+              return (
+                <article 
+                  key={event.id} 
+                  className={`log-item-luxe is-${getEventTone(event.type)}`}
+                  style={{ animationDelay: `${idx * 0.1}s` }}
+                >
+                  <div className="log-icon-box">{getEventIcon(event.type)}</div>
+                  <div className="log-content-luxe">
+                    <div className="log-header-luxe">
+                      <strong className="log-type">{event.type.replace(/_/g, ' ').toUpperCase()}</strong>
+                      <span className="log-time">{formatDateTime(event.createdAt)}</span>
+                    </div>
+                    <p className="log-detail">{event.detail}</p>
+                  </div>
+                  <div className="log-indicator-line" />
+                </article>
+              );
+            })}
+          </div>
+          <div className="botanical-corner-accent bottom-left">📜</div>
         </SurfaceCard>
       </section>
     </div>

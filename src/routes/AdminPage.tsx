@@ -50,43 +50,124 @@ export function AdminPage() {
           ))}
         </div>
       </SurfaceCard>
-      <SurfaceCard>
-        <p className="card-label">Locker summaries</p>
-        <div className="locker-summary-list">
-          {fleet.map((locker) => (
-            <article key={locker.lockerId} className="locker-summary-card">
-              <div>
-                <strong>{locker.lockerLabel}</strong>
-                <p>{locker.zoneLabel}</p>
+      <div className="luxe-admin-grid">
+        <section className="luxe-card-premium">
+          <div className="luxe-card-header">
+            <div className="luxe-card-title-stack">
+              <p className="card-label">Locker summaries</p>
+              <h3>System Inventory</h3>
+            </div>
+            <div className="luxe-card-icon-box">📦</div>
+          </div>
+          <div className="locker-summary-list">
+            {fleet.map((locker) => (
+              <article key={locker.lockerId} className="luxe-summary-item">
+                <div className="luxe-summary-info">
+                  <h4>{locker.lockerLabel}</h4>
+                  <p>{locker.zoneLabel}</p>
+                </div>
+                <StatusPill
+                  value={locker.occupancyState}
+                  tone={locker.faultState !== "none" ? "danger" : locker.occupancyState === "occupied" ? "warning" : "success"}
+                />
+                <div className="luxe-summary-meta">
+                  <span>{locker.activeDonationName ?? "No active donation"}</span>
+                  <span style={{ opacity: 0.6 }}>{locker.deadlineEstimate ? formatDateTime(locker.deadlineEstimate.absoluteIso) : "Waiting for deposit"}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <div style={{ display: 'grid', gap: '2rem', alignContent: 'start' }}>
+          <section className="luxe-card-premium">
+            <div className="luxe-card-header">
+              <div className="luxe-card-title-stack">
+                <p className="card-label">Current kiosk</p>
+                <h3>Kiosk Health</h3>
               </div>
-              <StatusPill
-                value={locker.occupancyState}
-                tone={locker.faultState !== "none" ? "danger" : locker.occupancyState === "occupied" ? "warning" : "success"}
-              />
-              <p>{locker.activeDonationName ?? "No active donation"}</p>
-              <span>{locker.deadlineEstimate ? formatDateTime(locker.deadlineEstimate.absoluteIso) : "Waiting for deposit"}</span>
-            </article>
-          ))}
+              <div className="luxe-card-icon-box">🛡️</div>
+            </div>
+            <div className="luxe-metric-grid">
+              <div className="luxe-metric-card">
+                <span className="luxe-metric-label">BLE</span>
+                <strong className="luxe-metric-value">{currentLocker.bleConnected ? "Connected" : "Disconnected"}</strong>
+                <div className="luxe-metric-status">
+                  <div 
+                    className="luxe-metric-status-fill" 
+                    style={{ 
+                      width: currentLocker.bleConnected ? '100%' : '10%', 
+                      background: currentLocker.bleConnected ? 'var(--success)' : 'var(--danger)' 
+                    }}
+                  ></div>
+                </div>
+              </div>
+              <div className="luxe-metric-card">
+                <span className="luxe-metric-label">Sensor Health</span>
+                <strong className="luxe-metric-value">{currentLocker.telemetry.sensorHealth}</strong>
+                <div className="luxe-metric-status">
+                  <div 
+                    className="luxe-metric-status-fill" 
+                    style={{ 
+                      width: currentLocker.telemetry.sensorHealth === 'healthy' ? '100%' : '50%',
+                      background: currentLocker.telemetry.sensorHealth === 'healthy' ? 'var(--accent)' : 'var(--warning)'
+                    }}
+                  ></div>
+                </div>
+              </div>
+              <div className="luxe-metric-card">
+                <span className="luxe-metric-label">Sanitization</span>
+                <strong className="luxe-metric-value">{currentLocker.sanitizationState}</strong>
+                <div className="luxe-metric-status">
+                  <div 
+                    className="luxe-metric-status-fill" 
+                    style={{ 
+                      width: currentLocker.sanitizationState === 'idle' ? '100%' : '40%',
+                      background: 'var(--accent)'
+                    }}
+                  ></div>
+                </div>
+              </div>
+              <div className="luxe-metric-card">
+                <span className="luxe-metric-label">Last Sync</span>
+                <strong className="luxe-metric-value" style={{ fontSize: '0.85rem' }}>{formatDateTime(currentLocker.lastSyncedAt)}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section className="luxe-card-premium">
+            <div className="luxe-card-header">
+              <div className="luxe-card-title-stack">
+                <p className="card-label">Actions</p>
+                <h3>Control Center</h3>
+              </div>
+              <div className="luxe-card-icon-box">⚙️</div>
+            </div>
+            <div className="luxe-action-stack">
+              <button className="luxe-action-button" onClick={syncNow}>
+                <i>☁️</i>
+                <strong>Force Sync</strong>
+                <span>Update records</span>
+              </button>
+              <button className="luxe-action-button" onClick={reconnectLocker}>
+                <i>📡</i>
+                <strong>Reconnect</strong>
+                <span>Reset BLE bridge</span>
+              </button>
+              <button className="luxe-action-button danger" onClick={clearFault}>
+                <i>⚠️</i>
+                <strong>Clear Fault</strong>
+                <span>Acknowledge alerts</span>
+              </button>
+              <button className="luxe-action-button danger" onClick={resetDonations} style={{ background: 'rgba(153, 27, 27, 0.1)' }}>
+                <i>♻️</i>
+                <strong>Hard Reset</strong>
+                <span>Full system wipe</span>
+              </button>
+            </div>
+          </section>
         </div>
-      </SurfaceCard>
-      <SurfaceCard>
-        <p className="card-label">Current kiosk</p>
-        <div className="metric-list">
-          <div><span>BLE</span><strong>{currentLocker.bleConnected ? "Connected" : "Disconnected"}</strong></div>
-          <div><span>Sensor Health</span><strong>{currentLocker.telemetry.sensorHealth}</strong></div>
-          <div><span>Sanitization</span><strong>{currentLocker.sanitizationState}</strong></div>
-          <div><span>Last Sync</span><strong>{formatDateTime(currentLocker.lastSyncedAt)}</strong></div>
-        </div>
-      </SurfaceCard>
-      <SurfaceCard>
-        <p className="card-label">Actions</p>
-        <div className="button-stack">
-          <button className="primary-button" type="button" onClick={syncNow}>Force Cloud Sync</button>
-          <button className="secondary-button" type="button" onClick={reconnectLocker}>BLE Reconnect</button>
-          <button className="danger-button" type="button" onClick={clearFault}>Acknowledge and Clear Fault</button>
-          <button className="danger-button" type="button" onClick={resetDonations} style={{ marginTop: '0.5rem', background: '#991B1B' }}>Full System Reset (Clear Dashboard)</button>
-        </div>
-      </SurfaceCard>
+      </div>
     </div>
   );
 }

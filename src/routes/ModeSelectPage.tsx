@@ -1,11 +1,14 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Hero } from "@/components/ui/animated-hero";
 import { FoodHeroV2 } from "../components/FoodHeroV2";
 import { SlideConfirm } from "../components/SlideConfirm";
 import { SurfaceCard } from "../components/layout/SurfaceCard";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
 import { useLockerController } from "../features/useLockerController";
+
 
 export function ModeSelectPage() {
   const navigate = useNavigate();
@@ -40,26 +43,39 @@ export function ModeSelectPage() {
 
   return (
     <div className="page-grid mode-select-grid">
-      <section className="hero-panel botanical-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">{t("modeEyebrow")}</p>
-          <h2>{t("modeTitle")}</h2>
-          <p>{t("modeBody")}</p>
-          {state.syncMessage ? <div className="status-banner">{state.syncMessage}</div> : null}
-        </div>
-        <FoodHeroV2 donation={currentLocker.activeDonation} />
-      </section>
+      <Hero />
 
-      <div className="mode-selection-stack-luxe">
-        <div className={`mode-card-luxe stagger-1 ${!currentLocker.activeDonation ? "is-available" : "is-busy"}`}>
+      <motion.div 
+        className="mode-selection-stack-luxe"
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: { opacity: 0 },
+          show: {
+            opacity: 1,
+            transition: {
+              staggerChildren: 0.15
+            }
+          }
+        }}
+      >
+        <motion.div 
+          className={`mode-card-luxe ${!currentLocker.activeDonation ? "is-available" : "is-busy"}`}
+          variants={{
+            hidden: { opacity: 0, x: -20 },
+            show: { opacity: 1, x: 0 }
+          }}
+        >
           <div className="mode-card-visual donor-visual">
+            <div className="visual-glow" />
             <div className="mode-icon-luxe">🎁</div>
           </div>
           <div className="mode-card-info">
+            <div className="card-eyebrow">{t("donorModeTagline")}</div>
             <h3>{t("donorModeTitle")}</h3>
-            <p>{t("donorModeTagline")}</p>
-            <div className="availability-indicator">
-              <span className="dot" /> {currentLocker.activeDonation ? t("lockerOccupied") : t("lockerAvailable")}
+            <div className={`availability-status ${currentLocker.activeDonation ? "is-busy" : "is-ready"}`}>
+              <span className="status-dot" />
+              {currentLocker.activeDonation ? t("lockerOccupied") : t("lockerAvailable")}
             </div>
           </div>
           <div className="mode-card-action">
@@ -73,17 +89,25 @@ export function ModeSelectPage() {
               }}
             />
           </div>
-        </div>
+        </motion.div>
 
-        <div className={`mode-card-luxe stagger-2 ${currentLocker.activeDonation ? "is-available" : "is-locked"}`}>
+        <motion.div 
+          className={`mode-card-luxe ${currentLocker.activeDonation ? "is-available" : "is-locked"}`}
+          variants={{
+            hidden: { opacity: 0, x: -20 },
+            show: { opacity: 1, x: 0 }
+          }}
+        >
           <div className="mode-card-visual receiver-visual">
+            <div className="visual-glow" />
             <div className="mode-icon-luxe">🍴</div>
           </div>
           <div className="mode-card-info">
+            <div className="card-eyebrow">{t("receiverModeTagline")}</div>
             <h3>{t("receiverModeTitle")}</h3>
-            <p>{t("receiverModeTagline")}</p>
-            <div className="availability-indicator">
-              <span className="dot" /> {currentLocker.activeDonation ? t("donationReady") : t("noActiveDonations")}
+            <div className={`availability-status ${currentLocker.activeDonation ? "is-ready" : "is-locked"}`}>
+              <span className="status-dot" />
+              {currentLocker.activeDonation ? t("donationReady") : t("noActiveDonations")}
             </div>
           </div>
           <div className="mode-card-action">
@@ -104,8 +128,8 @@ export function ModeSelectPage() {
               }}
             />
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       <section className="feature-ribbon">
         <header className="feature-header">

@@ -273,11 +273,8 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
 
   return (
     <div className="analytics-card-bento animate-reveal">
-      <div className="sensor-matrix-bg">
-        {Array.from({ length: 96 }).map((_, i) => (
-          <div key={i} className="matrix-dot" style={{ animationDelay: `${Math.random() * 5}s` }} />
-        ))}
-      </div>
+      <div className="security-shield-bg" />
+      <div className="mission-scanline" />
       
       <div className="bento-header">
         <div className="header-identity">
@@ -286,8 +283,8 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
             <span className="icon-svg">📡</span>
           </div>
           <div className="identity-text">
-            <p className="eyebrow">Predictive Analytics v4.2</p>
-            <h3>Food Health Intelligence</h3>
+            <span className="sector-title">PREDICTIVE_ANALYTICS_V4.2</span>
+            <h3 className="premium-title">Food Health Intelligence</h3>
           </div>
         </div>
         
@@ -297,11 +294,10 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
               key={m}
               className={`metric-tab-mini ${m} ${selectedMetrics.includes(m) ? "active" : ""}`}
               onClick={() => toggleMetric(m)}
-              title={m.charAt(0).toUpperCase() + m.slice(1)}
             >
-              <span className="tab-indicator" />
+              <div className="tab-glow" />
               <div className="tab-label-stack">
-                <span className="label-name">{m === "risk" ? "Risk" : m === "quality" ? "Quality" : m === "gas" ? "Gas" : "Temp"}</span>
+                <span className="label-name">{m.toUpperCase()}</span>
                 <span className="label-value">
                   {m === "temp" ? `${currentValues.temp}°C` : `${currentValues[m]}%`}
                 </span>
@@ -311,44 +307,52 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
         </div>
 
         <div className="header-status">
-          <div className="status-pill-luxe" data-risk={riskLevel}>
+          <div className="status-pill-luxe-premium" data-risk={riskLevel}>
             <span className="pulse-dot" />
-            {riskLevel}
+            <span className="status-text">{riskLevel.toUpperCase()}</span>
           </div>
         </div>
       </div>
 
       <div className="bento-main-layout">
         <div className="chart-focus-area">
+          <div className="chart-grid-overlay" />
           <div className="chart-shell-luxe">
             <Line ref={chartRef} data={data as any} options={options as any} />
           </div>
         </div>
 
         <div className="analytics-sidebar-compact">
-          <div className="mini-prediction-box luxe-glow">
-            <span className="box-label">EST. SHELF LIFE</span>
-            <div className="value-row">
-              <strong>{spoilHour}</strong>
-              <small>HRS</small>
+          <div className="sidebar-group">
+            <div className="mini-prediction-box-premium luxe-glow">
+              <div className="box-header">
+                <span className="box-label">EST_SHELF_LIFE</span>
+                <span className="technical-id">±0.02%</span>
+              </div>
+              <div className="value-row">
+                <strong className="mono">{spoilHour}</strong>
+                <small className="mono">HRS</small>
+              </div>
+              <div className="luxe-progress-bar-premium">
+                <div className="progress-fill" style={{ width: `${(spoilHour / 12) * 100}%` }} />
+              </div>
             </div>
-            <div className="luxe-progress-bar">
-              <div className="progress-fill" style={{ width: `${(spoilHour / 12) * 100}%` }} />
+
+            <div className="mini-feed-premium ai-insight-box">
+              <span className="box-label">AI_COGNITIVE_INSIGHT</span>
+              <div className="insight-content">
+                <p className="insight-text">{aiInsight}</p>
+              </div>
+              <div className="insight-scanner-line" />
             </div>
-          </div>
 
-          <div className="mini-feed ai-insight-box">
-            <span className="box-label">AI INSIGHT</span>
-            <p className="insight-text">{aiInsight}</p>
-            <div className="insight-sparkle" />
-          </div>
-
-          <div className="mini-feed log-box">
-            <span className="box-label">LIVE FEED</span>
-            <div className="feed-ticker">
-              <div className="ticker-item">● Sensor handshake verified</div>
-              <div className="ticker-item">● VOC levels nominal</div>
-              <div className="ticker-item">● Thermal stable</div>
+            <div className="mini-feed-premium log-box">
+              <span className="box-label">REAL_TIME_FEED</span>
+              <div className="feed-ticker-premium">
+                <div className="ticker-item"><span className="ticker-dot" /> Sensor handshake verified</div>
+                <div className="ticker-item"><span className="ticker-dot" /> VOC levels nominal</div>
+                <div className="ticker-item"><span className="ticker-dot" /> Thermal stable</div>
+              </div>
             </div>
           </div>
         </div>
@@ -356,178 +360,219 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
 
       <style>{`
         .analytics-card-bento {
-          padding: 1.5rem 2rem;
-          background: var(--panel-elevated);
-          border-radius: 40px;
+          padding: 2.5rem;
+          background: linear-gradient(165deg, var(--panel) 0%, var(--bg) 100%) !important;
+          border-radius: 32px;
           border: 1px solid var(--glass-border);
           position: relative;
           overflow: hidden;
-          box-shadow: 0 40px 100px rgba(0, 0, 0, 0.4);
+          box-shadow: var(--shadow-xl);
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
-          max-width: 100%;
-          box-sizing: border-box;
+          gap: 2.5rem;
           color: var(--text);
+          min-height: 650px;
         }
         
-        .sensor-matrix-bg {
+        .security-shield-bg {
           position: absolute;
           inset: 0;
-          display: grid;
-          grid-template-columns: repeat(12, 1fr);
-          grid-template-rows: repeat(8, 1fr);
-          opacity: 0.05;
+          background: radial-gradient(circle at 100% 0%, rgba(var(--accent-rgb), 0.05), transparent 50%);
           pointer-events: none;
         }
-        .matrix-dot {
-          width: 2px; height: 2px; background: var(--accent); border-radius: 50%;
-          justify-self: center; align-self: center;
-          animation: matrixPulse 5s infinite;
+
+        .mission-scanline {
+          position: absolute;
+          top: 0; left: 0; width: 100%; height: 1px;
+          background: linear-gradient(90deg, transparent, var(--accent), transparent);
+          opacity: 0.1; animation: scanlineMove 8s linear infinite;
+          pointer-events: none;
         }
-        @keyframes matrixPulse { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+
+        @keyframes scanlineMove {
+          0% { transform: translateY(-100px); opacity: 0; }
+          100% { transform: translateY(800px); opacity: 0; }
+        }
 
         .bento-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
           position: relative;
-          z-index: 2;
+          z-index: 10;
           gap: 2rem;
         }
-        .header-identity { display: flex; align-items: center; gap: 1rem; }
+
+        .header-identity { display: flex; align-items: center; gap: 1.25rem; }
         .identity-icon-luxe {
-          width: 44px; height: 44px;
-          background: rgba(var(--accent-rgb), 0.08);
-          border-radius: 12px;
+          width: 52px; height: 52px;
+          background: var(--panel-elevated);
+          border: 1px solid var(--glass-border);
+          border-radius: 16px;
           display: grid; place-items: center;
           position: relative;
         }
         .icon-pulse {
-          position: absolute; inset: -4px; border: 2px solid var(--accent);
-          border-radius: inherit; opacity: 0.2; animation: iconPulse 3s infinite;
+          position: absolute; inset: -2px; border: 1px solid var(--accent);
+          border-radius: inherit; opacity: 0.3; animation: iconPulse 3s infinite;
         }
-        @keyframes iconPulse { 0% { opacity: 0.2; transform: scale(1); } 100% { opacity: 0; transform: scale(1.2); } }
-        .identity-text h3 { font-size: 1.3rem; margin: 0; letter-spacing: -0.02em; color: var(--text); font-weight: 900; }
-        .eyebrow { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); opacity: 0.8; margin-bottom: 2px; font-weight: 800; }
+        @keyframes iconPulse { 0% { opacity: 0.3; transform: scale(1); } 100% { opacity: 0; transform: scale(1.15); } }
+        .icon-svg { font-size: 1.4rem; }
+
+        .sector-title {
+          display: block; font-size: 0.6rem; font-weight: 900; 
+          letter-spacing: 0.2em; color: var(--accent); opacity: 0.7;
+          margin-bottom: 0.25rem;
+        }
+        .premium-title { font-size: 1.8rem; margin: 0; letter-spacing: -0.02em; font-weight: 900; color: var(--text); }
 
         .bento-metrics-nav-compact {
           display: flex;
-          background: rgba(0, 0, 0, 0.1);
-          padding: 3px;
-          border-radius: 10px;
-          gap: 3px;
+          background: var(--panel-elevated);
+          padding: 6px;
+          border-radius: 16px;
+          gap: 6px;
           border: 1px solid var(--glass-border);
+          backdrop-filter: blur(10px);
         }
-        [data-theme-mode="light"] .bento-metrics-nav-compact { background: rgba(0, 0, 0, 0.05); }
 
         .metric-tab-mini {
-          padding: 0.4rem 0.8rem;
-          border-radius: 7px;
-          border: none;
+          padding: 0.6rem 1.25rem;
+          border-radius: 12px;
+          border: 1px solid transparent;
           background: transparent;
           color: var(--text-muted);
-          font-size: 0.7rem;
-          font-weight: 800;
-          display: flex;
-          align-items: center;
-          gap: 6px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.3s var(--ease-spring);
+          position: relative;
+          overflow: hidden;
+          min-width: 100px;
         }
-        .tab-indicator { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid currentColor; margin-top: 2px; }
-        .tab-label-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
-        .label-name { font-size: 0.7rem; font-weight: 800; }
-        .label-value { font-size: 0.55rem; font-weight: 900; opacity: 0.6; font-family: 'Outfit', sans-serif; }
-        .metric-tab-mini.active { background: rgba(255, 255, 255, 0.08); color: var(--text); }
-        [data-theme-mode="light"] .metric-tab-mini.active { background: rgba(0, 0, 0, 0.05); }
+        .tab-label-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+        .label-name { font-size: 0.6rem; font-weight: 900; letter-spacing: 0.05em; opacity: 0.7; }
+        .label-value { font-size: 1.1rem; font-weight: 900; color: var(--text); font-family: var(--font-mono); }
 
-        .metric-tab-mini.active.risk { color: #EF4444; }
-        .metric-tab-mini.active.quality { color: #A78BFA; }
-        .metric-tab-mini.active.gas { color: #F59E0B; }
-        .metric-tab-mini.active.temp { color: #3B82F6; }
-        .metric-tab-mini.active .tab-indicator { background: currentColor; }
+        .metric-tab-mini.active {
+          background: var(--panel-light);
+          border-color: rgba(var(--accent-rgb), 0.2);
+          color: var(--text);
+          box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        }
+        .tab-glow {
+          position: absolute; inset: 0; 
+          background: radial-gradient(circle at center, var(--tab-color), transparent 70%);
+          opacity: 0; transition: opacity 0.3s ease;
+        }
+        .metric-tab-mini.active .tab-glow { opacity: 0.15; }
+
+        .metric-tab-mini.risk { --tab-color: #EF4444; }
+        .metric-tab-mini.quality { --tab-color: #A78BFA; }
+        .metric-tab-mini.gas { --tab-color: #F59E0B; }
+        .metric-tab-mini.temp { --tab-color: #3B82F6; }
+
+        .metric-tab-mini.active.risk { border-bottom: 2px solid #EF4444; }
+        .metric-tab-mini.active.quality { border-bottom: 2px solid #A78BFA; }
+        .metric-tab-mini.active.gas { border-bottom: 2px solid #F59E0B; }
+        .metric-tab-mini.active.temp { border-bottom: 2px solid #3B82F6; }
 
         .bento-main-layout {
           display: grid;
-          grid-template-columns: 1fr 200px;
-          gap: 1.25rem;
+          grid-template-columns: 1fr 300px;
+          gap: 2rem;
+          z-index: 5;
+          position: relative;
+          flex: 1;
         }
-        @media (max-width: 1100px) { .bento-main-layout { grid-template-columns: 1fr; } }
 
         .chart-focus-area {
-          background: rgba(0, 0, 0, 0.05);
+          background: var(--panel-elevated);
+          border-radius: 28px;
+          padding: 1.5rem;
+          border: 1px solid var(--glass-border);
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+        .chart-grid-overlay {
+          position: absolute; inset: 0;
+          background-image: radial-gradient(var(--line) 1.5px, transparent 1.5px);
+          background-size: 50px 50px;
+          opacity: 0.6; pointer-events: none;
+        }
+        .chart-shell-luxe { width: 100%; flex: 1; min-height: 320px; position: relative; z-index: 2; }
+
+        .analytics-sidebar-compact { 
+          display: flex; 
+          flex-direction: column; 
+          border-left: 1px solid var(--line);
+          padding-left: 2rem;
+        }
+        .sidebar-group { display: flex; flex-direction: column; gap: 1rem; }
+        
+        .mini-prediction-box-premium {
+          background: rgba(var(--accent-rgb), 0.02);
+          border: 1px solid var(--glass-border);
+          border-radius: 24px;
+          padding: 1.25rem 1.5rem;
+          position: relative;
+        }
+        .box-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 0.25rem; }
+        .box-label { font-size: 0.65rem; font-weight: 900; letter-spacing: 0.15em; color: var(--accent); }
+        .technical-id { font-size: 0.6rem; font-family: var(--font-mono); color: var(--text-muted); opacity: 0.5; }
+        
+        .value-row { display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.25rem; }
+        .value-row strong { font-size: 3rem; font-weight: 900; color: var(--text); line-height: 1; }
+        .value-row small { font-size: 1rem; font-weight: 800; color: var(--text-muted); }
+        .mono { font-family: var(--font-mono); }
+ 
+        .luxe-progress-bar-premium {
+          width: 100%; height: 8px; background: var(--line); 
+          border-radius: 5px; margin-top: 1rem; overflow: hidden;
+          border: 1px solid var(--glass-border);
+        }
+
+        .mini-feed-premium {
+          background: var(--panel-elevated);
           border-radius: 24px;
           padding: 1.25rem;
           border: 1px solid var(--glass-border);
-          min-height: 350px;
-        }
-        [data-theme-mode="light"] .chart-focus-area { background: rgba(0, 0, 0, 0.02); }
-        .chart-shell-luxe { width: 100%; height: 100%; min-height: 320px; }
-
-        .analytics-sidebar-compact {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-        .mini-prediction-box {
-          background: rgba(var(--accent-rgb), 0.03);
-          border: 1px solid var(--glass-border);
-          border-radius: 18px;
-          padding: 1.25rem 1rem;
-          text-align: center;
           position: relative;
         }
-        .luxe-progress-bar {
-          width: 100%; height: 4px; background: rgba(0,0,0,0.1); 
-          border-radius: 2px; margin-top: 1rem; overflow: hidden;
-        }
-        .progress-fill { height: 100%; background: var(--accent); border-radius: inherit; transition: width 1s ease; }
-        .luxe-glow::after {
-          content: ""; position: absolute; inset: 0; 
-          background: radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.1), transparent);
-          pointer-events: none;
-        }
 
-        .ai-insight-box {
-          background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.08) 0%, rgba(0,0,0,0.1) 100%);
-          border-color: rgba(var(--accent-rgb), 0.2);
-          position: relative;
-          overflow: hidden;
-        }
+        .insight-content { margin-top: 1rem; }
         .insight-text {
-          font-size: 0.7rem; font-weight: 600; line-height: 1.4; margin-top: 0.75rem; color: var(--text);
-          font-style: italic;
+          font-size: 0.9rem; font-weight: 600; line-height: 1.7; color: var(--text);
+          font-style: italic; opacity: 0.9;
         }
-        .insight-sparkle {
-          position: absolute; top: -10px; right: -10px; width: 40px; height: 40px;
-          background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
-          opacity: 0.2; filter: blur(5px);
+        .insight-scanner-line {
+          position: absolute; bottom: 0; left: 0; width: 40%; height: 2px;
+          background: var(--accent); opacity: 0.5; border-radius: 99px;
+          animation: scannerMove 4s infinite alternate ease-in-out;
         }
+        @keyframes scannerMove { from { left: 5%; } to { left: 55%; } }
 
-        .mini-feed {
-          background: rgba(0, 0, 0, 0.05);
-          border-radius: 18px;
-          padding: 1.25rem 1rem;
+        .feed-ticker-premium { margin-top: 1rem; display: flex; flex-direction: column; gap: 12px; }
+        .ticker-item { 
+          font-size: 0.85rem; color: var(--text-muted); font-weight: 600; 
+          display: flex; align-items: center; gap: 12px;
+        }
+        .ticker-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0.8; }
+
+        .status-pill-luxe-premium {
+          display: flex; align-items: center; gap: 10px;
+          padding: 0.75rem 1.5rem; border-radius: 99px;
+          background: var(--panel-elevated);
           border: 1px solid var(--glass-border);
-          flex: 1;
+          color: var(--accent); font-size: 0.8rem; font-weight: 900;
+          backdrop-filter: blur(10px);
+          box-shadow: var(--shadow-sm);
         }
-        [data-theme-mode="light"] .mini-feed { background: rgba(0, 0, 0, 0.02); }
-        .box-label { font-size: 0.55rem; font-weight: 900; letter-spacing: 0.1em; color: var(--text-muted); text-transform: uppercase; }
-        .feed-ticker { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 6px; }
-        .ticker-item { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-
-        .status-pill-luxe {
-          display: flex; align-items: center; gap: 6px;
-          padding: 0.4rem 0.8rem; border-radius: 99px;
-          background: rgba(var(--accent-rgb), 0.1);
-          color: var(--accent); font-size: 0.65rem; font-weight: 900; text-transform: uppercase;
-        }
-        .status-pill-luxe[data-risk="Safe"] { color: var(--accent); }
-        .status-pill-luxe[data-risk="Warning"] { color: #F59E0B; background: rgba(245, 158, 11, 0.1); }
-        .status-pill-luxe[data-risk="Critical"] { color: #EF4444; background: rgba(239, 68, 68, 0.1); }
-        .pulse-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
+        .status-pill-luxe-premium[data-risk="Warning"] { color: #F59E0B; }
+        .status-pill-luxe-premium[data-risk="Critical"] { color: #EF4444; }
+        
+        .pulse-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: 0 0 12px currentColor; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.4); } 100% { opacity: 1; transform: scale(1); } }
       `}</style>
     </div>
   );

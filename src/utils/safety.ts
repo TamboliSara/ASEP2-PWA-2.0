@@ -17,7 +17,7 @@ export function getRecommendedActionsForQuality(score: FoodQualityScore): string
     return [
       "Prioritize pickup within the next collection window.",
       "Promote rapid reuse through meal sharing or supervised reheating.",
-      "Monitor chamber humidity and gas buildup before the next cycle."
+      "Monitor unit humidity and gas buildup before the next cycle."
     ];
   }
 

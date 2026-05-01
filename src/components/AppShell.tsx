@@ -1,8 +1,8 @@
-import { useEffect, type PropsWithChildren } from "react";
-import { NavLink } from "react-router-dom";
+import { useEffect, useState, type PropsWithChildren } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { CinematicSplash } from "./CinematicSplash";
-import { LanguageSwitcher } from "./LanguageSwitcher";
-import { ThemeControls } from "./ThemeControls";
+import { GradientStatusBar } from "./layout/GradientStatusBar";
 import { OfflineBanner } from "./OfflineBanner";
 import { RouteTransitionV2 } from "./RouteTransitionV2";
 import { ToastCenter } from "./ToastCenter";
@@ -10,6 +10,8 @@ import { useTranslation } from "../store/useTranslation";
 
 export function AppShell({ children }: PropsWithChildren) {
   const { t } = useTranslation();
+  const location = useLocation();
+  const [isScrolled, setIsScrolled] = useState(false);
 
   // Mouse-tracking glow effect on cards
   useEffect(() => {
@@ -23,9 +25,24 @@ export function AppShell({ children }: PropsWithChildren) {
         card.style.setProperty('--mouse-y', `${y}%`);
       });
     }
+
+    function handleScroll() {
+      setIsScrolled(window.scrollY > 20);
+    }
+
     document.addEventListener('mousemove', handleMouseMove);
-    return () => document.removeEventListener('mousemove', handleMouseMove);
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
+
+  const navItems = [
+    { path: "/", label: t("modeNav") },
+    { path: "/receive", label: t("dashboardNav") },
+    { path: "/admin", label: t("admin") },
+  ];
 
   return (
     <div className="app-shell">
@@ -36,24 +53,58 @@ export function AppShell({ children }: PropsWithChildren) {
         <div className="orb orb-3" />
       </div>
 
-      <header className="shell-header glass-panel">
+      <motion.header 
+        initial={{ y: -100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className={`shell-header glass-panel ${isScrolled ? 'header-scrolled' : ''}`}
+      >
         <CinematicSplash />
+        
         <div className="header-brand-stack">
-          <h1>{t("brand")}</h1>
-          <p className="eyebrow">{t("shellEyebrow")}</p>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="brand-logo-container"
+          >
+            <h1 className="luxe-logo">
+              {t("brand")}
+              <span className="logo-dot">.</span>
+            </h1>
+          </motion.div>
+          <p className="eyebrow luxe-eyebrow">{t("shellEyebrow")}</p>
         </div>
-        <nav className="top-nav">
-          <NavLink to="/">{t("modeNav")}</NavLink>
-          <NavLink to="/receive">{t("dashboardNav")}</NavLink>
-          <NavLink to="/admin">{t("admin")}</NavLink>
+
+        <nav className="top-nav-luxe">
+          <ul className="nav-list">
+            {navItems.map((item) => (
+              <li key={item.path} className="nav-item">
+                <NavLink to={item.path}>
+                  {({ isActive }) => (
+                    <div className="nav-link-content">
+                      {item.label}
+                      {isActive && (
+                        <motion.div
+                          layoutId="nav-indicator"
+                          className="nav-indicator"
+                          transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
+                        />
+                      )}
+                    </div>
+                  )}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
         </nav>
-        <div className="shell-actions">
-          <LanguageSwitcher />
-          <ThemeControls />
+
+        <div className="shell-actions-luxe">
+          <GradientStatusBar />
         </div>
-      </header>
+      </motion.header>
+
       <OfflineBanner />
       <ToastCenter />
+      
       <main className="shell-content">
         {children}
       </main>

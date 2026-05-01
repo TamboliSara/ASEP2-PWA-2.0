@@ -9,6 +9,7 @@ const sharedEnglishAdditions: TranslationDictionary = {
   shellEyebrow: "Smart Food Exchange Locker",
   backToHome: "Main Menu",
   brand: "SAFE",
+  brandTagline: "Community-Powered Freshness",
   firebaseReadyBody: "Donor details, sensor snapshots, predictions, events, and alerts will all be mirrored to cloud history.",
   syncReady: "Ready to sync when connectivity is available.",
   restrictedRoute: "Restricted route",
