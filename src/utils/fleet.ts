@@ -15,6 +15,9 @@ export function buildFleetSummaries(lockers: LockerState[]): FleetLockerSummary[
     deadlineEstimate: locker.deadlineEstimate,
     lastSyncedAt: locker.lastSyncedAt,
     sensorHealth: locker.telemetry.sensorHealth,
-    heuristicGasProfile: locker.telemetry.heuristicGasProfile
+    heuristicGasProfile: locker.telemetry.heuristicGasProfile,
+    totalUnits: 12,
+    occupiedUnits: locker.occupancyState === 'occupied' ? 12 : 0,
+    freeUnits: locker.occupancyState === 'occupied' ? 0 : 12
   }));
 }

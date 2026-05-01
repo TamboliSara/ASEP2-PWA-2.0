@@ -17,14 +17,14 @@ export default function App() {
 
   useEffect(() => {
     const titles: Record<string, string> = {
-      "/": "EcoLocker — Select Mode",
-      "/donate": "EcoLocker — Donor Mode",
-      "/receive": "EcoLocker — Receiver Dashboard",
-      "/admin": "EcoLocker — Admin Panel",
-      "/admin/sign-in": "EcoLocker — Sign In",
-      "/connect": "EcoLocker — Connect"
+      "/": "SAFE — Select Mode",
+      "/donate": "SAFE — Donor Mode",
+      "/receive": "SAFE — Receiver Dashboard",
+      "/admin": "SAFE — Admin Panel",
+      "/admin/sign-in": "SAFE — Sign In",
+      "/connect": "SAFE — Connect"
     };
-    document.title = titles[location.pathname] || "EcoLocker";
+    document.title = titles[location.pathname] || "SAFE";
   }, [location.pathname]);
 
   return (

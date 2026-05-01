@@ -20,12 +20,14 @@ import {
 import { Link } from "react-router-dom";
 import { StatusPill } from "../components/StatusPill";
 import { SurfaceCard } from "../components/layout/SurfaceCard";
+import { MetricCardPremium } from "../components/MetricCardPremium";
 import { Menu } from "../components/ui/fluid-menu";
 import { FleetMap } from "../components/FleetMap";
 import { useLockerController } from "../features/useLockerController";
 import { useTranslation } from "../store/useTranslation";
 import { formatDateTime } from "../utils/format";
 import { sampleFleetLockers } from "../utils/mockData";
+import { useState } from "react";
 
 export function AdminPageV2() {
   const { t } = useTranslation();
@@ -169,137 +171,41 @@ export function AdminPageV2() {
       </motion.section>
 
       <section className="admin-stats-bar grid grid-cols-1 md:grid-cols-3 gap-6">
-        <motion.div variants={itemVariants}>
-          <SurfaceCard className="!p-0 relative overflow-hidden group h-full">
-            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute top-0 left-0 w-1 h-full bg-accent/20 group-hover:bg-accent transition-colors duration-500" />
-            
-            <div className="p-7 relative z-10">
-              <div className="flex justify-between items-start mb-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black tracking-[0.2em] uppercase text-text-muted/60">{t("totalDonations") || "Total Donations"}</p>
-                  <h4 className="text-sm font-bold text-text">Accumulated Volume</h4>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center shadow-[0_0_20px_rgba(20,184,166,0.1)] group-hover:shadow-[0_0_30px_rgba(20,184,166,0.2)] transition-all">
-                  <BarChart3 className="w-5 h-5 text-accent" />
-                </div>
-              </div>
+        <MetricCardPremium 
+          title={t("totalDonations") || "Total Donations"}
+          subtitle="Accumulated Volume"
+          value="142"
+          trend={`+12.4% ${t("increase") || "Trend"}`}
+          trendDirection="up"
+          icon={<BarChart3 className="w-6 h-6" />}
+          bgIcon={<BarChart3 className="w-40 h-40" />}
+          accentColor="var(--accent)"
+          index={0}
+        />
 
-              <div className="flex items-end justify-between gap-4">
-                <div className="space-y-1">
-                  <strong className="text-5xl font-black tracking-tighter font-mono">142</strong>
-                  <div className="flex items-center gap-1.5 text-success font-black text-[10px] uppercase tracking-widest">
-                    <Activity className="w-3 h-3" />
-                    <span>+12.4% {t("increase") || "Trend"}</span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col items-end gap-2">
-                  <div className="px-2 py-1 rounded-md bg-panel-elevated border border-line text-[9px] font-black text-text-muted uppercase tracking-tighter">
-                    {t("live") || "Live Data"}
-                  </div>
-                  <div className="flex items-center gap-1.5 opacity-40">
-                    <Clock className="w-3 h-3" />
-                    <small className="text-[9px] font-bold uppercase tracking-tighter">{new Date().toLocaleTimeString()}</small>
-                  </div>
-                </div>
-              </div>
-            </div>
+        <MetricCardPremium 
+          title={t("activeLockers") || "Active Lockers"}
+          subtitle="Fleet Availability"
+          value="8/12"
+          trend={`66% ${t("utilization") || "Capacity"}`}
+          trendDirection="neutral"
+          icon={<Layers className="w-6 h-6" />}
+          bgIcon={<Layers className="w-40 h-40" />}
+          accentColor="var(--accent-warm)"
+          index={1}
+        />
 
-            {/* Decorative background icon */}
-            <div className="absolute -bottom-6 -right-6 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none transform rotate-12">
-              <BarChart3 className="w-32 h-32" />
-            </div>
-          </SurfaceCard>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <SurfaceCard className="!p-0 relative overflow-hidden group h-full">
-            <div className="absolute inset-0 bg-gradient-to-br from-accent-warm/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute top-0 left-0 w-1 h-full bg-accent-warm/20 group-hover:bg-accent-warm transition-colors duration-500" />
-            
-            <div className="p-7 relative z-10">
-              <div className="flex justify-between items-start mb-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black tracking-[0.2em] uppercase text-text-muted/60">{t("activeLockers") || "Active Lockers"}</p>
-                  <h4 className="text-sm font-bold text-text">Fleet Availability</h4>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-accent-warm/10 border border-accent-warm/20 flex items-center justify-center shadow-[0_0_20px_rgba(232,168,56,0.1)] group-hover:shadow-[0_0_30px_rgba(232,168,56,0.2)] transition-all">
-                  <Layers className="w-5 h-5 text-accent-warm" />
-                </div>
-              </div>
-
-              <div className="flex items-end justify-between gap-4">
-                <div className="space-y-1">
-                  <strong className="text-5xl font-black tracking-tighter font-mono">8/12</strong>
-                  <div className="flex items-center gap-1.5 text-text-muted font-black text-[10px] uppercase tracking-widest">
-                    <Box className="w-3 h-3" />
-                    <span>66% {t("utilization") || "Capacity"}</span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col items-end gap-2">
-                  <div className="px-2 py-1 rounded-md bg-panel-elevated border border-line text-[9px] font-black text-text-muted uppercase tracking-tighter">
-                    {t("stable") || "Stable"}
-                  </div>
-                  <div className="flex items-center gap-1.5 opacity-40">
-                    <Clock className="w-3 h-3" />
-                    <small className="text-[9px] font-bold uppercase tracking-tighter">{new Date().toLocaleTimeString()}</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Decorative background icon */}
-            <div className="absolute -bottom-6 -right-6 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none transform -rotate-6">
-              <Layers className="w-32 h-32" />
-            </div>
-          </SurfaceCard>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <SurfaceCard className="!p-0 relative overflow-hidden group h-full">
-            <div className="absolute inset-0 bg-gradient-to-br from-accent-bright/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute top-0 left-0 w-1 h-full bg-accent-bright/20 group-hover:bg-accent-bright transition-colors duration-500" />
-            
-            <div className="p-7 relative z-10">
-              <div className="flex justify-between items-start mb-6">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black tracking-[0.2em] uppercase text-text-muted/60">{t("mealsServed") || "Meals Served Today"}</p>
-                  <h4 className="text-sm font-bold text-text">Daily Impact</h4>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-accent-bright/10 border border-accent-bright/20 flex items-center justify-center shadow-[0_0_20px_rgba(var(--accent-rgb),0.1)] group-hover:shadow-[0_0_30px_rgba(var(--accent-rgb),0.2)] transition-all">
-                  <Database className="w-5 h-5 text-accent-bright" />
-                </div>
-              </div>
-
-              <div className="flex items-end justify-between gap-4">
-                <div className="space-y-1">
-                  <strong className="text-5xl font-black tracking-tighter font-mono">24</strong>
-                  <div className="flex items-center gap-1.5 text-success font-black text-[10px] uppercase tracking-widest">
-                    <Activity className="w-3 h-3" />
-                    <span>+8.2% {t("increase") || "Trend"}</span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col items-end gap-2">
-                  <div className="px-2 py-1 rounded-md bg-panel-elevated border border-line text-[9px] font-black text-text-muted uppercase tracking-tighter">
-                    {t("active") || "Active"}
-                  </div>
-                  <div className="flex items-center gap-1.5 opacity-40">
-                    <Clock className="w-3 h-3" />
-                    <small className="text-[9px] font-bold uppercase tracking-tighter">{new Date().toLocaleTimeString()}</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Decorative background icon */}
-            <div className="absolute -bottom-6 -right-6 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none transform rotate-45">
-              <Database className="w-32 h-32" />
-            </div>
-          </SurfaceCard>
-        </motion.div>
+        <MetricCardPremium 
+          title={t("mealsServed") || "Meals Served Today"}
+          subtitle="Daily Impact"
+          value="24"
+          trend={`+8.2% ${t("increase") || "Trend"}`}
+          trendDirection="up"
+          icon={<Database className="w-6 h-6" />}
+          bgIcon={<Database className="w-40 h-40" />}
+          accentColor="var(--accent-bright)"
+          index={2}
+        />
       </section>
 
       <motion.div variants={itemVariants}>
@@ -323,58 +229,105 @@ export function AdminPageV2() {
               {fleet.map((locker) => (
                 <article 
                   key={locker.lockerId} 
-                  className="luxe-summary-item flex flex-col md:flex-row md:items-center justify-between p-6 rounded-[2rem] bg-panel-elevated/40 border border-line/50 hover:border-accent/40 hover:bg-panel-elevated/60 transition-all duration-500 group relative overflow-hidden"
+                  className="luxe-summary-item flex flex-col md:flex-row md:items-center justify-between p-6 rounded-[2.2rem] bg-panel-elevated/40 border border-line/50 hover:border-accent/40 hover:bg-panel-elevated/60 transition-all duration-500 group relative overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1"
                 >
-                  {/* Hover glow effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  {/* Technical Overlays */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-accent-warm/5 blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
                   
                   <div className="flex items-center gap-6 relative z-10">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-lg border-2 transition-all duration-500
-                      ${locker.occupancyState === 'occupied' 
-                        ? 'bg-accent/10 border-accent/30 text-accent shadow-[0_0_20px_rgba(20,184,166,0.1)] group-hover:scale-110' 
-                        : locker.occupancyState === 'maintenance'
-                          ? 'bg-danger/10 border-danger/30 text-danger'
-                          : 'bg-panel border-line text-text-muted group-hover:border-accent/20'}`}
-                    >
-                      {locker.lockerLabel.split(' ')[1]?.[0] || 'L'}
-                    </div>
-                    <div className="luxe-summary-info">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-black text-lg tracking-tight text-text">{locker.lockerLabel}</h4>
-                        <span className="px-2 py-0.5 rounded-md bg-panel border border-line text-[8px] font-black uppercase tracking-widest text-text-muted">{locker.lockerId}</span>
+                    <div className="relative">
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center font-black text-xl border-2 transition-all duration-700
+                        ${locker.occupancyState === 'occupied' 
+                          ? 'bg-accent/10 border-accent/30 text-accent shadow-[0_0_20px_rgba(20,184,166,0.1)] group-hover:shadow-[0_0_30px_rgba(20,184,166,0.3)]' 
+                          : locker.occupancyState === 'maintenance'
+                            ? 'bg-danger/10 border-danger/30 text-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]'
+                            : 'bg-panel/50 border-line text-text-muted group-hover:border-accent/20'}`}
+                      >
+                        {locker.lockerLabel.split(' ')[1]?.[0] || 'L'}
                       </div>
-                      <p className="text-[10px] font-black text-accent uppercase tracking-[0.2em]">{locker.zoneLabel}</p>
+                      
+                      {/* Status Pulse Dot */}
+                      <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-panel z-20 flex items-center justify-center
+                        ${locker.faultState !== "none" ? 'bg-danger' : locker.occupancyState === "occupied" ? 'bg-accent' : 'bg-success'}`}>
+                        <div className="w-full h-full rounded-full bg-white animate-ping opacity-40" />
+                      </div>
+                    </div>
+
+                    <div className="luxe-summary-info">
+                      <div className="flex items-center gap-3 mb-1.5">
+                        <h4 className="font-black text-xl tracking-tight text-text group-hover:text-accent transition-colors">{locker.lockerLabel}</h4>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-panel/80 border border-line text-[9px] font-mono font-bold uppercase tracking-widest text-text-muted shadow-inner">
+                          <Database className="w-2.5 h-2.5 opacity-50" />
+                          {locker.lockerId}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-px bg-accent/40" />
+                        <p className="text-[10px] font-black text-accent/70 uppercase tracking-[0.25em]">{locker.zoneLabel}</p>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="flex flex-wrap items-center gap-8 mt-4 md:mt-0 relative z-10">
-                    <div className="hidden lg:flex flex-col items-start gap-1">
-                      <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Unit Capacity</span>
-                      <div className="flex items-center gap-3">
-                        <p className="text-sm font-black text-text">
-                          {locker.occupiedUnits} / {locker.totalUnits}
-                        </p>
-                        <div className="flex gap-1">
+                  <div className="flex flex-wrap items-center gap-10 mt-6 md:mt-0 relative z-10">
+                    <div className="hidden lg:flex flex-col items-start gap-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black text-text-muted uppercase tracking-[0.15em]">Locker Utilization</span>
+                        <span className="text-[9px] font-mono font-bold text-accent">{Math.round((locker.occupiedUnits / locker.totalUnits) * 100)}%</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex gap-1.5 h-4 items-center">
                           {Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className={`w-1 h-3 rounded-full ${i < (locker.occupiedUnits / locker.totalUnits) * 5 ? 'bg-accent' : 'bg-line'}`} />
+                            <motion.div 
+                              key={i} 
+                              initial={false}
+                              animate={{ 
+                                height: i < (locker.occupiedUnits / locker.totalUnits) * 5 ? [12, 16, 12] : 8,
+                                opacity: i < (locker.occupiedUnits / locker.totalUnits) * 5 ? 1 : 0.2
+                              }}
+                              transition={{ 
+                                duration: 1.5, 
+                                repeat: Infinity, 
+                                delay: i * 0.1,
+                                repeatType: "reverse"
+                              }}
+                              className={`w-1 rounded-full ${i < (locker.occupiedUnits / locker.totalUnits) * 5 ? 'bg-accent shadow-[0_0_8px_rgba(20,184,166,0.4)]' : 'bg-line'}`} 
+                            />
                           ))}
+                        </div>
+                        <p className="text-sm font-mono font-black text-text">
+                          {locker.occupiedUnits} <span className="text-text-muted opacity-40">/</span> {locker.totalUnits}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-6">
+                      {locker.faultState !== "none" || locker.foodQualityScore === "spoilt" ? (
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-danger/10 border border-danger/30 shadow-[0_0_20px_rgba(239,68,68,0.15)] group-hover:bg-danger/20 transition-all"
+                        >
+                          <AlertTriangle className="w-4 h-4 text-danger animate-pulse" />
+                          <span className="text-[10px] font-black tracking-widest uppercase text-danger">Quarantined</span>
+                        </motion.div>
+                      ) : null}
+                      
+                      <div className="flex flex-col items-end min-w-[100px]">
+                        <StatusPill
+                          value={locker.occupancyState}
+                          tone={locker.faultState !== "none" || locker.foodQualityScore === "spoilt" ? "danger" : locker.occupancyState === "occupied" ? "warning" : "success"}
+                        />
+                        <div className="flex items-center gap-1.5 mt-2 opacity-30 group-hover:opacity-60 transition-opacity">
+                          <Activity className="w-2.5 h-2.5" />
+                          <span className="text-[8px] font-black uppercase tracking-tighter text-text">Active Stream</span>
                         </div>
                       </div>
                     </div>
-
-
-                    
-                    <div className="flex items-center gap-5">
-                      <div className="flex flex-col items-end">
-                        <StatusPill
-                          value={locker.occupancyState}
-                          tone={locker.faultState !== "none" ? "danger" : locker.occupancyState === "occupied" ? "warning" : "success"}
-                        />
-
-                      </div>
-                      
-                    </div>
                   </div>
+                  
+                  {/* Corner Decoration */}
+                  <div className="absolute top-0 left-0 w-1 h-0 group-hover:h-full bg-accent transition-all duration-700 ease-in-out" />
                 </article>
               ))}
             </div>
@@ -413,29 +366,33 @@ export function AdminPageV2() {
               
               <div className="luxe-metric-grid grid grid-cols-2 gap-x-4 gap-y-3 relative z-10">
                 <MetricItem 
-                  label={t("bleStatus") || "BLE Signal"} 
-                  value={currentLocker.bleConnected ? t("connected") : t("disconnected")}
-                  progress={currentLocker.bleConnected ? 100 : 15}
-                  color={currentLocker.bleConnected ? "var(--accent)" : "var(--danger)"}
-                  icon={<Wifi className="w-3.5 h-3.5" />}
+                  label="TinyML AI Engine" 
+                  value="Edge Active"
+                  progress={100}
+                  color="var(--accent)"
+                  icon={<Settings2 className="w-3.5 h-3.5" />}
                 />
                 <MetricItem 
-                  label={t("sensorHealth") || "Sensor Array"} 
-                  value={currentLocker.telemetry.sensorHealth}
-                  progress={currentLocker.telemetry.sensorHealth === 'healthy' ? 100 : 65}
-                  color={currentLocker.telemetry.sensorHealth === 'healthy' ? "var(--accent)" : "var(--warning)"}
+                  label="BME688 VOC Nose" 
+                  value={`${currentLocker.telemetry.gasResistanceOhms} Ω`}
+                  progress={currentLocker.telemetry.gasResistanceOhms > 15000 ? 100 : 40}
+                  color={currentLocker.telemetry.gasResistanceOhms > 15000 ? "var(--accent)" : "var(--warning)"}
                   icon={<Activity className="w-3.5 h-3.5" />}
                 />
-                <div className="col-span-2">
-                  <MetricItem 
-                    label={t("sanitization") || "Hygiene Integrity"} 
-                    value={currentLocker.sanitizationState === 'idle' ? "Complete" : "Processing"}
-                    progress={currentLocker.sanitizationState === 'idle' ? 100 : 40}
-                    color="var(--accent)"
-                    icon={<RefreshCcw className="w-3.5 h-3.5" />}
-                    wide
-                  />
-                </div>
+                <MetricItem 
+                  label="DS18B20 Core Temp" 
+                  value={`${currentLocker.telemetry.internalTempC}°C`}
+                  progress={currentLocker.telemetry.internalTempC <= 5 ? 100 : 70}
+                  color={currentLocker.telemetry.internalTempC <= 5 ? "var(--accent)" : "var(--warning)"}
+                  icon={<Activity className="w-3.5 h-3.5" />}
+                />
+                <MetricItem 
+                  label="UV-C Quarantine" 
+                  value={currentLocker.sanitizationState === 'idle' ? "Standby" : "Active"}
+                  progress={currentLocker.sanitizationState === 'idle' ? 100 : 40}
+                  color={currentLocker.sanitizationState === 'idle' ? "var(--accent)" : "var(--danger)"}
+                  icon={<RefreshCcw className={`w-3.5 h-3.5 ${currentLocker.sanitizationState !== 'idle' ? 'animate-spin' : ''}`} />}
+                />
               </div>
               
               <div className="mt-5 pt-3 border-t border-line/40 flex items-center justify-between relative z-10">

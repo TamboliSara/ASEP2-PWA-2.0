@@ -75,8 +75,8 @@ export function FoodHeroV2({
 
   const activeItem = heroItems?.[activeIndex] ?? donation;
   const previews = heroItems?.filter((_, index) => index !== activeIndex).slice(0, 2) ?? [];
-  const palette = pickPalette(activeItem?.foodName ?? "EcoLocker");
-  const heroShape = visualType(activeItem?.foodName ?? "EcoLocker");
+  const palette = pickPalette(activeItem?.foodName ?? "SAFE");
+  const heroShape = visualType(activeItem?.foodName ?? "SAFE");
   const badges = getBadges(activeItem, t);
 
   useEffect(() => {
@@ -341,7 +341,7 @@ export function FoodHeroV2({
             ))}
           </div>
           <div className="device-signature-luxe">
-            <span className="device-brand">ECOLOCKER</span>
+            <span className="device-brand">SAFE UNIT</span>
             <span className="device-model">{(state.lockers.find(l => l.lockerId === state.selectedLockerId) || state.lockers[0])?.pairedDeviceName ?? "ESP32-S3"}</span>
           </div>
         </header>

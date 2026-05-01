@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AlertTriangle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { FoodHeroV2 } from "../components/FoodHeroV2";
 import { SlideConfirm } from "../components/SlideConfirm";
@@ -106,15 +107,20 @@ export function KioskPage() {
 
   return (
     <div className="page-grid receiver-grid">
+      <AnimatePresence>
       {isSanitizing && (
-        <div className="sanitization-overlay">
+        <motion.div 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="sanitization-overlay" 
+        >
           <div className="overlay-content glass-panel">
             <div className="spinner" />
             <h2>Sanitization in Progress</h2>
             <p>Locker is being cleaned for your safety. Please wait a moment.</p>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {showAdminAuth && (
         <div className="admin-auth-overlay">

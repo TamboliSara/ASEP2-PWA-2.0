@@ -4,7 +4,7 @@ export type TranslationDictionary = Record<string, string>;
 
 export const translationsV2: Record<LocaleCode, TranslationDictionary> = {
   en: {
-    brand: "EcoLocker",
+    brand: "SAFE",
     admin: "Admin",
     noDonation: "No active donation",
     pairLocker: "Pair Locker",
@@ -106,7 +106,7 @@ export const translationsV2: Record<LocaleCode, TranslationDictionary> = {
     none: "None"
   },
   hi: {
-    brand: "ईकोलॉकर",
+    brand: "सेफ (SAFE)",
     admin: "एडमिन",
     noDonation: "कोई सक्रिय दान नहीं",
     pairLocker: "लॉकर जोड़ें",
@@ -193,7 +193,7 @@ export const translationsV2: Record<LocaleCode, TranslationDictionary> = {
     certified: "प्रमाणित"
   },
   mr: {
-    brand: "इकोलॉकर",
+    brand: "सेफ (SAFE)",
     admin: "अॅडमिन",
     noDonation: "सक्रिय दान नाही",
     pairLocker: "लॉकर जोडा",
