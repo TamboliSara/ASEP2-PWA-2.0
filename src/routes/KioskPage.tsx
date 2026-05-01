@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ShieldCheck, MoveRight, Box, Weight, Thermometer, Droplets, Zap, Ban, Wind } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { FoodHeroV2 } from "../components/FoodHeroV2";
 import { SlideConfirm } from "../components/SlideConfirm";
@@ -28,6 +28,7 @@ export function KioskPage() {
   const isSanitizing = currentLocker.sanitizationState === "running";
   const [now, setNow] = useState(Date.now());
   const [showAdminAuth, setShowAdminAuth] = useState(false);
+  const [showVolumeAnalysis, setShowVolumeAnalysis] = useState(false);
   const [adminId, setAdminId] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [authError, setAuthError] = useState("");
@@ -161,20 +162,64 @@ export function KioskPage() {
         </div>
       )}
 
-      <div className="page-navigation-top">
-        <Link to="/" className="ghost-button">
-          ← {t("backToHome") || "Back to Home"}
-        </Link>
-      </div>
+      {showVolumeAnalysis && (
+        <div className="admin-auth-overlay" onClick={() => setShowVolumeAnalysis(false)}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="volume-analysis-modal glass-panel animate-reveal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div className="header-icon-ring">
+                <Box className="w-6 h-6 text-accent" />
+              </div>
+              <h3>Unit Volume Analysis</h3>
+              <p>Detailed capacity telemetry for all mission safes.</p>
+            </div>
+            
+            <div className="volume-grid-luxe">
+              {state.lockers.map((locker, idx) => {
+                const volume = 15 + (idx % 3) * 5; // Mock volumes: 15L, 20L, 25L
+                return (
+                  <div key={locker.lockerId} className="volume-item-luxe">
+                    <div className="volume-item-header">
+                      <span className="unit-tag">SAFE_{ (idx + 1).toString().padStart(2, '0') }</span>
+                      <span className="volume-value">{volume}L</span>
+                    </div>
+                    <div className="volume-progress-track">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: locker.occupancyState === 'occupied' ? '85%' : '0%' }}
+                        className={`volume-progress-fill ${locker.occupancyState}`}
+                      />
+                    </div>
+                    <div className="volume-footer">
+                      <span className="status-label">{locker.occupancyState.toUpperCase()}</span>
+                      <span className="capacity-label">{locker.occupancyState === 'occupied' ? 'High Utilization' : 'Available'}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button className="primary-button w-full mt-6" onClick={() => setShowVolumeAnalysis(false)}>
+              Close Analysis
+            </button>
+          </motion.div>
+        </div>
+      )}
 
       <section className="hero-panel receiver-hero glass-panel">
         <div className="hero-copy">
           <p className="eyebrow">{t("receiverEyebrow")}</p>
-          <h2>
-            {displayDonation 
-              ? (displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)) 
-              : t("noDonation")}
-          </h2>
+          <div className="hero-top-row">
+            <h2>
+              {displayDonation 
+                ? (displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)) 
+                : t("noDonation")}
+            </h2>
+          </div>
           <p>{t("receiverBody")}</p>
           <div className="hero-actions-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <div className="metric-chip-row">
@@ -193,6 +238,59 @@ export function KioskPage() {
             )}
           </div>
           {state.syncMessage ? <div className="status-banner">{state.syncMessage}</div> : null}
+
+          {/* ── Food Quality Score — embedded in Receiver Dashboard ── */}
+          <div className="hqe-wrap">
+            <div className="hqe-divider" />
+            <div className="hqe-header-row">
+              <div className="hqe-label-group">
+                <p className="hqe-label">FOOD QUALITY SCORE</p>
+                <div className="hqe-live-badge"><span className="hqe-dot" />LIVE</div>
+              </div>
+              <div className="hqe-safety-chip"><span>🛡️</span>SAFETY VERIFIED</div>
+            </div>
+            <div className="hqe-body">
+              <div className="hqe-gauge-col">
+                <QualityGauge hoursRemaining={displayHoursRemaining} totalDuration={MAX_SHELF_LIFE} />
+              </div>
+              <div className="hqe-data-col">
+                <div className="hqe-time-block">
+                  <span className="hqe-hours">{displayHoursRemaining > 0 ? displayHoursRemaining.toFixed(1) : '—'}</span>
+                  <span className="hqe-hrs-unit">{t("hoursRemaining") || "hrs remaining"}</span>
+                </div>
+                {selectedDeadline && (
+                  <div className="hqe-countdown-row">
+                    <span>⏳</span>
+                    <strong className="hqe-countdown-val">{formatCountdown(selectedDeadline.absoluteIso)}</strong>
+                  </div>
+                )}
+                {selectedDeadline && (
+                  <div className="hqe-expiry-row">
+                    <span>📅</span>
+                    <span className="hqe-expiry-val">{formatDateTime(selectedDeadline.absoluteIso)}</span>
+                  </div>
+                )}
+                {!selectedDeadline && (
+                  <div className="hqe-expiry-row" style={{ opacity: 0.45 }}>
+                    <span>📅</span>
+                    <span className="hqe-expiry-val">No active donation</span>
+                  </div>
+                )}
+                {recommendedActions.length > 0 && (
+                  <div className="hqe-actions">
+                    <p className="hqe-actions-label">Recommended Actions</p>
+                    <div className="hqe-action-tags">
+                      {recommendedActions.map((action, idx) => (
+                        <span key={action} className="hqe-action-tag" style={{ animationDelay: `${idx * 0.1}s` }}>
+                          <span className="hqe-tag-dot" />{action}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
         <FoodHeroV2 
           donation={donation} 
@@ -304,7 +402,183 @@ export function KioskPage() {
         </motion.div>
       </section>
 
+
       <style>{`
+        /* ── Food Quality Score Embed in Receiver Hero ── */
+        .hqe-wrap {
+          margin-top: 1.75rem;
+        }
+        .hqe-divider {
+          height: 1px;
+          background: var(--glass-border);
+          margin-bottom: 1.25rem;
+          opacity: 0.5;
+        }
+        .hqe-header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        .hqe-label-group {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+        .hqe-label {
+          font-size: 0.6rem;
+          font-weight: 900;
+          letter-spacing: 0.15em;
+          color: var(--accent);
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .hqe-label::before {
+          content: '';
+          width: 12px; height: 2px;
+          background: var(--accent);
+          border-radius: 99px;
+        }
+        .hqe-live-badge {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          background: rgba(244,63,94,0.1);
+          color: var(--status-red, #f43f5e);
+          padding: 0.2rem 0.5rem;
+          border-radius: 6px;
+          font-size: 0.55rem;
+          font-weight: 900;
+          letter-spacing: 0.1em;
+          border: 1px solid var(--glass-border);
+        }
+        .hqe-dot {
+          width: 5px; height: 5px;
+          background: var(--status-red, #f43f5e);
+          border-radius: 50%;
+          animation: blink 1s infinite;
+        }
+        .hqe-safety-chip {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          background: rgba(var(--accent-rgb), 0.08);
+          border: 1px solid rgba(var(--accent-rgb), 0.25);
+          padding: 0.3rem 0.75rem;
+          border-radius: 99px;
+          font-size: 0.6rem;
+          font-weight: 800;
+          color: var(--accent);
+          letter-spacing: 0.08em;
+        }
+        .hqe-body {
+          display: flex;
+          align-items: flex-start;
+          gap: 1.5rem;
+        }
+        .hqe-gauge-col {
+          flex-shrink: 0;
+          width: 150px;
+        }
+        .hqe-data-col {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          min-width: 0;
+        }
+        .hqe-time-block {
+          display: flex;
+          align-items: baseline;
+          gap: 0.5rem;
+        }
+        .hqe-hours {
+          font-size: 2rem;
+          font-weight: 900;
+          letter-spacing: -0.04em;
+          color: var(--text);
+          line-height: 1;
+        }
+        .hqe-hrs-unit {
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--text-muted);
+        }
+        .hqe-countdown-row {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          padding: 0.4rem 0.85rem;
+          background: rgba(var(--accent-rgb), 0.08);
+          border-radius: 10px;
+          border: 1px solid var(--glass-border);
+          width: fit-content;
+        }
+        .hqe-countdown-val {
+          font-family: var(--font-mono);
+          font-size: 1rem;
+          color: var(--accent);
+          font-weight: 700;
+        }
+        .hqe-expiry-row {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          color: var(--text-muted);
+        }
+        .hqe-expiry-val {
+          font-size: 0.85rem;
+          font-weight: 700;
+        }
+        .hqe-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+        .hqe-actions-label {
+          font-size: 0.6rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: var(--accent);
+          margin: 0;
+        }
+        .hqe-action-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.4rem;
+        }
+        .hqe-action-tag {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          padding: 0.35rem 0.75rem;
+          background: rgba(var(--accent-rgb), 0.06);
+          border: 1px solid var(--glass-border);
+          border-radius: 99px;
+          font-size: 0.68rem;
+          font-weight: 700;
+          color: var(--text);
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          animation: slideInUp 0.5s ease-out both;
+        }
+        .hqe-tag-dot {
+          width: 5px; height: 5px;
+          background: var(--accent);
+          border-radius: 50%;
+          opacity: 0.7;
+          flex-shrink: 0;
+        }
+        @media (max-width: 700px) {
+          .hqe-body { flex-direction: column; }
+          .hqe-gauge-col { width: 100%; display: flex; justify-content: center; }
+        }
+        /* ─────────────────────────────────────────── */
         .admin-auth-overlay {
           position: fixed;
           inset: 0;
@@ -372,6 +646,322 @@ export function KioskPage() {
           font-weight: 700;
           margin: 0;
         }
+
+        /* Volume Analysis Modal Styles */
+        .volume-analysis-modal {
+          width: 100%;
+          max-width: 600px;
+          padding: 3rem;
+          background: var(--panel-elevated);
+          border-radius: 32px;
+          border: 1px solid var(--glass-border);
+          box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+        }
+        .header-icon-ring {
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          background: rgba(var(--accent-rgb), 0.1);
+          display: grid;
+          place-items: center;
+          margin: 0 auto 1.5rem;
+          border: 1px solid rgba(var(--accent-rgb), 0.2);
+        }
+        .volume-grid-luxe {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+          gap: 1.5rem;
+          margin-top: 2rem;
+          max-height: 400px;
+          overflow-y: auto;
+          padding-right: 1rem;
+          scrollbar-width: thin;
+          scrollbar-color: var(--accent) transparent;
+        }
+        .volume-item-luxe {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid var(--glass-border);
+          border-radius: 20px;
+          padding: 1.25rem;
+          transition: all 0.3s ease;
+        }
+        .volume-item-luxe:hover {
+          border-color: var(--accent);
+          background: rgba(var(--accent-rgb), 0.05);
+        }
+        .volume-item-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+        .unit-tag {
+          font-size: 0.65rem;
+          font-weight: 900;
+          letter-spacing: 0.1em;
+          color: var(--text-muted);
+        }
+        .volume-value {
+          font-size: 1.1rem;
+          font-weight: 900;
+          color: var(--accent);
+        }
+        .volume-progress-track {
+          height: 6px;
+          background: var(--bg);
+          border-radius: 99px;
+          overflow: hidden;
+          margin-bottom: 0.75rem;
+        }
+        .volume-progress-fill {
+          height: 100%;
+          border-radius: inherit;
+        }
+        .volume-progress-fill.occupied { background: var(--accent); }
+        .volume-progress-fill.empty { background: var(--line); opacity: 0.3; }
+        .volume-footer {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.55rem;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+        }
+        .status-label { color: var(--text-muted); }
+        .capacity-label { color: var(--accent); opacity: 0.8; }
+
+        /* Hero Button Styles */
+        .hero-top-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.5rem;
+          flex-wrap: wrap;
+          gap: 1.5rem;
+        }
+        .explore-safety-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.75rem 1.5rem;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--glass-border);
+          border-radius: 99px;
+          cursor: pointer;
+          transition: all 0.4s cubic-bezier(0.2, 1, 0.3, 1);
+          backdrop-filter: blur(10px);
+        }
+        .explore-safety-btn:hover {
+          background: rgba(255,255,255,0.1);
+          border-color: var(--accent);
+          transform: translateY(-2px);
+          box-shadow: 0 10px 30px rgba(var(--accent-rgb), 0.1);
+        }
+        .explore-safety-btn .btn-label {
+          font-size: 0.65rem;
+          font-weight: 900;
+          letter-spacing: 0.15em;
+          color: var(--text);
+          opacity: 0.8;
+        }
+
+        /* ── Safety Guidelines Modal ── */
+        .safety-guidelines-modal {
+          width: 100%;
+          max-width: 640px;
+          padding: 2.5rem;
+          background: var(--panel-elevated);
+          border-radius: 32px;
+          border: 1px solid var(--glass-border);
+          box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(var(--accent-rgb),0.08);
+          display: flex;
+          flex-direction: column;
+          gap: 1.75rem;
+        }
+        .sg-header {
+          display: flex;
+          align-items: center;
+          gap: 1.25rem;
+        }
+        .sg-icon-ring {
+          flex-shrink: 0;
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          background: rgba(var(--accent-rgb), 0.12);
+          border: 1.5px solid rgba(var(--accent-rgb), 0.3);
+          display: grid;
+          place-items: center;
+          animation: sg-pulse 2.5s ease-in-out infinite;
+        }
+        @keyframes sg-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.25); }
+          50%       { box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0); }
+        }
+        .sg-icon { color: var(--accent); width: 22px; height: 22px; }
+        .sg-eyebrow {
+          font-size: 0.6rem;
+          font-weight: 900;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: var(--accent);
+          opacity: 0.9;
+          margin: 0 0 0.25rem;
+        }
+        .sg-title {
+          font-size: 1.4rem;
+          font-weight: 900;
+          margin: 0 0 0.35rem;
+          color: var(--text);
+          letter-spacing: -0.02em;
+        }
+        .sg-subtitle {
+          font-size: 0.8rem;
+          color: var(--text-muted);
+          margin: 0;
+          opacity: 0.75;
+        }
+        .sg-divider {
+          height: 1px;
+          background: var(--glass-border);
+          opacity: 0.5;
+        }
+        /* Spec cards grid */
+        .sg-specs-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 0.75rem;
+        }
+        .sg-spec-card {
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          padding: 0.85rem 1rem;
+          border-radius: 14px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid var(--glass-border);
+          transition: all 0.25s ease;
+        }
+        .sg-spec-card:hover {
+          background: rgba(var(--accent-rgb),0.06);
+          border-color: rgba(var(--accent-rgb),0.4);
+          transform: translateY(-2px);
+        }
+        .sg-spec-icon-wrap {
+          width: 34px; height: 34px;
+          border-radius: 10px;
+          display: grid; place-items: center;
+          flex-shrink: 0;
+        }
+        .sg-spec-icon-wrap.accent {
+          background: rgba(var(--accent-rgb),0.12);
+          color: var(--accent);
+        }
+        .sg-spec-icon-wrap.blue {
+          background: rgba(59,130,246,0.12);
+          color: #60a5fa;
+        }
+        .sg-spec-icon-wrap.purple {
+          background: rgba(139,92,246,0.12);
+          color: #a78bfa;
+        }
+        .sg-spec-info {
+          display: flex; flex-direction: column; gap: 0.1rem;
+          min-width: 0;
+          flex: 1;
+        }
+        .sg-spec-label {
+          font-size: 0.58rem;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+          white-space: nowrap;
+        }
+        .sg-spec-value {
+          font-size: 1rem;
+          font-weight: 900;
+          color: var(--text);
+          letter-spacing: -0.02em;
+          line-height: 1.15;
+        }
+        .sg-spec-note {
+          font-size: 0.6rem;
+          color: var(--text-muted);
+          opacity: 0.6;
+          white-space: normal;
+          line-height: 1.3;
+        }
+        /* Prohibited */
+        .sg-prohibited-section {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        .sg-prohibited-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .sg-ban-icon { color: #f87171; }
+        .sg-prohibited-label {
+          font-size: 0.65rem;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: #f87171;
+        }
+        .sg-prohibited-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+        .sg-chip {
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 0.3rem 0.8rem;
+          background: rgba(248,113,113,0.08);
+          border: 1px solid rgba(248,113,113,0.25);
+          border-radius: 99px;
+          color: #fca5a5;
+        }
+        /* Live row */
+        .sg-live-row {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          flex-wrap: wrap;
+          padding: 0.85rem 1.1rem;
+          background: rgba(var(--accent-rgb),0.05);
+          border: 1px solid rgba(var(--accent-rgb),0.15);
+          border-radius: 14px;
+        }
+        .sg-live-badge {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.6rem;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          color: var(--accent);
+          text-transform: uppercase;
+        }
+        .sg-live-dot {
+          width: 6px; height: 6px;
+          background: var(--accent);
+          border-radius: 50%;
+          animation: blink 1s infinite;
+        }
+        .sg-tele-item {
+          font-size: 0.78rem;
+          font-weight: 700;
+          color: var(--text);
+          opacity: 0.8;
+        }
+        .sg-close-btn {
+          margin-top: 0.25rem;
+          width: 100%;
+        }
       `}</style>
 
         <div className="feature-header animate-luxe-entry" style={{ gridColumn: '1 / -1', marginTop: '3rem', marginBottom: '1.5rem' }}>
@@ -390,64 +980,7 @@ export function KioskPage() {
       </section>
 
       <section className="receiver-editorial-layout" style={{ gridColumn: '1 / -1' }}>
-        <SurfaceCard className="receiver-card receiver-card-deadline luxe-quality-card">
-          <header className="card-header-premium">
-            <div className="header-title-group">
-              <p className="card-label">{t("qualityScore")}</p>
-              <div className="live-indicator">
-                <span className="live-dot" />
-                LIVE
-              </div>
-            </div>
-            <div className="safety-badge">
-              <span className="shield-icon">🛡️</span>
-              <span className="safety-text">SAFETY VERIFIED</span>
-            </div>
-          </header>
-
-          <div className="gauge-hero-layout">
-            <div className="gauge-side">
-              <QualityGauge hoursRemaining={displayHoursRemaining} totalDuration={MAX_SHELF_LIFE} />
-            </div>
-            
-            <div className="gauge-hero-copy">
-              <div className="time-stack">
-                <h3 className="quality-hours">
-                  {displayHoursRemaining.toFixed(1)}
-                  <span className="hours-label">
-                    {t("hoursRemaining") || " hours remaining"}
-                  </span>
-                </h3>
-                <div className="countdown-ribbon">
-                  <span className="ribbon-icon">⏳</span>
-                  <strong className="quality-countdown">
-                    {formatCountdown(selectedDeadline.absoluteIso)}
-                  </strong>
-                </div>
-              </div>
-
-              <div className="expiry-details">
-                <span className="expiry-icon">📅</span>
-                <p className="quality-expiry">
-                  {formatDateTime(selectedDeadline.absoluteIso)}
-                </p>
-              </div>
-
-              <div className="action-tag-cloud">
-                <p className="cloud-label">{t("recommendedActions") || "Recommended Actions"}</p>
-                <div className="tag-list-enhanced">
-                  {recommendedActions.map((action, idx) => (
-                    <span key={action} className="info-tag-luxe" style={{ animationDelay: `${idx * 0.1}s` }}>
-                      <span className="tag-dot" />
-                      {action}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <style>{`
+        <style>{`
             .luxe-quality-card {
               grid-column: 1 / -1;
               background: linear-gradient(165deg, var(--panel) 0%, var(--bg) 100%);
@@ -1630,7 +2163,6 @@ export function KioskPage() {
               }
             }
           `}</style>
-        </SurfaceCard>
 
         <SurfaceCard className={`receiver-card receiver-card-profile luxe-profile-card ${!donation ? 'is-empty-luxe' : ''}`}>
           <div className="card-header-mini">
@@ -1911,86 +2443,99 @@ export function KioskPage() {
           </div>
         </SurfaceCard>
 
-        <SurfaceCard className="receiver-card receiver-card-actions luxe-actions-card">
+        <SurfaceCard className="receiver-card receiver-card-actions sg-inline-card">
           <div className="vapor-ambient-effect" />
-          <div className="security-shield-bg" />
-          <div className="mission-scanline" />
-          <div className="technical-corner-mark top-right" />
-          <div className="technical-corner-mark bottom-left" />
-          
-          <div className="card-header-mini" style={{ marginBottom: '2rem' }}>
+
+          {/* Card header */}
+          <div className="card-header-mini" style={{ marginBottom: '1.75rem' }}>
             <div className="header-title-stack">
-              <span className="sector-title" style={{ marginBottom: '0.25rem', opacity: 0.6 }}>COMMAND_NODE_01 // SEC_ALPHA</span>
-              <p className="card-label" style={{ fontSize: '1.75rem', fontWeight: 950, letterSpacing: '-0.02em', color: 'var(--text)' }}>SYSTEM_CONTROLS</p>
+              <span className="sector-title" style={{ marginBottom: '0.25rem', opacity: 0.6 }}>
+                SAFE Unit · {currentLocker.lockerId.split('-')[1] ?? currentLocker.lockerId}
+              </span>
+              <p className="card-label" style={{ fontSize: '1.5rem', fontWeight: 950, letterSpacing: '-0.02em', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <ShieldCheck size={22} style={{ color: 'var(--accent)' }} />
+                Safety &amp; Capacity
+              </p>
             </div>
-            <div className="system-status-badge-premium">
-              <span className="pulse-dot" />
-              AUTH_LEVEL_01: SECURE
+            <div className="sg-live-badge" style={{ padding: '0.4rem 0.9rem', background: 'rgba(var(--accent-rgb),0.08)', border: '1px solid rgba(var(--accent-rgb),0.2)', borderRadius: '99px' }}>
+              <span className="sg-live-dot" />
+              CERTIFIED
             </div>
           </div>
-          
-          <div className="mission-control-layout">
-            <div className="status-display-sector">
-              <div className="sector-header-stack" style={{ marginBottom: '1rem' }}>
-                <span className="sector-title">DIAGNOSTIC_TELEMETRY</span>
-              </div>
-              
-              <div className="cyber-stats-grid">
-                <div className="cyber-box">
-                  <div className="stat-info">
-                    <span className="stat-label-luxe">🌐 NETWORK_INTEGRITY</span>
-                    <div className="stat-sub-label" style={{ fontSize: '0.45rem', opacity: 0.4, marginTop: '2px' }}>SIGNAL: 98.4dBm</div>
-                  </div>
-                  <span className="stat-value-luxe mono">0.9984_STABLE</span>
-                </div>
-                
-                <div className="cyber-box">
-                  <div className="stat-info">
-                    <span className="stat-label-luxe">🔒 LOCKER_SESSION</span>
-                    <div className="stat-sub-label" style={{ fontSize: '0.45rem', opacity: 0.4, marginTop: '2px' }}>KEY: RSA_4096</div>
-                  </div>
-                  <span className="stat-value-luxe mono">
-                    {displayDonation?.lockerId ? `SAFE_${displayDonation.lockerId.padStart(2, '0')}` : "NULL_STATE"}
-                  </span>
-                </div>
-                
-                <div className="cyber-box">
-                  <div className="stat-info">
-                    <span className="stat-label-luxe">⏱️ SYSTEM_UPTIME</span>
-                    <div className="stat-sub-label" style={{ fontSize: '0.45rem', opacity: 0.4, marginTop: '2px' }}>BOOT: 2026-04-20</div>
-                  </div>
-                  <span className="stat-value-luxe mono">142:31:05</span>
-                </div>
-              </div>
-            </div>
 
-            <div className="action-sector">
-              <div className="override-header" style={{ marginBottom: '1.5rem' }}>
-                <span className="sector-title">OVERRIDE_PROTOCOLS</span>
-                <p className="premium-p" style={{ fontSize: '0.8rem', opacity: 0.6, lineHeight: 1.6, marginTop: '0.5rem', maxWidth: '300px' }}>
-                  Administrative terminal for manual cloud synchronization and emergency container containment.
-                </p>
-              </div>
-              
-              <div className="glass-button-stack">
-                <button className="glass-action-btn sync" type="button" onClick={syncNow} disabled={isBusy}>
-                  <div className="btn-shine" />
-                  <span className="btn-text">EXECUTE_SYNC</span>
-                </button>
-                <button className="glass-action-btn lockdown" type="button" onClick={triggerMaintenanceLockdown}>
-                  <div className="btn-shine" />
-                  <span className="btn-text">INITIATE_LOCKDOWN</span>
-                </button>
-              </div>
-              
-              <div className="action-footer-telemetry" style={{ marginTop: '3rem', borderTop: '1px solid rgba(var(--accent-rgb), 0.1)', paddingTop: '1rem' }}>
-                <div className="micro-telemetry-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', fontFamily: 'var(--font-mono)', fontWeight: 900, opacity: 0.4, letterSpacing: '0.1em' }}>
-                  <span>ENC_MODE: AES_256</span>
-                  <span>SYNC_INT: 15S</span>
-                  <span>NODE: G7_X9</span>
-                </div>
+          {/* Specs grid */}
+          <div className="sg-specs-grid" style={{ marginBottom: '1.5rem' }}>
+            <div className="sg-spec-card">
+              <div className="sg-spec-icon-wrap accent"><Weight size={16} /></div>
+              <div className="sg-spec-info">
+                <span className="sg-spec-label">Max Weight</span>
+                <span className="sg-spec-value">12 kg</span>
+                <span className="sg-spec-note">Per donation load</span>
               </div>
             </div>
+            <div className="sg-spec-card">
+              <div className="sg-spec-icon-wrap accent"><Box size={16} /></div>
+              <div className="sg-spec-info">
+                <span className="sg-spec-label">Volume</span>
+                <span className="sg-spec-value">20 L</span>
+                <span className="sg-spec-note">Interior capacity</span>
+              </div>
+            </div>
+            <div className="sg-spec-card">
+              <div className="sg-spec-icon-wrap blue"><Thermometer size={16} /></div>
+              <div className="sg-spec-info">
+                <span className="sg-spec-label">Temp Range</span>
+                <span className="sg-spec-value">2 – 8 °C</span>
+                <span className="sg-spec-note">Cold-chain zone</span>
+              </div>
+            </div>
+            <div className="sg-spec-card">
+              <div className="sg-spec-icon-wrap blue"><Droplets size={16} /></div>
+              <div className="sg-spec-info">
+                <span className="sg-spec-label">Humidity</span>
+                <span className="sg-spec-value">≤ 75% RH</span>
+                <span className="sg-spec-note">Microbial gate</span>
+              </div>
+            </div>
+            <div className="sg-spec-card">
+              <div className="sg-spec-icon-wrap purple"><Zap size={16} /></div>
+              <div className="sg-spec-info">
+                <span className="sg-spec-label">UV-C Cycle</span>
+                <span className="sg-spec-value">90 sec</span>
+                <span className="sg-spec-note">Between every use</span>
+              </div>
+            </div>
+            <div className="sg-spec-card">
+              <div className="sg-spec-icon-wrap purple"><Wind size={16} /></div>
+              <div className="sg-spec-info">
+                <span className="sg-spec-label">AQI Limit</span>
+                <span className="sg-spec-value">≤ 50 AQI</span>
+                <span className="sg-spec-note">BME688 gate</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Prohibited items */}
+          <div className="sg-prohibited-section" style={{ marginBottom: '1.5rem' }}>
+            <div className="sg-prohibited-header">
+              <Ban size={13} className="sg-ban-icon" />
+              <span className="sg-prohibited-label">Prohibited Items</span>
+            </div>
+            <div className="sg-prohibited-chips">
+              {["Raw Meat >500g", "Liquids >500ml", "Unlabelled allergens", "Frozen goods", "Pressurised cans"].map(item => (
+                <span key={item} className="sg-chip">{item}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Live sensor snapshot */}
+          <div className="sg-live-row">
+            <div className="sg-live-badge">
+              <span className="sg-live-dot" /> LIVE SENSOR
+            </div>
+            <span className="sg-tele-item">🌡 {currentLocker.telemetry.internalTempC.toFixed(1)} °C</span>
+            <span className="sg-tele-item">💧 {currentLocker.telemetry.humidityPct.toFixed(0)} % RH</span>
+            <span className="sg-tele-item">🔬 {currentLocker.telemetry.sensorHealth}</span>
           </div>
         </SurfaceCard>
 

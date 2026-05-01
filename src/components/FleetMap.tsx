@@ -110,7 +110,7 @@ export function FleetMap() {
                 </div>
                 
                 {/* Advanced Tooltip */}
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 p-4 rounded-2xl bg-panel-elevated/95 backdrop-blur-2xl border border-line shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none group-hover:pointer-events-auto whitespace-nowrap z-50 transform translate-y-2 group-hover:translate-y-0 min-w-[180px]">
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 p-4 rounded-2xl bg-panel-elevated/95 backdrop-blur-2xl border border-line shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none group-hover:pointer-events-auto whitespace-nowrap z-50 transform translate-y-2 group-hover:translate-y-0 min-w-[180px] !rotate-0 !skew-0">
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-[10px] font-black uppercase tracking-widest text-accent">{locker.zoneLabel}</span>
                     
