@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Lock, Mail, ShieldCheck, ArrowRight, Fingerprint } from "lucide-react";
+import { Lock, Mail, ShieldCheck, ArrowRight } from "lucide-react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../store/AppContext";
@@ -25,71 +25,59 @@ export function SignInPageV2() {
       <div className="w-full max-w-4xl grid md:grid-cols-2 gap-0 overflow-hidden rounded-[2rem] border border-line bg-panel/20 backdrop-blur-3xl shadow-2xl">
         
         {/* Visual Side */}
-        <div className="relative p-10 md:p-12 flex flex-col justify-between overflow-hidden bg-gradient-to-br from-accent/10 via-transparent to-accent-warm/5">
+        <div className="relative p-10 md:p-12 flex flex-col items-center justify-center text-center overflow-hidden bg-gradient-to-br from-accent/10 via-panel/50 to-accent-warm/10">
           <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-accent/10 blur-[100px] animate-pulse" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-accent-warm/10 blur-[100px]" />
-            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(var(--accent) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] rounded-full bg-accent/5 blur-[120px] animate-pulse" />
+            <div className="absolute top-[20%] left-[10%] w-[40%] h-[40%] rounded-full bg-accent/10 blur-[80px]" />
+            <div className="absolute bottom-[20%] right-[10%] w-[30%] h-[30%] rounded-full bg-accent-warm/10 blur-[60px]" />
+            <div className="absolute inset-0 opacity-[0.02] mix-blend-overlay" style={{ backgroundImage: 'radial-gradient(var(--accent) 1.5px, transparent 1.5px)', backgroundSize: '24px 24px' }} />
           </div>
 
-          <div className="relative z-10 space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-accent/10 border border-accent/20">
-                <ShieldCheck className="w-5 h-5 text-accent" />
+          <div className="relative z-10 space-y-10">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="inline-flex flex-col items-center gap-4"
+            >
+              <div className="relative">
+                <div className="absolute inset-0 bg-accent/20 blur-3xl rounded-full scale-150 animate-pulse" />
+                <div className="relative p-4 rounded-3xl bg-panel/40 border border-accent/30 shadow-[0_0_50px_rgba(20,184,166,0.15)] backdrop-blur-xl">
+                  <ShieldCheck className="w-10 h-10 text-accent" />
+                </div>
               </div>
-              <span className="text-[10px] font-black tracking-[0.3em] uppercase text-accent/80">
-                {t("restrictedRoute")}
-              </span>
-            </div>
+              
+              <div className="flex items-center gap-3 px-4 py-1.5 rounded-full bg-accent/10 border border-accent/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-ping" />
+                <span className="text-[10px] font-black tracking-[0.4em] uppercase text-accent/90">
+                  {t("restrictedRoute")}
+                </span>
+              </div>
+            </motion.div>
 
-            <div className="space-y-4">
-              <h1 className="text-5xl md:text-6xl font-black tracking-tighter text-text leading-none">
-                {t("brand") || "SAFE"}
-              </h1>
-              <p className="text-lg text-text-muted font-medium opacity-80">
+            <div className="space-y-6">
+              <div className="relative">
+                <h1 className="text-7xl md:text-8xl font-black tracking-tighter text-text leading-none drop-shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+                  {t("brand") || "SAFE"}
+                </h1>
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-accent/50 to-transparent rounded-full" />
+              </div>
+              
+              <p className="text-xl md:text-2xl text-text-muted font-bold tracking-tight opacity-90 max-w-sm mx-auto leading-relaxed">
                 {t("brandTagline")}
               </p>
             </div>
-          </div>
 
-          <div className="relative z-10 mt-10">
-            <motion.div 
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="p-5 rounded-[1.75rem] bg-panel/40 border border-line backdrop-blur-xl space-y-3 shadow-xl"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 opacity-80">
-                  <Fingerprint className="w-4 h-4 text-accent animate-pulse" />
-                  <span className="text-[9px] font-black tracking-widest uppercase">Biometric Ready</span>
-                </div>
-                <span className="text-[8px] font-bold text-accent px-1.5 py-0.5 rounded-full bg-accent/10 border border-accent/20">Active</span>
+            <div className="flex items-center justify-center gap-8 opacity-20">
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-1 h-8 bg-gradient-to-b from-transparent via-accent to-transparent" />
+                <span className="text-[7px] font-black uppercase tracking-widest">v4.0.2</span>
               </div>
-              
-              <div className="relative h-1 w-full bg-line rounded-full overflow-hidden">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: "100%" }}
-                  transition={{ 
-                    duration: 2, 
-                    repeat: Infinity,
-                    repeatType: "reverse",
-                    ease: "easeInOut" 
-                  }}
-                  className="absolute inset-0 w-1/3 bg-gradient-to-r from-transparent via-accent to-transparent" 
-                />
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: "78%" }}
-                  className="h-full bg-accent/30" 
-                />
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-1 h-8 bg-gradient-to-b from-transparent via-accent-warm to-transparent" />
+                <span className="text-[7px] font-black uppercase tracking-widest">TLS 1.3</span>
               </div>
-              <div className="flex justify-between items-center">
-                <p className="text-[9px] text-text-muted font-bold tracking-tight">Integrity: Optimal</p>
-                <p className="text-[8px] text-accent font-black tracking-widest">v4.0.2</p>
-              </div>
-            </motion.div>
+            </div>
           </div>
         </div>
         

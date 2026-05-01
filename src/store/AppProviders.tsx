@@ -16,7 +16,9 @@ export function AppProviders({ children }: PropsWithChildren) {
         ...defaultState,
         ...parsed,
         lockers: parsed.lockers ?? defaultState.lockers,
-        selectedLockerId: parsed.selectedLockerId ?? defaultState.selectedLockerId
+        selectedLockerId: parsed.selectedLockerId ?? defaultState.selectedLockerId,
+        // Force login on refresh by resetting admin auth state
+        isAdminAuthenticated: false
       };
     } catch {
       return defaultState;
@@ -37,7 +39,10 @@ export function AppProviders({ children }: PropsWithChildren) {
     document.documentElement.dataset.themeMode = state.themeMode;
     document.documentElement.dataset.themePalette = state.themePalette;
     document.documentElement.lang = state.locale;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    
+    // Persist state but exclude sensitive authentication status to force re-login on refresh
+    const { isAdminAuthenticated, ...persistedState } = state;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
   }, [state]);
 
   // Automatic sanitization timer for all lockers
