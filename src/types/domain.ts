@@ -148,6 +148,9 @@ export interface FleetLockerSummary {
   lastSyncedAt?: string;
   sensorHealth: SensorHealth;
   heuristicGasProfile: string[];
+  totalUnits: number;
+  occupiedUnits: number;
+  freeUnits: number;
 }
 
 export interface DonationDraft {

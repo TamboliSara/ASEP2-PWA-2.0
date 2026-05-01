@@ -5,7 +5,9 @@ import { FoodHeroV2 } from "../components/FoodHeroV2";
 import { SlideConfirm } from "../components/SlideConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { TelemetryChart } from "../components/TelemetryChart";
+import { FoodHealthCardPremium } from "../components/FoodHealthCardPremium";
 import { SurfaceCard } from "../components/layout/SurfaceCard";
+import { FleetMap } from "../components/FleetMap";
 import { useLockerController } from "../features/useLockerController";
 import { useTranslation } from "../store/useTranslation";
 import { QualityGauge } from "../components/QualityGauge";
@@ -376,6 +378,10 @@ export function KioskPage() {
           <div className="header-divider-luxe" />
           <p className="heading-subtext">Real-time telemetry and food health forecasting</p>
         </div>
+
+      <section style={{ gridColumn: '1 / -1', marginBottom: '2rem' }}>
+        <FleetMap />
+      </section>
 
       <section className="receiver-editorial-layout" style={{ gridColumn: '1 / -1' }}>
         <SurfaceCard className="receiver-card receiver-card-deadline luxe-quality-card">
@@ -1983,7 +1989,19 @@ export function KioskPage() {
         </SurfaceCard>
 
         <div className="receiver-card-chart bento-chart-container">
-          <TelemetryChart deadlineHours={dynamicHoursRemaining} />
+          <FoodHealthCardPremium 
+            variant="compact"
+            risk={100 - calculatedQualityScore}
+            quality={calculatedQualityScore}
+            temp={telemetry.internalTempC}
+            shelfLifeHours={Math.round(displayHoursRemaining)}
+            insight={calculatedQualityScore > 70 
+              ? "System Stable: Food freshness is currently peak. No biological hazards detected." 
+              : calculatedQualityScore > 30 
+              ? "Warning: Quality degradation detected. Consumption recommended within next 12 hours."
+              : "Critical Alert: Spoilage risk exceeds safety thresholds. Retrieval restricted."
+            }
+          />
         </div>
 
         <SurfaceCard className="receiver-card receiver-card-logs luxe-logs-card">

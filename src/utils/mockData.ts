@@ -139,7 +139,10 @@ export const sampleFleetLockers: FleetLockerSummary[] = [
     deadlineEstimate: defaultDeadlineEstimate,
     lastSyncedAt: now.toISOString(),
     sensorHealth: "healthy",
-    heuristicGasProfile: ["Optimal storage"]
+    heuristicGasProfile: ["Optimal storage"],
+    totalUnits: 12,
+    occupiedUnits: 8,
+    freeUnits: 4
   },
   {
     lockerId: "fridge-beta",
@@ -154,7 +157,10 @@ export const sampleFleetLockers: FleetLockerSummary[] = [
     deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString() },
     lastSyncedAt: now.toISOString(),
     sensorHealth: "degraded",
-    heuristicGasProfile: ["Slight fermentation"]
+    heuristicGasProfile: ["Slight fermentation"],
+    totalUnits: 12,
+    occupiedUnits: 12,
+    freeUnits: 0
   },
   {
     lockerId: "fridge-gamma",
@@ -166,7 +172,10 @@ export const sampleFleetLockers: FleetLockerSummary[] = [
     faultState: "none",
     lastSyncedAt: now.toISOString(),
     sensorHealth: "healthy",
-    heuristicGasProfile: ["Ready"]
+    heuristicGasProfile: ["Ready"],
+    totalUnits: 10,
+    occupiedUnits: 0,
+    freeUnits: 10
   },
   {
     lockerId: "fridge-delta",
@@ -178,6 +187,9 @@ export const sampleFleetLockers: FleetLockerSummary[] = [
     faultState: "sensor_fault",
     lastSyncedAt: now.toISOString(),
     sensorHealth: "critical",
-    heuristicGasProfile: ["System Lock"]
+    heuristicGasProfile: ["System Lock"],
+    totalUnits: 8,
+    occupiedUnits: 3,
+    freeUnits: 5
   }
 ];
