@@ -37,7 +37,12 @@ function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <Button variant="outline" size="sm" className="rounded-full bg-panel/40 backdrop-blur-md border-line hover:border-accent/40 px-6 py-5 gap-3 group transition-all duration-300">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-full bg-panel/40 backdrop-blur-md border-line hover:border-accent/40 px-6 py-5 gap-3 group transition-all duration-300"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-help-widget'))}
+            >
               <ShieldCheck className="w-4 h-4 text-accent" />
               <span className="text-xs font-bold tracking-widest uppercase opacity-80 text-text">Explore Safety Guidelines</span>
               <MoveRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-accent" />
@@ -85,7 +90,12 @@ function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.5 }}
           >
-            <Button size="lg" variant="outline" className="rounded-full px-8 py-6 text-base border-line bg-panel/30 backdrop-blur-xl hover:bg-panel/50 text-text transition-all gap-3">
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="rounded-full px-8 py-6 text-base border-line bg-panel/30 backdrop-blur-xl hover:bg-panel/50 text-text transition-all gap-3"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-help-widget'))}
+            >
               <Zap className="w-4 h-4 text-accent-warm" />
               How It Works
             </Button>

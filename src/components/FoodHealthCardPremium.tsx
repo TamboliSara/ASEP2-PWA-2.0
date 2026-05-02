@@ -61,7 +61,7 @@ export function FoodHealthCardPremium({
   
   const isCompact = variant === 'compact';
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [activeMetrics, setActiveMetrics] = useState<MetricType[]>(['RISK', 'QUALITY']);
+  const [activeMetrics, setActiveMetrics] = useState<MetricType[]>(['RISK', 'QUALITY', 'TEMP']);
 
   useEffect(() => {
     const checkTheme = () => {
@@ -159,6 +159,7 @@ export function FoodHealthCardPremium({
         data: [4.8, 4.9, 5.1, 5.0, 5.2, 5.5, 6.0],
         borderColor: colors.temp,
         borderWidth: 3,
+        yAxisID: 'yTemp',
         pointBackgroundColor: isDarkMode ? '#fff' : colors.temp,
         pointBorderColor: colors.temp,
         pointBorderWidth: 2,
@@ -188,6 +189,14 @@ export function FoodHealthCardPremium({
         cornerRadius: 12,
         displayColors: true,
         usePointStyle: true,
+        callbacks: {
+          label: (context: any) => {
+            const label = context.dataset.label || '';
+            const value = context.parsed.y;
+            if (label.includes('Temp')) return ` ${label}: ${value.toFixed(1)}°C`;
+            return ` ${label}: ${value}%`;
+          }
+        }
       }
     },
     scales: {
@@ -201,6 +210,23 @@ export function FoodHealthCardPremium({
           font: { family: "'Outfit', sans-serif", size: 9, weight: 'bold' },
           maxTicksLimit: 5,
           callback: (value: any) => `${value}%`
+        }
+      },
+      yTemp: {
+        position: 'right' as const,
+        beginAtZero: true,
+        display: activeMetrics.includes('TEMP'),
+        grid: { drawOnChartArea: false },
+        ticks: {
+          color: colors.textMuted,
+          font: { family: "'Outfit', sans-serif", size: 9, weight: 'bold' },
+          callback: (value: any) => `${value}°C`
+        },
+        title: {
+          display: true,
+          text: 'Temperature',
+          color: colors.textMuted,
+          font: { family: "'Outfit', sans-serif", size: 9, weight: 'bold' }
         }
       },
       x: {

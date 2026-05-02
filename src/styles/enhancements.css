@@ -34,8 +34,8 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ─── SMOOTH PAGE TRANSITIONS ─── */
 
-body {
-  animation: pageReveal 0.8s var(--ease-out-expo) both;
+#root {
+  display: block;
 }
 
 @keyframes pageReveal {

@@ -32,6 +32,22 @@ function visualType(name: string) {
   return "bowl";
 }
 
+function foodEmoji(name: string): string {
+  const n = name.toLowerCase();
+  if (/(rice|biryani|pulao)/.test(n)) return "🍚";
+  if (/(bread|bun|sandwich|burger|wrap|roll|croissant)/.test(n)) return "🥪";
+  if (/(pasta|noodle|spaghetti|mac)/.test(n)) return "🍝";
+  if (/(dal|lentil|soup|curry|stew)/.test(n)) return "🍲";
+  if (/(salad|green|veggie|vegetable)/.test(n)) return "🥗";
+  if (/(fruit|apple|orange|banana|mango|guava)/.test(n)) return "🍱";
+  if (/(coffee|tea|latte|chai)/.test(n)) return "☕";
+  if (/(juice|shake|smoothie|milk|lassi)/.test(n)) return "🥤";
+  if (/(paneer|cheese|dairy|yogurt|curd)/.test(n)) return "🧀";
+  if (/(chicken|meat|fish|egg|non.?veg)/.test(n)) return "🍗";
+  if (/(sweet|dessert|cake|halwa|kheer|pudding)/.test(n)) return "🍮";
+  return "🍽️";
+}
+
 function DietIcon({ tag }: { tag?: string }) {
   if (!tag) return null;
   if (tag === "veg") return <span className="diet-dot is-veg" title="Vegetarian" />;
@@ -347,14 +363,26 @@ export function FoodHeroV2({
         </header>
 
         <div className="food-hero-main-stage">
+          {/* Decorative scanline + dot grid overlay */}
+          <div className="hero-scanline-overlay" />
+          <div className="hero-dot-grid" />
+
           <div className="hero-content-stack">
+            {/* Enhanced Food Visual — emoji avatar with layered glow & orbit rings */}
             <div className={`food-visual-container is-${heroShape} animate-luxe-entry`}>
+              <div className="visual-glow-outer" />
               <div className="visual-detail-aura" />
               <div className="visual-shadow-luxe" />
+              <div className="visual-orbit-ring ring-1" />
+              <div className="visual-orbit-ring ring-2" />
               <div className={`food-initials-luxe ${activeItem.foodName.includes("registered") ? "is-scanning" : ""}`}>
-                {activeItem.foodName.includes("registered") ? "SCAN" : initials(activeItem.foodName)}
-                <div className="visual-orbit-ring" />
+                {activeItem.foodName.includes("registered")
+                  ? <span style={{fontSize:"1.1rem",letterSpacing:"0.08em"}}>SCAN</span>
+                  : <span className="food-emoji-avatar">{foodEmoji(activeItem.foodName)}</span>
+                }
               </div>
+              {/* Live telemetry dot */}
+              <span className="avatar-live-dot" title="Live" />
             </div>
 
             <div className="food-details-luxe">
@@ -364,27 +392,31 @@ export function FoodHeroV2({
               <div className="food-subtitle-luxe">
                 <span className="allergens-label">Notes:</span>
                 <span className="allergens-value">
-                  {activeItem.allergensNotes.toLowerCase().trim() === "none" 
-                    ? "Safe for all" 
+                  {activeItem.allergensNotes.toLowerCase().trim() === "none"
+                    ? "Safe for all"
                     : activeItem.allergensNotes.charAt(0).toUpperCase() + activeItem.allergensNotes.slice(1)}
                 </span>
               </div>
             </div>
 
+            {/* Enhanced status grid with live indicator pulses */}
             <div className="food-status-grid-luxe">
               <div className="status-cell">
                 <div className="status-header">
-                  <svg className="status-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="status-icon" viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="var(--accent)" fillOpacity="0.2" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                   <span className="cell-label">{t("freshStatus")}</span>
                 </div>
-                <span className="cell-value">{t("verified")}</span>
+                <span className="cell-value">
+                  <span className="cell-live-dot" />
+                  {t("verified")}
+                </span>
               </div>
               <div className="status-divider" />
               <div className="status-cell">
                 <div className="status-header">
-                  <svg className="status-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="status-icon" viewBox="0 0 24 24" fill="none">
                     <rect x="3" y="3" width="18" height="18" rx="2" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M9 3V21M15 3V21M3 9H21M3 15H21" stroke="var(--accent)" strokeWidth="2" strokeOpacity="0.3" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
@@ -395,13 +427,16 @@ export function FoodHeroV2({
               <div className="status-divider" />
               <div className="status-cell">
                 <div className="status-header">
-                  <svg className="status-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="status-icon" viewBox="0 0 24 24" fill="none">
                     <path d="M12 22C12 22 20 18 20 12V5L12 2L4 5V12C4 18 12 22 12 22Z" fill="var(--accent)" fillOpacity="0.2" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M9 12L11 14L15 10" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                   <span className="cell-label">{t("sanitary")}</span>
                 </div>
-                <span className="cell-value">{t("certified")}</span>
+                <span className="cell-value">
+                  <span className="cell-live-dot" />
+                  {t("certified")}
+                </span>
               </div>
             </div>
           </div>
@@ -466,21 +501,71 @@ export function FoodHeroV2({
         .food-hero-luxe {
           position: relative;
           padding: 2rem;
-          background: linear-gradient(165deg, var(--panel) 0%, var(--bg) 100%);
+          background: linear-gradient(160deg, var(--panel) 0%, color-mix(in srgb, var(--bg) 90%, var(--accent) 10%) 100%);
           border-radius: var(--radius-lg);
-          border: 1px solid var(--glass-border);
+          border: 1px solid transparent;
+          background-clip: padding-box;
           overflow: hidden;
-          box-shadow: var(--shadow-lg);
+          box-shadow: var(--shadow-lg), 0 0 0 1px rgba(var(--accent-rgb), 0.12);
           transition: all 0.5s cubic-bezier(0.2, 1, 0.3, 1);
           animation: revealUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        /* Animated shimmer border via pseudo */
+        .food-hero-luxe::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          padding: 1px;
+          background: linear-gradient(135deg,
+            rgba(var(--accent-rgb),0.6) 0%,
+            rgba(var(--accent-rgb),0.1) 40%,
+            rgba(var(--accent-rgb),0.4) 70%,
+            rgba(var(--accent-rgb),0.05) 100%);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+          animation: borderRotate 6s linear infinite;
+        }
+        @keyframes borderRotate {
+          0%   { background-position: 0% 50%; }
+          50%  { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
         }
         .food-hero-luxe::before {
           content: "";
           position: absolute;
           inset: 0;
-          background: radial-gradient(circle at 20% 20%, var(--accent-glow), transparent 40%);
-          opacity: 0.5;
+          background:
+            radial-gradient(circle at 15% 15%, rgba(var(--accent-rgb), 0.12), transparent 45%),
+            radial-gradient(circle at 85% 80%, rgba(var(--accent-rgb), 0.06), transparent 40%);
+          opacity: 1;
           pointer-events: none;
+        }
+        /* Scanline overlay */
+        .hero-scanline-overlay {
+          position: absolute;
+          inset: 0;
+          background: repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 3px,
+            rgba(var(--accent-rgb), 0.015) 3px,
+            rgba(var(--accent-rgb), 0.015) 4px
+          );
+          pointer-events: none;
+          z-index: 1;
+        }
+        /* Dot grid background */
+        .hero-dot-grid {
+          position: absolute;
+          inset: 0;
+          background-image: radial-gradient(rgba(var(--accent-rgb), 0.18) 1px, transparent 1px);
+          background-size: 22px 22px;
+          opacity: 0.35;
+          pointer-events: none;
+          z-index: 1;
         }
         .food-hero-inner-container {
           position: relative;
@@ -676,55 +761,120 @@ export function FoodHeroV2({
         }
         .food-visual-container {
           position: relative;
-          width: 90px;
-          height: 90px;
+          width: 108px;
+          height: 108px;
           display: grid;
           place-items: center;
           transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .food-hero-luxe:hover .food-visual-container {
-          transform: scale(1.05);
+          transform: scale(1.07) translateY(-4px);
+        }
+        /* Outer ambient glow */
+        .visual-glow-outer {
+          position: absolute;
+          inset: -30px;
+          background: radial-gradient(circle, rgba(var(--accent-rgb), 0.35) 0%, transparent 65%);
+          filter: blur(20px);
+          animation: auraPulse 3s ease-in-out infinite;
+          z-index: 0;
         }
         .visual-detail-aura {
           position: absolute;
-          inset: -20px;
+          inset: -10px;
           background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
-          opacity: 0.15;
-          filter: blur(25px);
-          animation: auraPulse 4s ease-in-out infinite;
+          opacity: 0.2;
+          filter: blur(18px);
+          animation: auraPulse 4s ease-in-out infinite 0.5s;
+          z-index: 1;
         }
         @keyframes auraPulse {
-          0%, 100% { opacity: 0.1; transform: scale(1); }
-          50% { opacity: 0.25; transform: scale(1.1); }
+          0%, 100% { opacity: 0.15; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(1.12); }
         }
         .food-initials-luxe {
           position: relative;
           z-index: 10;
-          font-size: 2rem;
-          font-weight: 900;
-          color: var(--text);
-          text-shadow: 0 6px 16px rgba(0,0,0,0.4);
-          letter-spacing: -0.02em;
+          display: grid;
+          place-items: center;
+          width: 74px;
+          height: 74px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 35% 35%, rgba(var(--accent-rgb),0.18), rgba(var(--accent-rgb),0.04));
+          border: 1.5px solid rgba(var(--accent-rgb), 0.3);
+          backdrop-filter: blur(12px);
+          box-shadow:
+            0 8px 32px rgba(0,0,0,0.25),
+            inset 0 1px 0 rgba(255,255,255,0.15),
+            0 0 0 6px rgba(var(--accent-rgb),0.06);
         }
+        .food-emoji-avatar {
+          font-size: 2.4rem;
+          line-height: 1;
+          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+          display: block;
+        }
+        /* Dual orbit rings */
         .visual-orbit-ring {
           position: absolute;
-          inset: -12px;
-          border: 1.5px solid var(--line);
           border-radius: 50%;
-          animation: orbit 20s linear infinite;
+          border: 1px solid rgba(var(--accent-rgb), 0.25);
+          z-index: 2;
         }
-        .visual-orbit-ring::after {
+        .visual-orbit-ring.ring-1 {
+          inset: -14px;
+          animation: orbit 16s linear infinite;
+        }
+        .visual-orbit-ring.ring-1::after {
           content: "";
           position: absolute;
-          top: 8px;
-          right: 8px;
-          width: 6px;
-          height: 6px;
+          top: 6px; right: 6px;
+          width: 7px; height: 7px;
           background: var(--accent);
           border-radius: 50%;
-          box-shadow: 0 0 10px var(--accent);
+          box-shadow: 0 0 12px 2px var(--accent);
+        }
+        .visual-orbit-ring.ring-2 {
+          inset: -26px;
+          border-style: dashed;
+          border-color: rgba(var(--accent-rgb), 0.12);
+          animation: orbit 32s linear infinite reverse;
+        }
+        .visual-orbit-ring.ring-2::before {
+          content: "";
+          position: absolute;
+          bottom: 8px; left: 8px;
+          width: 5px; height: 5px;
+          background: rgba(var(--accent-rgb), 0.6);
+          border-radius: 50%;
         }
         @keyframes orbit { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+        /* Live avatar dot */
+        .avatar-live-dot {
+          position: absolute;
+          top: 6px; right: 6px;
+          width: 10px; height: 10px;
+          background: #22c55e;
+          border-radius: 50%;
+          border: 2px solid var(--bg);
+          z-index: 20;
+          animation: liveDotPulse 2s ease-in-out infinite;
+        }
+        @keyframes liveDotPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+          50% { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+        }
+        /* Live dot inside cell values */
+        .cell-live-dot {
+          display: inline-block;
+          width: 6px; height: 6px;
+          background: var(--accent);
+          border-radius: 50%;
+          margin-right: 5px;
+          vertical-align: middle;
+          animation: liveDotPulse 2.5s ease-in-out infinite;
+          box-shadow: 0 0 6px var(--accent);
+        }
 
         .food-details-luxe {
           display: flex;

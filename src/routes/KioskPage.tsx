@@ -211,91 +211,117 @@ export function KioskPage() {
       )}
 
       <section className="hero-panel receiver-hero glass-panel">
-        <div className="hero-copy">
-          <p className="eyebrow">{t("receiverEyebrow")}</p>
-          <div className="hero-top-row">
-            <h2>
-              {displayDonation 
-                ? (displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)) 
-                : t("noDonation")}
-            </h2>
-          </div>
-          <p>{t("receiverBody")}</p>
-          <div className="hero-actions-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <div className="metric-chip-row">
-              <StatusPill value={currentLocker.occupancyState} tone={donation ? "warning" : "success"} />
-              <StatusPill value={calculatedQualityScore} tone={isFaulted ? "danger" : (calculatedQualityScore < 30 ? "danger" : "success")} />
-              <StatusPill value={telemetry.sensorHealth} tone={telemetry.sensorHealth === "healthy" ? "success" : "warning"} />
-            </div>
-            {state.isAdminAuthenticated && (
-              <button 
-                className="secondary-button mini-action" 
-                onClick={() => dispatch({ type: "set-admin-auth", value: false })}
-                style={{ fontSize: '0.65rem', padding: '0.4rem 0.8rem' }}
-              >
-                ADMIN SIGN OUT
-              </button>
-            )}
-          </div>
-          {state.syncMessage ? <div className="status-banner">{state.syncMessage}</div> : null}
+        <div className="hero-copy hero-copy-redesign">
 
-          {/* ── Food Quality Score — embedded in Receiver Dashboard ── */}
-          <div className="hqe-wrap">
-            <div className="hqe-divider" />
-            <div className="hqe-header-row">
-              <div className="hqe-label-group">
-                <p className="hqe-label">FOOD QUALITY SCORE</p>
-                <div className="hqe-live-badge"><span className="hqe-dot" />LIVE</div>
-              </div>
-              <div className="hqe-safety-chip"><span>🛡️</span>SAFETY VERIFIED</div>
+          {/* ── Top identity row ── */}
+          <div className="hrd-identity-row">
+            <div className="hrd-eyebrow-stack">
+              <span className="hrd-system-label">RECEIVER DASHBOARD</span>
+              <div className="hrd-live-chip"><span className="hrd-live-dot" />LIVE</div>
             </div>
-            <div className="hqe-body">
-              <div className="hqe-gauge-col">
+            <div className="hrd-pill-row">
+              <StatusPill value={currentLocker.occupancyState} tone={donation ? "warning" : "success"} />
+              <StatusPill value={telemetry.sensorHealth} tone={telemetry.sensorHealth === "healthy" ? "success" : "warning"} />
+              {state.isAdminAuthenticated && (
+                <button className="hrd-admin-out" onClick={() => dispatch({ type: "set-admin-auth", value: false })}>SIGN OUT</button>
+              )}
+            </div>
+          </div>
+
+          {/* ── Food Name ── */}
+          <div className="hrd-food-name-row">
+            <h2 className="hrd-food-name">
+              {displayDonation
+                ? displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)
+                : "No Item"}
+            </h2>
+            <div className="hrd-safety-chip"><span>🛡️</span>SAFETY VERIFIED</div>
+          </div>
+
+          {/* ── QUALITY INDEX — Prominent Hero Block ── */}
+          <div className="hrd-qi-hero prominent-hero">
+            {/* Massive centered gauge */}
+            <div className="hrd-gauge-master">
+              <div className="hrd-score-ring-wrap">
                 <QualityGauge hoursRemaining={displayHoursRemaining} totalDuration={MAX_SHELF_LIFE} />
               </div>
-              <div className="hqe-data-col">
-                <div className="hqe-time-block">
-                  <span className="hqe-hours">{displayHoursRemaining > 0 ? displayHoursRemaining.toFixed(1) : '—'}</span>
-                  <span className="hqe-hrs-unit">{t("hoursRemaining") || "hrs remaining"}</span>
+            </div>
+
+            {/* Streamlined data row beneath gauge */}
+            <div className="hrd-qi-data-refined">
+              <div className="hrd-data-grid">
+                <div className="hrd-data-cell">
+                  <span className="hrd-cell-label">TIME REMAINING</span>
+                  <div className="hrd-hours-block">
+                    <span className="hrd-hours-num">{displayHoursRemaining > 0 ? displayHoursRemaining.toFixed(1) : "—"}</span>
+                    <span className="hrd-hours-unit">hrs</span>
+                  </div>
                 </div>
-                {selectedDeadline && (
-                  <div className="hqe-countdown-row">
-                    <span>⏳</span>
-                    <strong className="hqe-countdown-val">{formatCountdown(selectedDeadline.absoluteIso)}</strong>
+
+                <div className="hrd-data-cell">
+                  <span className="hrd-cell-label">FRESHNESS STATE</span>
+                  <div className={`hrd-status-badge-new ${qualityStage}`}>
+                    <span className="hrd-status-dot" />
+                    {qualityStage === "spoiled" ? "Expired" : qualityStage === "warning" ? "Expiring Soon" : "Fresh"}
                   </div>
-                )}
-                {selectedDeadline && (
-                  <div className="hqe-expiry-row">
-                    <span>📅</span>
-                    <span className="hqe-expiry-val">{formatDateTime(selectedDeadline.absoluteIso)}</span>
-                  </div>
-                )}
-                {!selectedDeadline && (
-                  <div className="hqe-expiry-row" style={{ opacity: 0.45 }}>
-                    <span>📅</span>
-                    <span className="hqe-expiry-val">No active donation</span>
-                  </div>
-                )}
-                {recommendedActions.length > 0 && (
-                  <div className="hqe-actions">
-                    <p className="hqe-actions-label">Recommended Actions</p>
-                    <div className="hqe-action-tags">
-                      {recommendedActions.map((action, idx) => (
-                        <span key={action} className="hqe-action-tag" style={{ animationDelay: `${idx * 0.1}s` }}>
-                          <span className="hqe-tag-dot" />{action}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                </div>
+
+                <div className="hrd-data-cell">
+                  <span className="hrd-cell-label">EXPIRY DATE</span>
+                  <span className="hrd-expiry-text-new">
+                    {selectedDeadline ? formatDateTime(selectedDeadline.absoluteIso) : "N/A"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress bar integrated at the bottom of the hero */}
+              <div className="hrd-freshness-bar-wrap">
+                <div className="hrd-freshness-bar-track">
+                  <div
+                    className="hrd-freshness-bar-fill"
+                    style={{
+                      width: `${calculatedQualityScore}%`,
+                      background: calculatedQualityScore < 30
+                        ? "linear-gradient(90deg,#ef4444,#dc2626)"
+                        : calculatedQualityScore < 60
+                        ? "linear-gradient(90deg,#f59e0b,#d97706)"
+                        : "linear-gradient(90deg,#22c55e,#16a34a)"
+                    }}
+                  />
+                </div>
+                <div className="hrd-bar-labels">
+                  <span>SPOILED</span>
+                  <span>OPTIMAL</span>
+                  <span>FRESH</span>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* ── Recommended Actions ── */}
+          {recommendedActions.length > 0 && (
+            <div className="hrd-actions-block">
+              <p className="hrd-actions-label">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                RECOMMENDED ACTIONS
+              </p>
+              <ul className="hrd-actions-list">
+                {recommendedActions.map((action, idx) => (
+                  <li key={action} className="hrd-action-item" style={{ animationDelay: `${idx * 0.08}s` }}>
+                    <span className="hrd-action-bullet" />
+                    {action}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {state.syncMessage && <div className="status-banner">{state.syncMessage}</div>}
         </div>
-        <FoodHeroV2 
-          donation={donation} 
-          items={state.donationHistory} 
-          onActiveItemChange={setSelectedDonation} 
+        <FoodHeroV2
+          donation={donation}
+          items={state.donationHistory.filter(d => d.lockerId === currentLocker.lockerId)}
+          onActiveItemChange={setSelectedDonation}
           onPrevLocker={() => navigateLocker(-1)}
           onNextLocker={() => navigateLocker(1)}
         />
@@ -404,10 +430,350 @@ export function KioskPage() {
 
 
       <style>{`
-        /* ── Food Quality Score Embed in Receiver Hero ── */
-        .hqe-wrap {
-          margin-top: 1.75rem;
+        /* ══════════════════════════════════════════════════
+           RECEIVER HERO — REDESIGNED LEFT PANEL
+           ══════════════════════════════════════════════════ */
+        .hero-copy-redesign {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          padding-right: 0.5rem;
         }
+
+        /* Identity Row */
+        .hrd-identity-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: nowrap;
+          gap: 0.75rem;
+          min-height: 28px;
+        }
+        .hrd-eyebrow-stack {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+        .hrd-system-label {
+          font-size: 0.6rem;
+          font-weight: 900;
+          letter-spacing: 0.18em;
+          color: var(--accent);
+          text-transform: uppercase;
+        }
+        .hrd-live-chip {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          background: rgba(244,63,94,0.12);
+          color: #f43f5e;
+          border: 1px solid rgba(244,63,94,0.25);
+          padding: 0.2rem 0.55rem;
+          border-radius: 6px;
+          font-size: 0.55rem;
+          font-weight: 900;
+          letter-spacing: 0.1em;
+        }
+        .hrd-live-dot {
+          width: 5px; height: 5px;
+          background: #f43f5e;
+          border-radius: 50%;
+          animation: blink 1s infinite;
+        }
+        .hrd-pill-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: nowrap;
+          overflow: hidden;
+          flex-shrink: 1;
+        }
+        .hrd-admin-out {
+          font-size: 0.6rem;
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          padding: 0.3rem 0.75rem;
+          border-radius: 99px;
+          border: 1px solid rgba(239,68,68,0.35);
+          background: rgba(239,68,68,0.08);
+          color: #ef4444;
+          cursor: pointer;
+          transition: all 0.25s ease;
+        }
+        .hrd-admin-out:hover { background: rgba(239,68,68,0.18); }
+
+        /* Food name */
+        .hrd-food-name-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 1rem;
+          flex-wrap: nowrap;
+          min-height: 3.5rem;
+        }
+        .hrd-food-name {
+          font-size: clamp(2.2rem, 5vw, 3.5rem);
+          font-weight: 900;
+          letter-spacing: -0.05em;
+          line-height: 1;
+          margin: 0;
+          color: var(--text);
+          background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .hrd-safety-chip {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          background: rgba(var(--accent-rgb),0.08);
+          border: 1px solid rgba(var(--accent-rgb),0.25);
+          padding: 0.35rem 0.85rem;
+          border-radius: 99px;
+          font-size: 0.6rem;
+          font-weight: 800;
+          color: var(--accent);
+          letter-spacing: 0.08em;
+          white-space: nowrap;
+        }
+
+        /* ── QUALITY INDEX PROMINENT HERO ── */
+        .hrd-qi-hero.prominent-hero {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0;
+          padding: 2.5rem 2rem 2rem;
+          background: rgba(var(--accent-rgb), 0.05);
+          border: 1px solid rgba(var(--accent-rgb), 0.15);
+          border-radius: 32px;
+          backdrop-filter: blur(20px);
+          position: relative;
+          overflow: hidden;
+          box-shadow: 
+            0 20px 50px rgba(0,0,0,0.1),
+            inset 0 0 100px rgba(var(--accent-rgb), 0.05);
+        }
+
+        .hrd-qi-hero.prominent-hero::after {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background: radial-gradient(circle at center, rgba(var(--accent-rgb), 0.1) 0%, transparent 50%);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .hrd-gauge-master {
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          margin-bottom: 1rem;
+          filter: drop-shadow(0 0 30px rgba(var(--accent-rgb), 0.2));
+        }
+
+        .hrd-score-ring-wrap {
+          width: 280px; /* Massive Gauge */
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+
+        /* Scale internals for prominence */
+        .hrd-score-ring-wrap .quality-gauge-premium {
+          max-width: 280px;
+          margin: 0;
+        }
+        .hrd-score-ring-wrap .score-value-premium {
+          font-size: 3.5rem !important;
+          font-weight: 950 !important;
+        }
+        .hrd-score-ring-wrap .score-label-premium {
+          font-size: 0.5rem !important;
+          letter-spacing: 0.4em !important;
+          margin-top: 8px !important;
+        }
+        .hrd-score-ring-wrap .gauge-score-overlay-luxe {
+          /* Centering is handled by top: 78.5% in base component */
+        }
+
+        /* Data Row Refined */
+        .hrd-qi-data-refined {
+          width: 100%;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+          margin-top: 1rem;
+        }
+
+        .hrd-data-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 1rem;
+          border-top: 1px solid rgba(255,255,255,0.06);
+          padding-top: 1.5rem;
+        }
+
+        .hrd-data-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+          align-items: center;
+          text-align: center;
+        }
+
+        .hrd-cell-label {
+          font-size: 0.5rem;
+          font-weight: 900;
+          letter-spacing: 0.15em;
+          color: var(--text-muted);
+          text-transform: uppercase;
+        }
+
+        .hrd-hours-block {
+          display: flex;
+          align-items: baseline;
+          gap: 0.25rem;
+        }
+        .hrd-hours-num {
+          font-size: 1.75rem;
+          font-weight: 900;
+          line-height: 1;
+          color: var(--text);
+          font-family: var(--font-mono, monospace);
+        }
+        .hrd-hours-unit {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--text-muted);
+        }
+
+        .hrd-status-badge-new {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.35rem 0.75rem;
+          border-radius: 8px;
+          font-size: 0.6rem;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border: 1px solid;
+        }
+        .hrd-status-badge-new.fresh { background: rgba(34,197,94,0.1); color: #22c55e; border-color: rgba(34,197,94,0.2); }
+        .hrd-status-badge-new.warning { background: rgba(245,158,11,0.1); color: #f59e0b; border-color: rgba(245,158,11,0.2); }
+        .hrd-status-badge-new.spoiled { background: rgba(239,68,68,0.1); color: #ef4444; border-color: rgba(239,68,68,0.2); }
+
+        .hrd-expiry-text-new {
+          font-size: 0.7rem;
+          font-weight: 800;
+          color: var(--text);
+          font-family: var(--font-mono, monospace);
+        }
+
+        /* Freshness bar at bottom */
+        .hrd-freshness-bar-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          background: rgba(255,255,255,0.03);
+          padding: 0.75rem 1rem;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+        .hrd-freshness-bar-track {
+          height: 6px;
+          background: rgba(255,255,255,0.07);
+          border-radius: 99px;
+          overflow: hidden;
+        }
+        .hrd-freshness-bar-fill {
+          height: 100%;
+          border-radius: 99px;
+          transition: width 1.5s cubic-bezier(0.16,1,0.3,1);
+          box-shadow: 0 0 15px currentColor;
+        }
+        .hrd-bar-labels {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.45rem;
+          font-weight: 900;
+          letter-spacing: 0.1em;
+          color: var(--text-muted);
+        }
+
+        @media (max-width: 700px) {
+          .hrd-score-ring-wrap { width: 220px; }
+          .hrd-data-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+        }
+
+        /* ── Actions Block ── */
+        .hrd-actions-block {
+          background: rgba(var(--accent-rgb),0.03);
+          border: 1px solid rgba(var(--accent-rgb),0.1);
+          border-radius: 16px;
+          padding: 1rem 1.25rem;
+        }
+        .hrd-actions-label {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.58rem;
+          font-weight: 900;
+          letter-spacing: 0.15em;
+          color: var(--accent);
+          text-transform: uppercase;
+          margin: 0 0 0.75rem;
+        }
+        .hrd-actions-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .hrd-action-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--text);
+          line-height: 1.45;
+          padding: 0.4rem 0.6rem;
+          border-radius: 8px;
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.04);
+          animation: slideInUp 0.4s ease-out both;
+          transition: background 0.2s ease;
+        }
+        .hrd-action-item:hover { background: rgba(var(--accent-rgb),0.06); }
+        .hrd-action-bullet {
+          flex-shrink: 0;
+          width: 6px;
+          height: 6px;
+          margin-top: 5px;
+          border-radius: 50%;
+          background: var(--accent);
+          opacity: 0.75;
+          box-shadow: 0 0 6px var(--accent);
+        }
+
+        @media (max-width: 700px) {
+          .hrd-qi-hero { flex-direction: column; align-items: flex-start; }
+          .hrd-food-name { font-size: 2rem; }
+        }
+
+        /* ── LEGACY hqe styles (kept for compatibility) ── */
+        .hqe-wrap { display: none; }
         .hqe-divider {
           height: 1px;
           background: var(--glass-border);

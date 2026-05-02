@@ -16,12 +16,24 @@ export function QualityGauge({ hoursRemaining, totalDuration = 24 }: QualityGaug
     setNeedleRotation(rotation);
   }, [normalizedValue]);
 
-  // Smooth color interpolation: 0 (Red) -> 0.5 (Yellow) -> 1 (Green)
+  // Smooth HSL color interpolation for a premium Cyber-Luxe feel
   const getInterpolatedColor = (val: number) => {
-    const r = val < 0.5 ? 224 : Math.round(224 - (val - 0.5) * 2 * (224 - 52));
-    const g = val < 0.5 ? Math.round(90 + val * 2 * (211 - 90)) : 211;
-    const b = val < 0.5 ? Math.round(74 + val * 2 * (153 - 74)) : 153;
-    return `rgb(${r}, ${g}, ${b})`;
+    // 0.0 (Red) -> 0.5 (Amber) -> 1.0 (Emerald)
+    let h, s, l;
+    if (val < 0.5) {
+      // Transition from Red (0) to Amber (38)
+      const ratio = val * 2;
+      h = ratio * 38;
+      s = 85 + (ratio * 10); // Subtle saturation boost
+      l = 55 + (ratio * 5);   // Subtle lightness boost
+    } else {
+      // Transition from Amber (38) to Emerald (155)
+      const ratio = (val - 0.5) * 2;
+      h = 38 + (ratio * (155 - 38));
+      s = 95 - (ratio * 15);
+      l = 60 - (ratio * 10);
+    }
+    return `hsl(${h}, ${s}%, ${l}%)`;
   };
 
   const currentColor = getInterpolatedColor(normalizedValue);
@@ -54,9 +66,9 @@ export function QualityGauge({ hoursRemaining, totalDuration = 24 }: QualityGaug
         <svg viewBox="0 0 200 140" className="quality-gauge-svg">
           <defs>
             <linearGradient id="gaugeGradientMain" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#E05A4A" />
-              <stop offset="50%" stopColor="#E8931A" />
-              <stop offset="100%" stopColor="#34D399" />
+              <stop offset="0%" stopColor="hsl(0, 85%, 55%)" />
+              <stop offset="50%" stopColor="hsl(38, 95%, 60%)" />
+              <stop offset="100%" stopColor="hsl(155, 80%, 50%)" />
             </linearGradient>
             <filter id="gaugeGlowLuxe" x="-40%" y="-40%" width="180%" height="180%">
               <feGaussianBlur stdDeviation="5" result="blur" />
@@ -132,10 +144,10 @@ export function QualityGauge({ hoursRemaining, totalDuration = 24 }: QualityGaug
             <circle cx="0" cy="0" r="12" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
           </g>
 
-          {/* Correctly Positioned Labels */}
-          <text x="20" y="132" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "var(--danger)" }}>SPOILED</text>
+          {/* Correctly Positioned Labels with harmonic colors */}
+          <text x="20" y="132" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "hsl(0, 70%, 60%)" }}>SPOILED</text>
           <text x="100" y="32" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "var(--text)" }}>OPTIMAL</text>
-          <text x="180" y="132" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "var(--accent)" }}>FRESH</text>
+          <text x="180" y="132" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "hsl(155, 70%, 50%)" }}>FRESH</text>
         </svg>
 
         <div className="gauge-score-overlay-luxe">
@@ -170,31 +182,33 @@ export function QualityGauge({ hoursRemaining, totalDuration = 24 }: QualityGaug
         }
         .gauge-score-overlay-luxe {
           position: absolute;
-          bottom: 25px;
+          top: 78.5%; /* Exact hub center Y (110/140) */
           left: 50%;
-          transform: translateX(-50%);
+          transform: translate(-50%, -50%);
           display: flex;
           flex-direction: column;
           align-items: center;
           pointer-events: none;
+          width: 100%;
         }
         .score-value-premium {
-          font-size: 3rem;
-          font-weight: 900;
-          line-height: 1;
+          font-size: 2.2rem;
+          font-weight: 950;
+          line-height: 0.8;
           font-family: 'Outfit', sans-serif;
           letter-spacing: -0.05em;
           transition: color 1s ease;
-          text-shadow: 0 4px 15px rgba(0,0,0,0.15);
+          text-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         .score-label-premium {
-          font-size: 0.5rem;
-          font-weight: 800;
+          font-size: 0.45rem;
+          font-weight: 900;
           color: var(--text-muted);
-          letter-spacing: 0.35em;
-          margin-top: 6px;
-          opacity: 0.95;
+          letter-spacing: 0.25em;
+          margin-top: 4px;
+          opacity: 0.8;
           white-space: nowrap;
+          text-transform: uppercase;
         }
         .gauge-progress-arc-luxe {
           transition: stroke 1s ease, d 2.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);

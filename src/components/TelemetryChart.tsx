@@ -20,7 +20,7 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
   const { state: appState } = useAppContext();
   const themeMode = appState.themeMode;
   const chartRef = useRef<any>(null);
-  const [selectedMetrics, setSelectedMetrics] = useState<MetricType[]>(["risk", "quality"]);
+  const [selectedMetrics, setSelectedMetrics] = useState<MetricType[]>(["risk", "quality", "temp"]);
 
   const toggleMetric = (metric: MetricType) => {
     setSelectedMetrics(prev => 
@@ -130,6 +130,7 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
         borderColor: "#3B82F6",
         borderWidth: 2,
         fill: false,
+        yAxisID: "yTemp",
         pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 10 : 3,
         pointBackgroundColor: (ctx: any) => ctx.dataIndex === 0 ? "#fff" : "#3B82F6",
         pointBorderColor: "#3B82F6",
@@ -200,7 +201,10 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
           usePointStyle: true,
           callbacks: {
             label(context: any) {
-              return ` ${context.dataset.label}: ${Math.round(context.parsed.y)}%`;
+              const label = context.dataset.label || "";
+              const value = context.parsed.y;
+              if (label.includes("Temp")) return ` ${label}: ${value.toFixed(1)}°C`;
+              return ` ${label}: ${Math.round(value)}%`;
             }
           }
         }
@@ -214,6 +218,23 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
             color: theme.muted,
             font: { family: "'Outfit', sans-serif", size: 10, weight: "bold" as const },
             callback: (value: any) => `${value}%`
+          }
+        },
+        yTemp: {
+          position: "right" as const,
+          beginAtZero: true,
+          display: selectedMetrics.includes("temp"),
+          grid: { drawOnChartArea: false },
+          ticks: {
+            color: theme.muted,
+            font: { family: "'Outfit', sans-serif", size: 10, weight: "bold" as const },
+            callback: (value: any) => `${value}°C`
+          },
+          title: {
+            display: true,
+            text: "Temperature",
+            color: theme.muted,
+            font: { family: "'Outfit', sans-serif", size: 9, weight: "900" as const }
           }
         },
         x: {

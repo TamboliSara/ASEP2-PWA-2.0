@@ -6,6 +6,7 @@ import { GradientStatusBar } from "./layout/GradientStatusBar";
 import { OfflineBanner } from "./OfflineBanner";
 import { RouteTransitionV2 } from "./RouteTransitionV2";
 import { ToastCenter } from "./ToastCenter";
+import { HelpWidget } from "./HelpWidget";
 import { useTranslation } from "../store/useTranslation";
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -108,6 +109,8 @@ export function AppShell({ children }: PropsWithChildren) {
       <main className="shell-content">
         {children}
       </main>
+
+      <HelpWidget />
     </div>
   );
 }
