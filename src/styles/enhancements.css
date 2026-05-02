@@ -2441,7 +2441,7 @@ input:focus::placeholder {
 /* --- STATUS BAR & NAVIGATION (LUXE REFINEMENT) --- */
 
 .shell-header.header-scrolled {
-  top: 0.75rem;
+  top: 0.5rem;
   padding: 0.75rem 1.5rem;
   border-radius: 16px;
   background: color-mix(in srgb, var(--chrome-bg) 95%, transparent);

@@ -41,6 +41,8 @@ export function ModeSelectPage() {
     [t]
   );
 
+    const anyAvailable = state.lockers.some(l => !l.activeDonation);
+
   return (
     <div className="page-grid mode-select-grid">
       <Hero />
@@ -60,7 +62,7 @@ export function ModeSelectPage() {
         }}
       >
         <motion.div 
-          className={`mode-card-luxe ${!currentLocker.activeDonation ? "is-available" : "is-busy"}`}
+          className={`mode-card-luxe donor-card-premium ${anyAvailable ? "is-available" : "is-busy"}`}
           variants={{
             hidden: { opacity: 0, x: -20 },
             show: { opacity: 1, x: 0 }
@@ -73,18 +75,33 @@ export function ModeSelectPage() {
           <div className="mode-card-info">
             <div className="card-eyebrow">{t("donorModeTagline")}</div>
             <h3>{t("donorModeTitle")}</h3>
-            <div className={`availability-status ${currentLocker.activeDonation ? "is-busy" : "is-ready"}`}>
+            <div className={`availability-status ${anyAvailable ? "is-ready" : "is-busy"}`}>
               <span className="status-dot" />
-              {currentLocker.activeDonation ? t("lockerOccupied") : t("lockerAvailable")}
+              {anyAvailable ? t("lockerAvailable") : t("lockerOccupied")}
             </div>
           </div>
           <div className="mode-card-action">
             <SlideConfirm
               label={t("slideToDonor")}
               completedLabel={t("donorModeReady")}
-              disabled={!!currentLocker.activeDonation}
+              disabled={false}
               onConfirm={() => {
-                dispatch({ type: "set-sync-message", message: t("modeArmedDonor") });
+                let targetLockerId = currentLocker.lockerId;
+                
+                if (currentLocker.activeDonation) {
+                  const emptyLocker = state.lockers.find(l => !l.activeDonation);
+                  if (emptyLocker) {
+                    targetLockerId = emptyLocker.lockerId;
+                    dispatch({ type: "select-locker", id: targetLockerId });
+                    dispatch({ type: "set-sync-message", message: `Redirecting to available SAFE ${targetLockerId.split('-')[1].toUpperCase()}...` });
+                  } else {
+                    dispatch({ type: "set-sync-message", message: "All units are currently occupied. Please try again later." });
+                    return; // Don't navigate if everything is full
+                  }
+                } else {
+                  dispatch({ type: "set-sync-message", message: t("modeArmedDonor") });
+                }
+                
                 navigate("/donate");
               }}
             />
@@ -92,7 +109,7 @@ export function ModeSelectPage() {
         </motion.div>
 
         <motion.div 
-          className={`mode-card-luxe ${currentLocker.activeDonation ? "is-available" : "is-locked"}`}
+          className={`mode-card-luxe receiver-card-premium ${currentLocker.activeDonation ? "is-available" : "is-locked"}`}
           variants={{
             hidden: { opacity: 0, x: -20 },
             show: { opacity: 1, x: 0 }
@@ -114,7 +131,7 @@ export function ModeSelectPage() {
             <SlideConfirm
               label={t("slideToReceiver")}
               completedLabel={t("receiverModeReady")}
-              disabled={!currentLocker.activeDonation}
+              disabled={false}
               onConfirm={() => {
                 dispatch({
                   type: "set-sync-message",
@@ -122,9 +139,7 @@ export function ModeSelectPage() {
                     ? t("modeArmedReceiver")
                     : t("modeReceiverLocked")
                 });
-                if (currentLocker.activeDonation) {
-                  navigate("/receive");
-                }
+                navigate("/receive");
               }}
             />
           </div>

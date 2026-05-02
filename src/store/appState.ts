@@ -39,7 +39,7 @@ export const initialAppState: AppState = {
   themePalette: "luxury",
   hasCompletedPairing: false,
   lockers: [
-    { ...sampleLockerState, lockerId: "chamber-1", occupancyState: "occupied", activeDonation: { ...sampleDonation, id: "donation-c1", lockerId: "chamber-1", foodName: "Apples", categoryLabel: "Raw Produce", dietTag: "veg", latestQualityScore: "fresh", allergensNotes: "None" } },
+    { ...sampleLockerState, lockerId: "chamber-1", occupancyState: "empty" },
     { ...sampleLockerState, lockerId: "chamber-2", occupancyState: "occupied", activeDonation: { ...sampleDonation, id: "donation-c2", lockerId: "chamber-2", foodName: "Milk", categoryLabel: "Dairy", dietTag: "veg", latestQualityScore: "aging", allergensNotes: "Contains lactose" } },
     { ...sampleLockerState, lockerId: "chamber-3", occupancyState: "empty" },
     { ...sampleLockerState, lockerId: "chamber-4", occupancyState: "spoiled", activeDonation: { ...sampleDonation, id: "donation-c4", lockerId: "chamber-4", foodName: "Rice", categoryLabel: "Cooked Meal", dietTag: "veg", latestQualityScore: "spoilt", allergensNotes: "Contains peanuts. Packed at 8:00 PM." } },
@@ -102,17 +102,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         donationHistory: [],
-        lockers: state.lockers.map((l) =>
-          l.lockerId === state.selectedLockerId
-            ? {
-                ...l,
-                activeDonation: undefined,
-                occupancyState: "empty",
-                sanitizationState: "idle",
-                faultState: "none"
-              }
-            : l
-        ),
+        lockers: state.lockers.map((l) => ({
+          ...l,
+          activeDonation: undefined,
+          occupancyState: "empty",
+          sanitizationState: "idle",
+          faultState: "none"
+        })),
         syncMessage: "All donation records cleared from the kiosk."
       };
     case "reset-donation-draft":

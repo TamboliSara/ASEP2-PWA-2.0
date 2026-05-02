@@ -7,12 +7,24 @@ import { OfflineBanner } from "./OfflineBanner";
 import { RouteTransitionV2 } from "./RouteTransitionV2";
 import { ToastCenter } from "./ToastCenter";
 import { HelpWidget } from "./HelpWidget";
+import { NotificationButton } from "./NotificationButton";
+import { NotificationPanel, MOCK_NOTIFICATIONS } from "./NotificationPanel";
 import { useTranslation } from "../store/useTranslation";
 
 export function AppShell({ children }: PropsWithChildren) {
   const { t } = useTranslation();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+
+  const handleClearAll = () => {
+    setNotifications([]);
+  };
+
+  const handleCloseNotif = (id: number) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
 
   // Mouse-tracking glow effect on cards
   useEffect(() => {
@@ -103,12 +115,28 @@ export function AppShell({ children }: PropsWithChildren) {
         </div>
       </motion.header>
 
+      {/* Spacer to prevent content overlap with fixed header */}
+      <div className="header-spacer" style={{ height: 'calc(100px + 1.5rem)' }} />
+
       <OfflineBanner />
       <ToastCenter />
       
       <main className="shell-content">
         {children}
       </main>
+
+      <NotificationButton count={notifications.length} onClick={() => setShowNotification(!showNotification)} />
+
+      <AnimatePresence>
+        {showNotification && (
+          <NotificationPanel 
+            notifications={notifications}
+            onClearAll={handleClearAll}
+            onCloseNotif={handleCloseNotif}
+            onClose={() => setShowNotification(false)} 
+          />
+        )}
+      </AnimatePresence>
 
       <HelpWidget />
     </div>

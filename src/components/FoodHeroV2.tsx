@@ -422,7 +422,7 @@ export function FoodHeroV2({
                   </svg>
                   <span className="cell-label">{t("itemCount")}</span>
                 </div>
-                <span className="cell-value">{activeIndex + 1} / {heroItems?.length || 1}</span>
+                <span className="cell-value">{(heroItems?.length || 1) > 1 ? `${activeIndex + 1} / ${heroItems?.length}` : "1"}</span>
               </div>
               <div className="status-divider" />
               <div className="status-cell">

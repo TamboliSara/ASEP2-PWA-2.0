@@ -81,6 +81,10 @@ export function useLockerController() {
   }
 
   async function submitDeposit() {
+    if (currentLocker.activeDonation) {
+      dispatch({ type: "set-sync-message", message: "Unit already occupied. Only 1 item allowed." });
+      return null;
+    }
     setIsBusy(true);
 
     const donation: DonationRecord = {

@@ -3,7 +3,15 @@ import type { ChangeEvent, FormEvent } from "react";
 import { useAppContext } from "../../store/AppContext";
 import { useTranslation } from "../../store/useTranslation";
 
-export function DepositForm({ onSubmit, isBusy = false }: { onSubmit: () => Promise<void>; isBusy?: boolean }) {
+export function DepositForm({ 
+  onSubmit, 
+  isBusy = false,
+  isNaked = false 
+}: { 
+  onSubmit: () => Promise<void>; 
+  isBusy?: boolean;
+  isNaked?: boolean;
+}) {
   const { state, dispatch } = useAppContext();
   const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(1);
@@ -61,27 +69,31 @@ export function DepositForm({ onSubmit, isBusy = false }: { onSubmit: () => Prom
   }
 
   return (
-    <form className="deposit-form glass-panel-premium" onSubmit={handleSubmit}>
-      <div className="form-header-premium">
-        <div className="step-indicator-luxe">
+    <form 
+      className={`deposit-form ${isNaked ? "is-naked" : "glass-panel-premium"}`} 
+      onSubmit={handleSubmit}
+      style={isNaked ? { background: 'none', border: 'none', boxShadow: 'none', padding: '1rem 1rem' } : {}}
+    >
+      <div className="form-header-premium" style={{ marginBottom: '1.5rem' }}>
+        <div className="step-indicator-luxe" style={{ marginBottom: '1.5rem', maxWidth: '360px' }}>
           {[1, 2, 3].map((s) => (
-            <div key={s} className={`step-dot-luxe ${currentStep === s ? "is-active" : s < currentStep ? "is-complete" : ""}`}>
+            <div key={s} className={`step-dot-luxe ${currentStep === s ? "is-active" : s < currentStep ? "is-complete" : ""}`} style={{ width: '36px', height: '36px', fontSize: '0.9rem' }}>
               <div className="dot-core">{s}</div>
               <div className="dot-glow" />
             </div>
           ))}
-          <div className="step-progress-line">
+          <div className="step-progress-line" style={{ left: '18px', right: '18px' }}>
             <div className="progress-fill" style={{ width: `${((currentStep - 1) / 2) * 100}%` }} />
           </div>
         </div>
         <div className="form-heading-luxe">
           <p className="eyebrow-accent">{t("step") || "Step"} {currentStep} of 3</p>
-          <h2 className="gradient-text-luxe">
+          <h2 className="gradient-text-luxe" style={{ fontSize: '1.75rem', marginBottom: '0.25rem' }}>
             {currentStep === 1 ? t("foodDetails") || "Food Details" : 
              currentStep === 2 ? t("allergyInfo") || "Safety & Allergens" : 
              t("confirmDeposit") || "Finalize Deposit"}
           </h2>
-          <p className="heading-subtext">
+          <p className="heading-subtext" style={{ fontSize: '0.95rem' }}>
             {currentStep === 1 ? t("foodDetailsBody") || "Tell us what you are sharing today." :
              currentStep === 2 ? t("allergyInfoBody") || "Important safety information for receivers." :
              t("confirmDepositBody") || "Review your donation and complete the deposit."}
@@ -199,14 +211,14 @@ export function DepositForm({ onSubmit, isBusy = false }: { onSubmit: () => Prom
         )}
       </div>
 
-      <div className="form-actions-luxe">
+      <div className="form-actions-luxe" style={{ marginTop: '2rem' }}>
         {currentStep > 1 && (
-          <button className="luxe-secondary-button" type="button" onClick={prevStep} disabled={isBusy}>
+          <button className="luxe-secondary-button" type="button" onClick={prevStep} disabled={isBusy} style={{ padding: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
             <span className="btn-icon">←</span>
             {t("back") || "Back"}
           </button>
         )}
-        <button className="luxe-primary-button" type="submit" disabled={isBusy}>
+        <button className="luxe-primary-button" type="submit" disabled={isBusy} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
           {isBusy ? t("submittingDeposit") : currentStep === 3 ? t("completeDeposit") || "Complete Deposit" : t("continue") || "Continue"}
           <span className="btn-icon">→</span>
         </button>
@@ -214,4 +226,3 @@ export function DepositForm({ onSubmit, isBusy = false }: { onSubmit: () => Prom
     </form>
   );
 }
-

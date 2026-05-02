@@ -320,7 +320,6 @@ export function KioskPage() {
         </div>
         <FoodHeroV2
           donation={donation}
-          items={state.donationHistory.filter(d => d.lockerId === currentLocker.lockerId)}
           onActiveItemChange={setSelectedDonation}
           onPrevLocker={() => navigateLocker(-1)}
           onNextLocker={() => navigateLocker(1)}

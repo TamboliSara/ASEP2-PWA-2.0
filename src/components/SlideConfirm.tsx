@@ -113,22 +113,24 @@ export function SlideConfirm({ label, completedLabel = "Confirmed", disabled, on
         .premium-slider-container {
           position: relative;
           width: 100%;
-          height: 60px;
-          background: rgba(0, 0, 0, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          border-radius: 30px;
+          height: 64px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 32px;
           display: flex;
           align-items: center;
-          padding: 4px;
+          padding: 6px;
           overflow: hidden;
           backdrop-filter: blur(20px);
           user-select: none;
-          box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
+          box-shadow: 
+            inset 0 4px 12px rgba(0, 0, 0, 0.2),
+            0 1px 0 rgba(255, 255, 255, 0.05);
         }
 
         :root[data-theme-mode="light"] .premium-slider-container {
-          background: rgba(255, 255, 255, 0.4);
-          border-color: rgba(0, 0, 0, 0.05);
+          background: rgba(15, 23, 42, 0.05);
+          border-color: rgba(15, 23, 42, 0.08);
         }
 
         .slider-progress-fill {
@@ -137,7 +139,7 @@ export function SlideConfirm({ label, completedLabel = "Confirmed", disabled, on
           top: 0;
           bottom: 0;
           z-index: 0;
-          border-radius: 30px;
+          border-radius: 32px;
           transition: background-color 0.3s ease;
         }
 
@@ -148,25 +150,25 @@ export function SlideConfirm({ label, completedLabel = "Confirmed", disabled, on
           align-items: center;
           justify-content: center;
           z-index: 1;
-          padding: 0 20px 0 60px;
+          padding: 0 20px 0 64px;
           pointer-events: none;
         }
 
         .slider-label-text {
-          font-size: 0.7rem;
-          font-weight: 900;
+          font-size: 0.65rem;
+          font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 0.2em;
+          letter-spacing: 0.15em;
           color: var(--text);
-          opacity: 0.6;
+          opacity: 0.5;
         }
 
         .label-shimmer {
           position: absolute;
           inset: 0;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+          background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.2), transparent);
           background-size: 200% 100%;
-          animation: shimmer 2.5s infinite linear;
+          animation: shimmer 3s infinite linear;
           mix-blend-mode: overlay;
         }
 
@@ -179,14 +181,14 @@ export function SlideConfirm({ label, completedLabel = "Confirmed", disabled, on
           width: 52px;
           height: 52px;
           background: var(--accent);
-          border-radius: 26px;
+          border-radius: 50%;
           cursor: grab;
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 3;
           box-shadow: 
-            0 4px 15px rgba(var(--accent-rgb), 0.4),
+            0 8px 24px rgba(var(--accent-rgb), 0.5),
             inset 0 2px 2px rgba(255, 255, 255, 0.4);
           position: relative;
         }
@@ -203,9 +205,9 @@ export function SlideConfirm({ label, completedLabel = "Confirmed", disabled, on
 
         .thumb-aura {
           position: absolute;
-          inset: -4px;
+          inset: -6px;
           background: var(--accent);
-          filter: blur(12px);
+          filter: blur(16px);
           border-radius: 50%;
           z-index: 1;
           pointer-events: none;
@@ -216,7 +218,8 @@ export function SlideConfirm({ label, completedLabel = "Confirmed", disabled, on
         }
 
         .premium-slider-container.is-disabled {
-          opacity: 0.3;
+          opacity: 0.4;
+          filter: grayscale(0.5);
           pointer-events: none;
         }
       `}</style>

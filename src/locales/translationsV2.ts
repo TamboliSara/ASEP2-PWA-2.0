@@ -39,8 +39,8 @@ export const translationsV2: Record<LocaleCode, TranslationDictionary> = {
     modeBody: "Deposit mode records donor details privately before unlock. Receiver mode only opens when an active donation is already registered in the locker.",
     donorModeReady: "Donor mode ready",
     receiverModeReady: "Receiver mode ready",
-    slideToDonor: "Slide to enter donor mode",
-    slideToReceiver: "Slide to enter receiver mode",
+    slideToDonor: "SLIDE TO ENTER DONOR MODE",
+    slideToReceiver: "SLIDE TO ENTER RECEIVER MODE",
     currentDonation: "Current donation",
     lockerState: "Locker state",
     fleetRecords: "Cloud Sync Status",
@@ -62,9 +62,9 @@ export const translationsV2: Record<LocaleCode, TranslationDictionary> = {
     receiverDisabled: "Receiver unlock disabled",
     receiverRule: "Receiver mode only unlocks when an active donation already exists in the locker record.",
     donorModeTitle: "Donate Food",
-    donorModeTagline: "Tap to register a new donation",
+    donorModeTagline: "TAP TO REGISTER A NEW DONATION",
     receiverModeTitle: "Receive Food",
-    receiverModeTagline: "Pick up shared meals from the community",
+    receiverModeTagline: "PICK UP SHARED MEALS FROM THE COMMUNITY",
     lockerOccupied: "Locker Occupied",
     lockerAvailable: "Locker Available",
     donationReady: "Donation Ready",
@@ -103,7 +103,10 @@ export const translationsV2: Record<LocaleCode, TranslationDictionary> = {
     itemCount: "Item",
     sanitary: "Sanitary",
     certified: "Certified",
-    none: "None"
+    none: "None",
+    unitFull: "Unit is Occupied",
+    unitFullBody: "This SAFE unit already contains a food item. To protect food safety and prevent cross-contamination, only one item is permitted per compartment.",
+    viewActiveDonation: "View Active Donation"
   },
   hi: {
     brand: "सेफ (SAFE)",
@@ -190,7 +193,10 @@ export const translationsV2: Record<LocaleCode, TranslationDictionary> = {
     verified: "सत्यापित",
     itemCount: "आइटम",
     sanitary: "स्वच्छता",
-    certified: "प्रमाणित"
+    certified: "प्रमाणित",
+    unitFull: "यूनिट भर गया है",
+    unitFullBody: "इस SAFE यूनिट में पहले से ही भोजन सामग्री है। खाद्य सुरक्षा और क्रॉस-कंटामिनेशन को रोकने के लिए, प्रति कम्पार्टमेंट केवल एक ही वस्तु की अनुमति है।",
+    viewActiveDonation: "सक्रिय दान देखें"
   },
   mr: {
     brand: "सेफ (SAFE)",
@@ -277,6 +283,9 @@ export const translationsV2: Record<LocaleCode, TranslationDictionary> = {
     verified: "सत्यापित",
     itemCount: "वस्तू",
     sanitary: "स्वच्छता",
-    certified: "प्रमाणित"
+    certified: "प्रमाणित",
+    unitFull: "युनिट भरले आहे",
+    unitFullBody: "या SAFE युनिटमध्ये आधीच अन्नपदार्थ आहे. अन्न सुरक्षा आणि क्रॉस-कंटामिनेशन रोखण्यासाठी, प्रत्येक कंपार्टमेंटमध्ये फक्त एकाच वस्तूची परवानगी आहे।",
+    viewActiveDonation: "सक्रिय दान पहा"
   }
 };
