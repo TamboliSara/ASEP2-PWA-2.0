@@ -2,13 +2,23 @@ import { useNavigate } from "react-router-dom";
 import { useLockerController } from "../features/useLockerController";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
+import { ScrollReveal } from "../components/ScrollReveal";
+import { motion } from "framer-motion";
+import { Bluetooth, ShieldCheck, Box, Activity, Database, Check, Loader2 } from "lucide-react";
 
 export function ConnectPage() {
   const navigate = useNavigate();
   const { state } = useAppContext();
   const { currentLocker, pairLocker, isBusy } = useLockerController();
   const { t } = useTranslation();
-  const assemblySteps = [t("connectStep1"), t("connectStep2"), t("connectStep3"), t("connectStep4"), t("connectStep5")];
+  
+  const steps = [
+    { text: t("connectStep1"), icon: Box },
+    { text: t("connectStep2"), icon: Activity },
+    { text: t("connectStep3"), icon: Bluetooth },
+    { text: t("connectStep4"), icon: ShieldCheck },
+    { text: t("connectStep5"), icon: Database },
+  ];
 
   async function handlePair() {
     await pairLocker();
@@ -16,41 +26,99 @@ export function ConnectPage() {
   }
 
   return (
-    <section className="flow-shell connect-shell glass-panel">
-      <div className="flow-copy">
-        <p className="eyebrow">{t("connectEyebrow")}</p>
-        <h2>{t("connectTitle")}</h2>
-        <p>{t("connectBody")}</p>
-        <div className="button-stack">
-          <button className="primary-button" type="button" onClick={handlePair} disabled={isBusy}>
-            {isBusy ? t("pairingBusy") : t("connectAction")}
-          </button>
-        </div>
-        {state.syncMessage ? <p className="microcopy">{state.syncMessage}</p> : null}
+    <section className="connect-shell-luxe glass-panel-luxe">
+      {/* Ambient Decorative Elements */}
+      <div className="ambient-orbs">
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
       </div>
-      <div className="assembly-panel">
-        <div className="assembly-stage">
-          {assemblySteps.map((step, index) => {
-            const isCompleted = currentLocker.bleConnected;
-            return (
-              <article 
-                key={step} 
-                className={`assembly-step ${isCompleted ? 'is-completed' : ''}`} 
-                style={{ animationDelay: `${index * 200}ms` }}
+
+      <div className="nature-leaf-accent leaf-top-right">🍃</div>
+      <div className="nature-leaf-accent leaf-bottom-left">🌿</div>
+
+      <div className="connect-grid-luxe">
+        <ScrollReveal direction="left" className="connect-copy-luxe">
+          <div className="eyebrow-badge">
+            <span className="pulsing-dot-green" />
+            {t("connectEyebrow")}
+          </div>
+          
+          <h1 className="hero-title-luxe">
+            {t("connectTitle").split(',').map((part, i) => (
+              <span key={i} className={i === 1 ? "accent-text" : ""}>
+                {part}{i === 0 && ","}
+              </span>
+            ))}
+          </h1>
+          
+          <p className="hero-body-luxe">{t("connectBody")}</p>
+          
+          <div className="connect-actions-luxe">
+            <button 
+              className={`btn-premium ${isBusy ? 'is-loading' : ''}`} 
+              type="button" 
+              onClick={handlePair} 
+              disabled={isBusy}
+            >
+              <div className="btn-shine" />
+              {isBusy ? (
+                <Loader2 className="btn-icon animate-spin" size={22} />
+              ) : (
+                <Bluetooth className="btn-icon" size={22} />
+              )}
+              <span>{isBusy ? t("pairingBusy") : t("connectAction")}</span>
+            </button>
+            
+            {state.syncMessage && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }}
+                className="status-toast-mini"
               >
-                <div className="step-status-icon">
-                  {isCompleted ? (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  ) : (
-                    <span>{index + 1}</span>
-                  )}
-                </div>
-                <p>{step}</p>
-              </article>
-            );
-          })}
+                <Database size={14} />
+                <span>{state.syncMessage}</span>
+              </motion.div>
+            )}
+          </div>
+        </ScrollReveal>
+
+        <div className="connect-visual-luxe">
+          <div className="assembly-stepper-luxe">
+            {steps.map((step, index) => {
+              const isCompleted = currentLocker.bleConnected;
+              const Icon = step.icon;
+              
+              return (
+                <ScrollReveal 
+                  key={index} 
+                  delay={0.2 + index * 0.1} 
+                  direction="up"
+                  className={`step-card-luxe ${isCompleted ? 'is-completed' : ''}`}
+                >
+                  <div className="step-marker-luxe">
+                    <div className="step-number">{index + 1}</div>
+                    <div className="step-line" />
+                  </div>
+                  
+                  <div className="step-content-luxe">
+                    <div className="step-icon-wrapper">
+                      <Icon size={20} />
+                      {isCompleted && (
+                        <motion.div 
+                          initial={{ scale: 0 }} 
+                          animate={{ scale: 1 }} 
+                          className="step-check-badge"
+                        >
+                          <Check size={10} strokeWidth={4} />
+                        </motion.div>
+                      )}
+                    </div>
+                    <p className="step-label-luxe">{step.text}</p>
+                  </div>
+                </ScrollReveal>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>

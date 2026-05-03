@@ -17,7 +17,8 @@ export function AppProviders({ children }: PropsWithChildren) {
         ...parsed,
         lockers: parsed.lockers ?? defaultState.lockers,
         selectedLockerId: parsed.selectedLockerId ?? defaultState.selectedLockerId,
-        // Force login on refresh by resetting admin auth state
+        // Force connection and login on refresh by resetting states
+        hasCompletedPairing: false,
         isAdminAuthenticated: false
       };
     } catch {

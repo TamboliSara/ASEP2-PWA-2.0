@@ -91,7 +91,7 @@ export function FoodHealthCardPremium({
     text: isDarkMode ? '#FFFFFF' : '#0F172A',
     textMuted: isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(15, 23, 42, 0.6)',
     risk: '#FF3D3D',
-    quality: isDarkMode ? '#8B5CF6' : '#6D28D9',
+    quality: isDarkMode ? '#10B981' : '#059669',
     gas: '#F59E0B',
     temp: '#3B82F6',
   };
@@ -244,29 +244,36 @@ export function FoodHealthCardPremium({
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative rounded-[2rem] overflow-hidden group shadow-xl transition-all duration-500 ${isCompact ? 'p-5 md:p-6' : 'p-8 md:p-10'} ${className}`}
+      className={`nature-card-redesign relative rounded-[2rem] overflow-hidden group transition-all duration-500 ${isCompact ? 'p-5 md:p-6' : 'p-8 md:p-10'} ${className}`}
       style={{
-        background: isDarkMode 
-          ? `linear-gradient(135deg, ${colors.panel} 0%, ${colors.panelElevated} 100%)`
-          : `linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%)`,
-        border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
         zIndex: 1,
         isolation: 'isolate'
       }}
     >
+      {/* Nature Background Elements */}
+      <div className="nature-waves" style={{ opacity: isDarkMode ? 0.3 : 0.6 }}>
+        <div className="nature-wave nature-wave-1" />
+        <div className="nature-wave nature-wave-2" />
+      </div>
+
+      <div className="nature-leaf-accent" style={{ top: '15px', right: '40px', transform: 'rotate(15deg)', opacity: 0.15 }}>🍃</div>
+      <div className="nature-leaf-accent" style={{ bottom: '20px', left: '20px', transform: 'rotate(-45deg)', opacity: 0.15 }}>🌿</div>
+
+      {/* Technical Corner Marks */}
+
       {/* Background Polish */}
       <div className={`absolute inset-0 opacity-[0.02] pointer-events-none mix-blend-overlay ${isDarkMode ? "bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" : "bg-[url('https://www.transparenttextures.com/patterns/white-diamond.png')]"}`} />
       
       {/* Header Section */}
       <div className={`relative z-10 flex flex-col lg:flex-row justify-between items-start gap-4 ${isCompact ? 'mb-6' : 'mb-10'}`}>
         <div className="flex items-center gap-4">
-          <div className={`rounded-xl flex items-center justify-center shadow-md ${isDarkMode ? 'bg-accent/10 border border-accent/20' : 'bg-white border border-accent/15'}`}>
+          <div className={`rounded-xl flex items-center justify-center shadow-md ${isDarkMode ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-white border border-emerald-500/15'}`}>
             <div className={`${isCompact ? 'p-2.5' : 'p-3.5'}`}>
-               <ShieldCheck className={`${isCompact ? 'w-6 h-6' : 'w-8 h-8'} text-accent animate-pulse`} />
+               <ShieldCheck className={`${isCompact ? 'w-6 h-6' : 'w-8 h-8'} text-emerald-500 animate-pulse`} />
             </div>
           </div>
           <div className="space-y-0.5">
-            <span className={`text-[9px] font-black tracking-[0.4em] uppercase block ${isDarkMode ? 'text-accent/80' : 'text-accent'}`}>
+            <span className={`text-[9px] font-black tracking-[0.4em] uppercase block ${isDarkMode ? 'text-emerald-400/80' : 'text-emerald-600'}`}>
               [INTERACTIVE_DIAGNOSTICS]
             </span>
             <h2 className={`${isCompact ? 'text-xl md:text-2xl' : 'text-3xl md:text-4xl'} font-black tracking-tight`} style={{ color: colors.text }}>
@@ -289,8 +296,8 @@ export function FoodHealthCardPremium({
           <StatMini 
             label="QUALITY" 
             value={`${quality}%`} 
-            color={isDarkMode ? "text-purple-400" : "text-purple-600"} 
-            bg={isDarkMode ? "bg-purple-500/10" : "bg-purple-50"} 
+            color={isDarkMode ? "text-emerald-400" : "text-emerald-600"} 
+            bg={isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50"} 
             isCompact={isCompact} 
             isDarkMode={isDarkMode} 
             isActive={activeMetrics.includes('QUALITY')}
@@ -323,15 +330,15 @@ export function FoodHealthCardPremium({
       <div className={`relative z-10 grid grid-cols-1 ${isCompact ? 'lg:grid-cols-4 gap-6' : 'lg:grid-cols-3 gap-10'}`}>
         {/* Chart Area */}
         <motion.div 
-          className={`${isCompact ? 'lg:col-span-3 min-h-[350px] p-6' : 'lg:col-span-2 min-h-[480px] p-8'} relative rounded-2xl shadow-inner flex flex-col group/chart overflow-hidden`}
+          className={`${isCompact ? 'lg:col-span-3 min-h-[350px] p-6' : 'lg:col-span-2 min-h-[480px] p-8'} relative rounded-2xl shadow-inner flex flex-col group/chart overflow-hidden backdrop-blur-md`}
           style={{
-            background: colors.chartBg,
+            background: isDarkMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.4)',
             border: `1px solid ${isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'}`
           }}
         >
           <div className="flex justify-between items-center mb-6 relative z-10">
             <div className="flex items-center gap-2">
-              <Activity className="w-3.5 h-3.5 text-accent" />
+              <Activity className="w-3.5 h-3.5 text-emerald-500" />
               <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-text-muted' : 'text-slate-500'}`}>Interactive Prognosis Stream</span>
             </div>
             <div className="flex items-center gap-4">
@@ -345,10 +352,10 @@ export function FoodHealthCardPremium({
 
           <div className="mt-6 flex items-center justify-between relative z-10 pt-4 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
             <div className="flex items-center gap-2">
-              <span className="text-[9px] font-black uppercase text-accent tracking-widest">Active</span>
+              <span className="text-[9px] font-black uppercase text-emerald-500 tracking-widest">System Active</span>
               <div className="flex gap-1">
                 {[1,2,3,4].map(i => (
-                  <div key={i} className={`w-1 h-3 rounded-full ${i <= 3 ? 'bg-accent/40' : (isDarkMode ? 'bg-white/5' : 'bg-black/5')}`} />
+                  <div key={i} className={`w-1 h-3 rounded-full ${i <= 3 ? 'bg-emerald-500/40' : (isDarkMode ? 'bg-white/5' : 'bg-black/5')}`} />
                 ))}
               </div>
             </div>
@@ -359,14 +366,15 @@ export function FoodHealthCardPremium({
         <div className={`flex flex-col ${isCompact ? 'gap-4' : 'gap-6'}`}>
           {/* Estimated Shelf Life */}
           <motion.div 
-            className={`${isCompact ? 'p-6' : 'p-8'} rounded-2xl relative overflow-hidden group/shelf shadow-lg border`}
+            className={`${isCompact ? 'p-6' : 'p-8'} rounded-2xl relative overflow-hidden group/shelf shadow-lg border backdrop-blur-sm`}
             style={{
-              background: isDarkMode ? 'rgba(20, 184, 166, 0.05)' : '#FFFFFF',
-              borderColor: isDarkMode ? 'rgba(20, 184, 166, 0.15)' : 'rgba(0, 0, 0, 0.05)'
+              background: isDarkMode ? 'rgba(16, 185, 129, 0.05)' : 'rgba(255, 255, 255, 0.6)',
+              borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)'
             }}
           >
             <div className="flex justify-between items-center mb-2">
-              <span className={`text-[10px] font-black tracking-widest uppercase text-accent`}>SHELF_LIFE</span>
+              <span className={`text-[10px] font-black tracking-widest uppercase text-emerald-500`}>SHELF_LIFE</span>
+              <Clock className="w-3 h-3 text-emerald-500/50" />
             </div>
             <div className={`flex items-baseline gap-1 ${isCompact ? 'mb-4' : 'mb-6'}`}>
               <strong className={`${isCompact ? 'text-4xl' : 'text-6xl'} font-black tracking-tighter font-mono`} style={{ color: colors.text }}>{shelfLifeHours}</strong>
@@ -377,22 +385,22 @@ export function FoodHealthCardPremium({
                 initial={{ width: 0 }}
                 animate={{ width: `${(shelfLifeHours/12)*100}%` }}
                 transition={{ duration: 2, ease: [0.16, 1, 0.3, 1] }}
-                className="h-full bg-accent"
+                className="h-full bg-emerald-500"
               />
             </div>
           </motion.div>
 
           {/* AI Cognitive Insight */}
           <motion.div 
-            className={`${isCompact ? 'p-6' : 'p-8'} rounded-2xl relative overflow-hidden flex-1 shadow-lg border`}
+            className={`${isCompact ? 'p-6' : 'p-8'} rounded-2xl relative overflow-hidden flex-1 shadow-lg border backdrop-blur-sm`}
             style={{
-              background: isDarkMode ? 'rgba(255, 255, 255, 0.02)' : '#FFFFFF',
+              background: isDarkMode ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.6)',
               borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'
             }}
           >
             <div className="flex items-center gap-2 mb-4">
-              <Brain className={`w-4 h-4 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-              <span className={`text-[10px] font-black tracking-widest uppercase ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>AI_INSIGHT</span>
+              <Brain className={`w-4 h-4 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+              <span className={`text-[10px] font-black tracking-widest uppercase ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>AI_INSIGHT</span>
             </div>
             <p className={`${isCompact ? 'text-xs' : 'text-base'} font-bold leading-relaxed italic opacity-95`} style={{ color: colors.text }}>
               "{insight}"

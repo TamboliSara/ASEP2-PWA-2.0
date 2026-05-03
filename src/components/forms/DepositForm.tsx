@@ -1,16 +1,19 @@
 import { useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
+import { Shield } from "lucide-react";
 import { useAppContext } from "../../store/AppContext";
 import { useTranslation } from "../../store/useTranslation";
 
 export function DepositForm({ 
   onSubmit, 
   isBusy = false,
-  isNaked = false 
+  isNaked = false,
+  onShowSafety
 }: { 
   onSubmit: () => Promise<void>; 
   isBusy?: boolean;
   isNaked?: boolean;
+  onShowSafety?: () => void;
 }) {
   const { state, dispatch } = useAppContext();
   const { t } = useTranslation();
@@ -86,14 +89,28 @@ export function DepositForm({
             <div className="progress-fill" style={{ width: `${((currentStep - 1) / 2) * 100}%` }} />
           </div>
         </div>
-        <div className="form-heading-luxe">
-          <p className="eyebrow-accent">{t("step") || "Step"} {currentStep} of 3</p>
-          <h2 className="gradient-text-luxe" style={{ fontSize: '1.75rem', marginBottom: '0.25rem' }}>
-            {currentStep === 1 ? t("foodDetails") || "Food Details" : 
-             currentStep === 2 ? t("allergyInfo") || "Safety & Allergens" : 
-             t("confirmDeposit") || "Finalize Deposit"}
-          </h2>
-          <p className="heading-subtext" style={{ fontSize: '0.95rem' }}>
+        <div className="form-heading-luxe relative text-center">
+          <div className="flex flex-col items-center">
+            <p className="eyebrow-accent">{t("step") || "Step"} {currentStep} of 3</p>
+            <h2 className="gradient-text-luxe" style={{ fontSize: '1.75rem', marginBottom: '0.25rem' }}>
+              {currentStep === 1 ? t("foodDetails") || "Food Details" : 
+               currentStep === 2 ? t("allergyInfo") || "Safety & Allergens" : 
+               t("confirmDeposit") || "Finalize Deposit"}
+            </h2>
+          </div>
+          
+          {onShowSafety && (
+            <button 
+              type="button"
+              onClick={onShowSafety}
+              className="absolute right-0 top-1/2 -translate-y-1/2 p-2.5 rounded-xl bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20 transition-all shadow-sm"
+              title="Review Safety Guidelines"
+            >
+              <Shield className="w-5 h-5" />
+            </button>
+          )}
+
+          <p className="heading-subtext mx-auto" style={{ fontSize: '0.95rem', maxWidth: '40ch' }}>
             {currentStep === 1 ? t("foodDetailsBody") || "Tell us what you are sharing today." :
              currentStep === 2 ? t("allergyInfoBody") || "Important safety information for receivers." :
              t("confirmDepositBody") || "Review your donation and complete the deposit."}

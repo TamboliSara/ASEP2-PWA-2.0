@@ -63,6 +63,15 @@ export function QualityGauge({ hoursRemaining, totalDuration = 24 }: QualityGaug
   return (
     <div className="quality-gauge-premium">
       <div className="gauge-visual-wrapper">
+        {/* Nature Background Elements */}
+        <div className="nature-waves" style={{ opacity: 0.2, height: '60px' }}>
+          <div className="nature-wave nature-wave-1" />
+          <div className="nature-wave nature-wave-2" />
+        </div>
+        
+        <div className="nature-leaf-accent" style={{ top: '0', right: '10px', transform: 'rotate(15deg)', opacity: 0.1, fontSize: '2.5rem' }}>🍃</div>
+        <div className="nature-leaf-accent" style={{ bottom: '20px', left: '10px', transform: 'rotate(-45deg)', opacity: 0.1, fontSize: '2.5rem' }}>🌿</div>
+
         <svg viewBox="0 0 200 140" className="quality-gauge-svg">
           <defs>
             <linearGradient id="gaugeGradientMain" x1="0%" y1="0%" x2="100%" y2="0%">

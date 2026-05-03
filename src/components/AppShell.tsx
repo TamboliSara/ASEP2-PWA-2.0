@@ -10,6 +10,7 @@ import { HelpWidget } from "./HelpWidget";
 import { NotificationButton } from "./NotificationButton";
 import { NotificationPanel, MOCK_NOTIFICATIONS } from "./NotificationPanel";
 import { useTranslation } from "../store/useTranslation";
+import { ScrollProgress } from "./ScrollProgress";
 
 export function AppShell({ children }: PropsWithChildren) {
   const { t } = useTranslation();
@@ -27,6 +28,10 @@ export function AppShell({ children }: PropsWithChildren) {
   };
 
   // Mouse-tracking glow effect on cards
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [location.pathname]);
+
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
       const cards = document.querySelectorAll<HTMLElement>('.surface-card, .receiver-card, .chamber-node-luxe');
@@ -59,6 +64,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div className="app-shell">
+      <ScrollProgress />
       {/* Floating ambient orbs */}
       <div className="ambient-orbs" aria-hidden="true">
         <div className="orb orb-1" />
@@ -91,7 +97,7 @@ export function AppShell({ children }: PropsWithChildren) {
           <ul className="nav-list">
             {navItems.map((item) => (
               <li key={item.path} className="nav-item">
-                <NavLink to={item.path}>
+                <NavLink to={item.path} onClick={() => window.scrollTo({ top: 0, behavior: 'auto' })}>
                   {({ isActive }) => (
                     <div className="nav-link-content">
                       {item.label}

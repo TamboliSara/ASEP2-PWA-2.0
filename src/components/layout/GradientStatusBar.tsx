@@ -27,8 +27,8 @@ export function GradientStatusBar() {
       id: locale,
       label: locale === 'en' ? 'English' : locale === 'hi' ? 'Hindi' : 'Marathi',
       display: locale.toUpperCase(),
-      gradientFrom: locale === 'en' ? '#34d399' : locale === 'hi' ? '#fbbf24' : '#818cf8',
-      gradientTo: locale === 'en' ? '#059669' : locale === 'hi' ? '#d97706' : '#4f46e5',
+      gradientFrom: locale === 'en' ? '#14B8A6' : locale === 'hi' ? '#F59E0B' : '#6366f1',
+      gradientTo: locale === 'en' ? '#0D9488' : locale === 'hi' ? '#B45309' : '#4338ca',
       onClick: () => dispatch({ type: "set-locale", locale }),
       isActive: state.locale === locale
     })),
@@ -37,8 +37,8 @@ export function GradientStatusBar() {
       label: state.themeMode === 'dark' ? t("lightMode") : t("darkMode"),
       display: state.themeMode === 'dark' ? 'DARK' : 'LIGHT',
       icon: state.themeMode === 'dark' ? <Moon size={14} /> : <Sun size={14} />,
-      gradientFrom: state.themeMode === 'dark' ? '#475569' : '#fcd34d',
-      gradientTo: state.themeMode === 'dark' ? '#1e293b' : '#f59e0b',
+      gradientFrom: state.themeMode === 'dark' ? '#334155' : '#FCD34D',
+      gradientTo: state.themeMode === 'dark' ? '#0F172A' : '#F59E0B',
       onClick: () => dispatch({
         type: "set-theme-mode",
         themeMode: state.themeMode === "dark" ? "light" : "dark"
@@ -67,7 +67,7 @@ export function GradientStatusBar() {
             <motion.div 
               className="pill-glow"
               variants={{
-                hover: { opacity: 0.4, scale: 1.1 }
+                hover: { opacity: 0.7, scale: 1.2, filter: "blur(20px)" }
               }}
             />
             
@@ -75,7 +75,7 @@ export function GradientStatusBar() {
             <motion.div 
               className="pill-bg"
               variants={{
-                hover: { opacity: 1 }
+                hover: { opacity: 1, scale: 1.05 }
               }}
               style={{
                 opacity: isActive ? 1 : 0

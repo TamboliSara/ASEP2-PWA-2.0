@@ -97,6 +97,7 @@
   --accent: #0D9488;        /* Teal Forest */
   --accent-hover: #0F766E;
   --accent-glow: rgba(13, 148, 136, 0.15);
+  --accent-warm: #D97706;   /* Darker Saffron for light theme contrast */
   
   --line: transparent;
   --glass-border: transparent;
@@ -143,6 +144,26 @@ body,
 #root {
   margin: 0;
   min-height: 100%;
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar - Cyber-Botanical Theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%);
+  border-radius: 99px;
+  border: 2px solid var(--bg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-bright);
 }
 
 body {
@@ -4421,14 +4442,12 @@ textarea:focus {
   display: grid !important;
   grid-template-columns: repeat(2, 1fr) !important;
   grid-template-areas: 
-    "score score"
     "chart chart"
     "profile telemetry"
-    "gas retrieve"
-    "actions retrieve"
-    "logs logs" !important;
+    "gas actions"
+    "retrieve logs" !important;
   gap: 3rem !important; /* Significant gap for premium breathing room */
-  align-items: start !important;
+  align-items: stretch !important;
   width: 100%;
   margin-top: 3rem !important; /* Space from the hero panel */
 }
@@ -4464,6 +4483,11 @@ textarea:focus {
   position: relative;
   z-index: 10;
 }
+
+.full-width-section {
+  grid-column: 1 / -1 !important;
+}
+
 .receiver-card-logs { grid-area: logs !important; width: 100% !important; }
 
 .receiver-card h3 {
@@ -5469,3 +5493,113 @@ textarea:focus {
   height: 20px;
   background: var(--line);
 }
+
+/* ── NATURE-INSPIRED DASHBOARD SYSTEM (ECO-MODE) ── */
+.nature-card-redesign {
+  background: rgba(12, 14, 18, 0.85) !important;
+  backdrop-filter: blur(40px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+  border: 1px solid rgba(16, 185, 129, 0.2) !important;
+  border-radius: 32px !important;
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.4),
+    inset 0 0 40px rgba(16, 185, 129, 0.05) !important;
+  color: #F0F6FC !important;
+  padding: 2.5rem !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+:root[data-theme-mode="light"] .nature-card-redesign {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(16, 185, 129, 0.15) !important;
+  box-shadow: 
+    0 15px 35px rgba(0, 0, 0, 0.05),
+    inset 0 0 40px rgba(16, 185, 129, 0.02) !important;
+  color: #0F172A !important;
+}
+
+.nature-card-redesign::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(90deg, #10B981, #34D399, #10B981);
+  background-size: 200% auto;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 1.5px;
+  border-radius: inherit;
+  opacity: 0.3;
+  transition: opacity 0.5s ease;
+  animation: shimmer 4s linear infinite;
+}
+
+@keyframes shimmer { to { background-position: 200% center; } }
+
+.nature-card-redesign:hover {
+  transform: translateY(-8px) scale(1.01) !important;
+  border-color: rgba(16, 185, 129, 0.6) !important;
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.4) !important;
+}
+
+.nature-waves {
+  position: absolute;
+  bottom: 0; left: 0; width: 100%; height: 100px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.nature-wave {
+  position: absolute;
+  bottom: 0; left: 0; width: 200%; height: 100%;
+  background-repeat: repeat-x;
+  background-position: 0 bottom;
+  transform-origin: center bottom;
+}
+
+.nature-wave-1 {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 80'%3E%3Cpath d='M0,40 C150,20 350,60 500,40 C650,20 850,60 1000,40 L1000,80 L0,80 Z' fill='%2310B981' fill-opacity='0.1'/%3E%3C/svg%3E");
+  animation: waveFloat 20s linear infinite;
+  opacity: 0.5;
+}
+
+.nature-wave-2 {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 80'%3E%3Cpath d='M0,30 C200,50 400,10 600,30 C800,50 1000,10 1200,30 L1200,80 L0,80 Z' fill='%2334D399' fill-opacity='0.08'/%3E%3C/svg%3E");
+  animation: waveFloat 15s linear infinite reverse;
+  opacity: 0.3;
+}
+
+@keyframes waveFloat { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+.nature-leaf-accent {
+  position: absolute;
+  font-size: 1.5rem;
+  z-index: 2;
+  pointer-events: none;
+  transition: all 0.5s ease;
+  filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.2));
+}
+
+.nature-corner {
+  position: absolute;
+  width: 20px; height: 20px;
+  border: 2px solid #10B981;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.4;
+  transition: all 0.5s ease;
+}
+.nature-corner-tl { top: 15px; left: 15px; border-right: 0; border-bottom: 0; }
+.nature-corner-tr { top: 15px; right: 15px; border-left: 0; border-bottom: 0; }
+.nature-corner-bl { bottom: 15px; left: 15px; border-right: 0; border-top: 0; }
+.nature-corner-br { bottom: 15px; right: 15px; border-left: 0; border-top: 0; }
+
+.nature-card-redesign:hover .nature-corner {
+  opacity: 1; width: 30px; height: 30px;
+}
+
+:root[data-theme-mode="light"] .nature-waves { opacity: 0.7; }
+:root[data-theme-mode="light"] .nature-leaf-accent { opacity: 0.35; filter: saturate(1.5) brightness(0.8); }

@@ -37,9 +37,9 @@ export default function App() {
         <Route path="/donate" element={state.hasCompletedPairing ? <DonorPage /> : <Navigate to="/connect" replace />} />
         <Route path="/receive" element={state.hasCompletedPairing ? <KioskPage /> : <Navigate to="/connect" replace />} />
         <Route path="/public" element={<Navigate to="/receive" replace />} />
-        <Route path="/admin" element={<AdminPageV2 />} />
-        <Route path="/admin/sign-in" element={<SignInPageV2 />} />
-        <Route path="/welcome" element={<LandingPage />} />
+        <Route path="/admin" element={state.hasCompletedPairing ? <AdminPageV2 /> : <Navigate to="/connect" replace />} />
+        <Route path="/admin/sign-in" element={state.hasCompletedPairing ? <SignInPageV2 /> : <Navigate to="/connect" replace />} />
+        <Route path="/welcome" element={state.hasCompletedPairing ? <LandingPage /> : <Navigate to="/connect" replace />} />
         <Route path="/demo" element={<DemoOne />} />
         <Route path="/demo/alerts" element={<AlertDemo />} />
         <Route path="*" element={<Navigate to="/" replace />} />

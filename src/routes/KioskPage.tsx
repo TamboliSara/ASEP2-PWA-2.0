@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, ShieldCheck, MoveRight, Box, Weight, Thermometer, Droplets, Zap, Ban, Wind } from "lucide-react";
+import { AlertTriangle, ShieldCheck, MoveRight, Box, Weight, Thermometer, Droplets, Zap, Ban, Wind, Activity, Lock, X, Mail, Key, Shield } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { FoodHeroV2 } from "../components/FoodHeroV2";
 import { SlideConfirm } from "../components/SlideConfirm";
@@ -15,6 +15,8 @@ import { QualityGauge } from "../components/QualityGauge";
 import { getRecommendedActions } from "../utils/safety";
 import { formatCountdown, formatDateTime, getHoursRemaining } from "../utils/format";
 import { useAppContext } from "../store/AppContext";
+import { ScrollReveal } from "../components/ScrollReveal";
+import { TextReveal } from "../components/TextReveal";
 
 export function KioskPage() {
   const { dispatch } = useAppContext();
@@ -70,15 +72,9 @@ export function KioskPage() {
 
   const MAX_SHELF_LIFE = 48; // Standard normalization hours
 
-  const calculatedQualityScore = useMemo(() => {
-    if (dynamicHoursRemaining <= 0) return 0;
-    const score = Math.min(100, Math.round((dynamicHoursRemaining / MAX_SHELF_LIFE) * 100));
-    return score;
-  }, [dynamicHoursRemaining]);
-
-  const qualityStage = dynamicHoursRemaining <= 0 ? "spoiled" : dynamicHoursRemaining <= 4 ? "warning" : "fresh";
-  const qualityProgress = 100 - calculatedQualityScore; // For progress bars where 100% is 'full life used'
   const displayHoursRemaining = dynamicHoursRemaining > 0 ? dynamicHoursRemaining : (selectedDeadline?.hoursRemaining ?? 0);
+  const calculatedQualityScore = Math.min(100, Math.round((Math.max(0, displayHoursRemaining) / MAX_SHELF_LIFE) * 100));
+  const qualityStage = displayHoursRemaining <= 0 ? "spoiled" : displayHoursRemaining <= 4 ? "warning" : "fresh";
 
   async function handleAdminRetrieve() {
     if (state.isAdminAuthenticated) {
@@ -125,40 +121,99 @@ export function KioskPage() {
 
       {showAdminAuth && (
         <div className="admin-auth-overlay">
-          <div className="auth-modal glass-panel animate-reveal">
-            <div className="modal-header">
-              <span className="mini-icon">🔐</span>
-              <h3>Admin Authorization</h3>
-              <p>Please verify your identity to proceed with override.</p>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 30 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 30 }}
+            className="auth-modal-luxe glass-panel-premium"
+          >
+            {/* Nature Decorations */}
+            <div className="auth-nature-bg">
+              <div className="auth-leaf leaf-1">🍃</div>
+              <div className="auth-leaf leaf-2">🌿</div>
+              <div className="auth-orb" />
             </div>
-            <form onSubmit={confirmAdminAuth} className="auth-form">
-              <label>
-                <span>Email Address</span>
-                <input 
-                  type="email" 
-                  value={adminId} 
-                  onChange={(e) => setAdminId(e.target.value)} 
-                  placeholder="admin@ecolocker.local"
-                  required 
-                />
-              </label>
-              <label>
-                <span>Access Key</span>
-                <input 
-                  type="password" 
-                  value={adminPassword} 
-                  onChange={(e) => setAdminPassword(e.target.value)} 
-                  placeholder="••••••••"
-                  required 
-                />
-              </label>
-              {authError && <p className="auth-error-msg">{authError}</p>}
-              <div className="modal-actions">
-                <button type="button" className="ghost-button" onClick={() => setShowAdminAuth(false)}>Cancel</button>
-                <button type="submit" className="primary-button">Verify & Clear Unit</button>
+
+            <button className="auth-close-btn" onClick={() => setShowAdminAuth(false)}>
+              <X size={20} />
+            </button>
+
+            <div className="modal-header-luxe">
+              <div className="auth-icon-container">
+                <div className="auth-icon-ring">
+                  <Lock className="w-6 h-6 text-accent" />
+                </div>
+                <div className="auth-icon-pulse" />
+              </div>
+              <p className="auth-eyebrow">SECURITY OVERRIDE</p>
+              <h3 className="auth-title">Admin Authorization</h3>
+              <p className="auth-subtitle">Elevated privileges required for this operation.</p>
+            </div>
+
+            <form onSubmit={confirmAdminAuth} className="auth-form-luxe">
+              <div className="auth-field-group">
+                <label className="auth-field">
+                  <div className="field-label-row">
+                    <Mail size={12} className="text-accent" />
+                    <span>ADMIN IDENTIFIER</span>
+                  </div>
+                  <div className="input-wrapper-luxe">
+                    <input 
+                      type="email" 
+                      value={adminId} 
+                      onChange={(e) => setAdminId(e.target.value)} 
+                      placeholder="admin@ecolocker.local"
+                      required 
+                    />
+                    <div className="input-focus-border" />
+                  </div>
+                </label>
+
+                <label className="auth-field">
+                  <div className="field-label-row">
+                    <Key size={12} className="text-accent" />
+                    <span>ACCESS TOKEN</span>
+                  </div>
+                  <div className="input-wrapper-luxe">
+                    <input 
+                      type="password" 
+                      value={adminPassword} 
+                      onChange={(e) => setAdminPassword(e.target.value)} 
+                      placeholder="••••••••"
+                      required 
+                    />
+                    <div className="input-focus-border" />
+                  </div>
+                </label>
+              </div>
+
+              {authError && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="auth-error-luxe"
+                >
+                  <AlertTriangle size={14} />
+                  <span>{authError}</span>
+                </motion.div>
+              )}
+
+              <div className="auth-actions-luxe">
+                <button type="button" className="auth-btn-secondary" onClick={() => setShowAdminAuth(false)}>
+                  Dismiss
+                </button>
+                <button type="submit" className="auth-btn-primary">
+                  <span>Verify Authorization</span>
+                  <ShieldCheck size={18} />
+                </button>
               </div>
             </form>
-          </div>
+
+            <div className="auth-footer">
+              <Shield size={10} />
+              <span>ENCRYPTED END-TO-END SESSION</span>
+            </div>
+          </motion.div>
         </div>
       )}
 
@@ -210,222 +265,234 @@ export function KioskPage() {
         </div>
       )}
 
-      <section className="hero-panel receiver-hero glass-panel">
-        <div className="hero-copy hero-copy-redesign">
-
-          {/* ── Top identity row ── */}
-          <div className="hrd-identity-row">
-            <div className="hrd-eyebrow-stack">
-              <span className="hrd-system-label">RECEIVER DASHBOARD</span>
-              <div className="hrd-live-chip"><span className="hrd-live-dot" />LIVE</div>
-            </div>
-            <div className="hrd-pill-row">
-              <StatusPill value={currentLocker.occupancyState} tone={donation ? "warning" : "success"} />
-              <StatusPill value={telemetry.sensorHealth} tone={telemetry.sensorHealth === "healthy" ? "success" : "warning"} />
-              {state.isAdminAuthenticated && (
-                <button className="hrd-admin-out" onClick={() => dispatch({ type: "set-admin-auth", value: false })}>SIGN OUT</button>
-              )}
-            </div>
+      <ScrollReveal direction="up" distance={30}>
+        <section className="hero-panel receiver-hero nature-card-redesign">
+          {/* Nature Background Elements */}
+          <div className="nature-waves" style={{ opacity: 0.3 }}>
+            <div className="nature-wave nature-wave-1" />
+            <div className="nature-wave nature-wave-2" />
           </div>
+          
+          <div className="nature-leaf-accent" style={{ top: '40px', right: '40px', transform: 'rotate(15deg)', opacity: 0.15 }}>🍃</div>
+          <div className="nature-leaf-accent" style={{ bottom: '40px', left: '40px', transform: 'rotate(-45deg)', opacity: 0.15 }}>🌿</div>
 
-          {/* ── Food Name ── */}
-          <div className="hrd-food-name-row">
-            <h2 className="hrd-food-name">
-              {displayDonation
-                ? displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)
-                : "No Item"}
-            </h2>
-            <div className="hrd-safety-chip"><span>🛡️</span>SAFETY VERIFIED</div>
-          </div>
+          {/* Technical Corner Marks */}
 
-          {/* ── QUALITY INDEX — Prominent Hero Block ── */}
-          <div className="hrd-qi-hero prominent-hero">
-            {/* Massive centered gauge */}
-            <div className="hrd-gauge-master">
-              <div className="hrd-score-ring-wrap">
-                <QualityGauge hoursRemaining={displayHoursRemaining} totalDuration={MAX_SHELF_LIFE} />
-              </div>
-            </div>
-
-            {/* Streamlined data row beneath gauge */}
-            <div className="hrd-qi-data-refined">
-              <div className="hrd-data-grid">
-                <div className="hrd-data-cell">
-                  <span className="hrd-cell-label">TIME REMAINING</span>
-                  <div className="hrd-hours-block">
-                    <span className="hrd-hours-num">{displayHoursRemaining > 0 ? displayHoursRemaining.toFixed(1) : "—"}</span>
-                    <span className="hrd-hours-unit">hrs</span>
-                  </div>
-                </div>
-
-                <div className="hrd-data-cell">
-                  <span className="hrd-cell-label">FRESHNESS STATE</span>
-                  <div className={`hrd-status-badge-new ${qualityStage}`}>
-                    <span className="hrd-status-dot" />
-                    {qualityStage === "spoiled" ? "Expired" : qualityStage === "warning" ? "Expiring Soon" : "Fresh"}
-                  </div>
-                </div>
-
-                <div className="hrd-data-cell">
-                  <span className="hrd-cell-label">EXPIRY DATE</span>
-                  <span className="hrd-expiry-text-new">
-                    {selectedDeadline ? formatDateTime(selectedDeadline.absoluteIso) : "N/A"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Progress bar integrated at the bottom of the hero */}
-              <div className="hrd-freshness-bar-wrap">
-                <div className="hrd-freshness-bar-track">
-                  <div
-                    className="hrd-freshness-bar-fill"
-                    style={{
-                      width: `${calculatedQualityScore}%`,
-                      background: calculatedQualityScore < 30
-                        ? "linear-gradient(90deg,#ef4444,#dc2626)"
-                        : calculatedQualityScore < 60
-                        ? "linear-gradient(90deg,#f59e0b,#d97706)"
-                        : "linear-gradient(90deg,#22c55e,#16a34a)"
-                    }}
-                  />
-                </div>
-                <div className="hrd-bar-labels">
-                  <span>SPOILED</span>
-                  <span>OPTIMAL</span>
-                  <span>FRESH</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Recommended Actions ── */}
-          {recommendedActions.length > 0 && (
-            <div className="hrd-actions-block">
-              <p className="hrd-actions-label">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                RECOMMENDED ACTIONS
-              </p>
-              <ul className="hrd-actions-list">
-                {recommendedActions.map((action, idx) => (
-                  <li key={action} className="hrd-action-item" style={{ animationDelay: `${idx * 0.08}s` }}>
-                    <span className="hrd-action-bullet" />
-                    {action}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {state.syncMessage && <div className="status-banner">{state.syncMessage}</div>}
-        </div>
-        <FoodHeroV2
-          donation={donation}
-          onActiveItemChange={setSelectedDonation}
-          onPrevLocker={() => navigateLocker(-1)}
-          onNextLocker={() => navigateLocker(1)}
-        />
-      </section>
-
-      <section className="chamber-selection-grid">
-        <motion.div 
-          className="selection-header"
-          initial={{ opacity: 0, x: -20 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-        >
-
-          <p className="eyebrow-accent">UNIT COMPARTMENTS</p>
-          <h3 className="premium-h3">Select Safe to Analyze</h3>
-          <div className="header-divider-mini" />
-        </motion.div>
-
-        <motion.div 
-          className="chamber-grid-layout"
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true }}
-          variants={{
-            hidden: { opacity: 0 },
-            show: {
-              opacity: 1,
-              transition: {
-                staggerChildren: 0.05
-              }
-            }
-          }}
-        >
-          {state.lockers.map((locker, idx) => {
-            const safeNum = (idx + 1).toString().padStart(2, '0');
-            const isActive = state.selectedLockerId === locker.lockerId;
+          <div className="hero-copy hero-copy-redesign">
             
-            return (
-              <motion.button
-                key={locker.lockerId}
-                variants={{
-                  hidden: { opacity: 0, y: 20 },
-                  show: { opacity: 1, y: 0 }
-                }}
-                whileHover={{ y: -5, scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`chamber-node-luxe ${isActive ? 'active' : ''} is-${locker.occupancyState}`}
-                onClick={() => selectLocker(locker.lockerId)}
-              >
-                <div className="chamber-node-inner">
-                  <div className="chamber-node-number">{safeNum}</div>
-                  <div className="chamber-node-info">
-                    <div className="chamber-header-row">
-                      <span className="chamber-label">SAFE</span>
-                      <div className="chamber-node-tag">UNIT_{locker.lockerId.split('-')[1] || '00'}</div>
-                    </div>
-                    <strong className="chamber-id">{safeNum}</strong>
-                    
-                    <div className="chamber-status-stack">
-                      <StatusPill 
-                        value={locker.occupancyState} 
-                        tone={
-                          locker.occupancyState === 'occupied' ? 'warning' : 
-                          locker.occupancyState === 'empty' ? 'success' : 
-                          locker.occupancyState === 'spoiled' ? 'spoiled' : 
-                          'danger'
-                        } 
-                      />
-                      
-                      <AnimatePresence>
-                        {locker.occupancyState !== 'empty' && locker.occupancyState !== 'maintenance' && (
-                          <motion.div 
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            className={`quality-mini-pill ${locker.foodQualityScore}`}
-                          >
-                            <span className="dot"></span>
-                            {locker.foodQualityScore}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+            {/* ... existing content ... */}
+
+            {/* ── Top identity row ── */}
+            <div className="hrd-identity-row" style={{ position: 'relative', zIndex: 10 }}>
+              <TextReveal direction="left" distance={10} delay={0.1}>
+                <div className="hrd-eyebrow-stack">
+                  <span className="hrd-system-label">RECEIVER DASHBOARD</span>
+                  <div className="hrd-live-chip"><span className="hrd-live-dot" />LIVE</div>
+                </div>
+              </TextReveal>
+              <TextReveal direction="right" distance={10} delay={0.2}>
+                <div className="hrd-pill-row">
+                  <StatusPill value={currentLocker.occupancyState} tone={donation ? "warning" : "success"} />
+                  <StatusPill value={telemetry.sensorHealth} tone={telemetry.sensorHealth === "healthy" ? "success" : "warning"} />
+                  {state.isAdminAuthenticated && (
+                    <button className="hrd-admin-out" onClick={() => dispatch({ type: "set-admin-auth", value: false })}>SIGN OUT</button>
+                  )}
+                </div>
+              </TextReveal>
+            </div>
+
+            {/* ── Food Name ── */}
+            <div className="hrd-food-name-row" style={{ position: 'relative', zIndex: 10 }}>
+              <TextReveal direction="up" distance={15} delay={0.3}>
+                <h2 className="hrd-food-name">
+                  {displayDonation
+                    ? displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)
+                    : "No Item"}
+                </h2>
+              </TextReveal>
+              <TextReveal direction="left" distance={10} delay={0.4}>
+                <div className="hrd-safety-chip" style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10B981', color: '#10B981' }}>
+                  <span>🛡️</span>SAFETY VERIFIED
+                </div>
+              </TextReveal>
+            </div>
+
+            {/* ── QUALITY INDEX — Prominent Hero Block ── */}
+            <div className="hrd-qi-hero prominent-hero" style={{ position: 'relative', zIndex: 10 }}>
+              {/* Massive centered gauge */}
+              <div className="hrd-gauge-master">
+                <div className="hrd-score-ring-wrap">
+                  <QualityGauge hoursRemaining={displayHoursRemaining} totalDuration={MAX_SHELF_LIFE} />
+                </div>
+              </div>
+
+              {/* Streamlined data row beneath gauge */}
+              <div className="hrd-qi-data-refined">
+                <div className="hrd-data-grid">
+                  <div className="hrd-data-cell">
+                    <span className="hrd-cell-label">TIME REMAINING</span>
+                    <div className="hrd-hours-block">
+                      <span className="hrd-hours-num">{displayHoursRemaining > 0 ? displayHoursRemaining.toFixed(1) : "—"}</span>
+                      <span className="hrd-hours-unit">hrs</span>
                     </div>
                   </div>
+
+                  <div className="hrd-data-cell">
+                    <span className="hrd-cell-label">FRESHNESS STATE</span>
+                    <div className={`hrd-status-badge-new ${qualityStage}`}>
+                      {qualityStage === "fresh" ? <ShieldCheck size={10} /> : <Activity size={10} />}
+                      {qualityStage === "spoiled" ? "Expired" : qualityStage === "warning" ? "Expiring Soon" : "Fresh"}
+                    </div>
+                  </div>
+
+                  <div className="hrd-data-cell">
+                    <span className="hrd-cell-label">EXPIRY DATE</span>
+                    <span className="hrd-expiry-text-new">
+                      {selectedDeadline ? formatDateTime(selectedDeadline.absoluteIso) : "N/A"}
+                    </span>
+                  </div>
                 </div>
-                
-                {isActive && (
-                  <motion.div 
-                    layoutId="active-ring"
-                    className="chamber-active-ring"
-                    initial={false}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  />
-                )}
-                
-                <div className="chamber-node-glow" />
-                <div className="scanline-effect" />
-                <div className="corner-decor top-right" />
-                <div className="corner-decor bottom-left" />
-              </motion.button>
-            );
-          })}
-        </motion.div>
-      </section>
+
+                {/* Progress bar integrated at the bottom of the hero */}
+                <div className="hrd-freshness-bar-wrap">
+                  <div className="hrd-freshness-bar-track">
+                    <div
+                      className="hrd-freshness-bar-fill"
+                      style={{
+                        width: `${calculatedQualityScore}%`,
+                        background: calculatedQualityScore < 30
+                          ? "linear-gradient(90deg,#ef4444,#dc2626)"
+                          : calculatedQualityScore < 60
+                          ? "linear-gradient(90deg,#f59e0b,#d97706)"
+                          : "linear-gradient(90deg,#22c55e,#16a34a)"
+                      }}
+                    />
+                  </div>
+                  <div className="hrd-bar-labels">
+                    <span>SPOILED</span>
+                    <span>OPTIMAL</span>
+                    <span>FRESH</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {state.syncMessage && <div className="status-banner">{state.syncMessage}</div>}
+          </div>
+          <FoodHeroV2
+            donation={donation}
+            onActiveItemChange={setSelectedDonation}
+            onPrevLocker={() => navigateLocker(-1)}
+            onNextLocker={() => navigateLocker(1)}
+          />
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal direction="up" distance={40} delay={0.2}>
+        <section className="chamber-selection-grid">
+          <motion.div 
+            className="selection-header"
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: false }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
+            <TextReveal direction="left" distance={10} delay={0.1}>
+              <p className="eyebrow-accent">UNIT COMPARTMENTS</p>
+            </TextReveal>
+            <TextReveal direction="left" distance={15} delay={0.2}>
+              <h3 className="premium-h3">Select Safe to Analyze</h3>
+            </TextReveal>
+            <div className="header-divider-mini" />
+          </motion.div>
+
+          <motion.div 
+            className="chamber-grid-layout"
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: false }}
+            variants={{
+              hidden: { opacity: 0 },
+              show: {
+                opacity: 1,
+                transition: {
+                  staggerChildren: 0.05
+                }
+              }
+            }}
+          >
+            {state.lockers.map((locker, idx) => {
+              const safeNum = (idx + 1).toString().padStart(2, '0');
+              const isActive = state.selectedLockerId === locker.lockerId;
+              
+              return (
+                <motion.button
+                  key={locker.lockerId}
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    show: { opacity: 1, y: 0 }
+                  }}
+                  whileHover={{ y: -5, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`chamber-node-luxe ${isActive ? 'active' : ''} is-${locker.occupancyState}`}
+                  onClick={() => selectLocker(locker.lockerId)}
+                >
+                  <div className="chamber-node-inner">
+                    <div className="chamber-node-number">{safeNum}</div>
+                    <div className="chamber-node-info">
+                      <div className="chamber-header-row">
+                        <span className="chamber-label">SAFE</span>
+                        <div className="chamber-node-tag">UNIT_{locker.lockerId.split('-')[1] || '00'}</div>
+                      </div>
+                      <strong className="chamber-id">{safeNum}</strong>
+                      
+                      <div className="chamber-status-stack">
+                        <StatusPill 
+                          value={locker.occupancyState} 
+                          tone={
+                            locker.occupancyState === 'occupied' ? 'warning' : 
+                            locker.occupancyState === 'empty' ? 'success' : 
+                            locker.occupancyState === 'spoiled' ? 'spoiled' : 
+                            'danger'
+                          } 
+                        />
+                        
+                        <AnimatePresence>
+                          {locker.occupancyState !== 'empty' && locker.occupancyState !== 'maintenance' && (
+                            <motion.div 
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              className={`quality-mini-pill ${locker.foodQualityScore}`}
+                            >
+                              <Activity size={8} />
+                              {locker.foodQualityScore}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {isActive && (
+                    <motion.div 
+                      layoutId="active-ring"
+                      className="chamber-active-ring"
+                      initial={false}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  
+                  <div className="chamber-node-glow" />
+                  <div className="scanline-effect" />
+                  <div className="corner-decor top-right" />
+                  <div className="corner-decor bottom-left" />
+                </motion.button>
+              );
+            })}
+          </motion.div>
+        </section>
+      </ScrollReveal>
 
 
       <style>{`
@@ -504,23 +571,29 @@ export function KioskPage() {
         /* Food name */
         .hrd-food-name-row {
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
-          gap: 1rem;
+          gap: 1.5rem;
           flex-wrap: nowrap;
-          min-height: 3.5rem;
+          min-height: 4rem;
+          width: 100%;
         }
         .hrd-food-name {
-          font-size: clamp(2.2rem, 5vw, 3.5rem);
-          font-weight: 900;
-          letter-spacing: -0.05em;
-          line-height: 1;
+          font-size: clamp(1.8rem, 4vw, 3.2rem);
+          font-weight: 950;
+          letter-spacing: -0.04em;
+          line-height: 1.1;
           margin: 0;
           color: var(--text);
-          background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+          background: linear-gradient(135deg, var(--text) 50%, var(--accent));
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          flex: 1;
+          min-width: 0;
         }
         .hrd-safety-chip {
           display: flex;
@@ -715,10 +788,19 @@ export function KioskPage() {
 
         /* ── Actions Block ── */
         .hrd-actions-block {
-          background: rgba(var(--accent-rgb),0.03);
-          border: 1px solid rgba(var(--accent-rgb),0.1);
-          border-radius: 16px;
-          padding: 1rem 1.25rem;
+          background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.04) 0%, rgba(var(--accent-rgb), 0.01) 100%);
+          border: 1px solid rgba(var(--accent-rgb), 0.15);
+          border-left: 4px solid var(--accent);
+          border-radius: 12px 24px 24px 12px;
+          padding: 1.25rem 1.5rem;
+          position: relative;
+          overflow: hidden;
+        }
+        .hrd-actions-block::after {
+          content: "";
+          position: absolute;
+          top: 0; right: 0; width: 40px; height: 40px;
+          background: linear-gradient(45deg, transparent 50%, rgba(var(--accent-rgb), 0.1) 50%);
         }
         .hrd-actions-label {
           display: flex;
@@ -1195,154 +1277,512 @@ export function KioskPage() {
         .sg-specs-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 0.75rem;
+          gap: 1rem;
         }
         .sg-spec-card {
           display: flex;
           align-items: center;
-          gap: 0.65rem;
-          padding: 0.85rem 1rem;
-          border-radius: 14px;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid var(--glass-border);
-          transition: all 0.25s ease;
+          gap: 1rem;
+          padding: 1.1rem 1.25rem;
+          border-radius: 20px;
+          background: linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          transition: all 0.4s cubic-bezier(0.2, 1, 0.3, 1);
+          backdrop-filter: blur(12px);
+          position: relative;
+          overflow: hidden;
+        }
+        .sg-spec-card::before {
+          content: "";
+          position: absolute;
+          top: 0; left: 0; width: 100%; height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.03), transparent);
+          transform: translateX(-100%);
+          transition: transform 0.8s ease;
         }
         .sg-spec-card:hover {
-          background: rgba(var(--accent-rgb),0.06);
-          border-color: rgba(var(--accent-rgb),0.4);
-          transform: translateY(-2px);
+          background: rgba(var(--accent-rgb), 0.05);
+          border-color: rgba(var(--accent-rgb), 0.3);
+          transform: translateY(-4px) scale(1.02);
+          box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+        }
+        .sg-spec-card:hover::before {
+          transform: translateX(100%);
         }
         .sg-spec-icon-wrap {
-          width: 34px; height: 34px;
-          border-radius: 10px;
+          width: 42px; height: 42px;
+          border-radius: 14px;
           display: grid; place-items: center;
           flex-shrink: 0;
+          transition: all 0.3s ease;
+          box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        .sg-spec-card:hover .sg-spec-icon-wrap {
+          transform: rotate(10deg);
         }
         .sg-spec-icon-wrap.accent {
-          background: rgba(var(--accent-rgb),0.12);
+          background: rgba(var(--accent-rgb), 0.15);
           color: var(--accent);
+          border: 1px solid rgba(var(--accent-rgb), 0.2);
         }
         .sg-spec-icon-wrap.blue {
-          background: rgba(59,130,246,0.12);
+          background: rgba(59, 130, 246, 0.15);
           color: #60a5fa;
+          border: 1px solid rgba(59, 130, 246, 0.2);
         }
         .sg-spec-icon-wrap.purple {
-          background: rgba(139,92,246,0.12);
+          background: rgba(139, 92, 246, 0.15);
           color: #a78bfa;
+          border: 1px solid rgba(139, 92, 246, 0.2);
         }
         .sg-spec-info {
-          display: flex; flex-direction: column; gap: 0.1rem;
+          display: flex; flex-direction: column; gap: 0.15rem;
           min-width: 0;
           flex: 1;
         }
         .sg-spec-label {
-          font-size: 0.58rem;
-          font-weight: 800;
-          letter-spacing: 0.1em;
+          font-size: 0.62rem;
+          font-weight: 950;
+          letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: var(--text-muted);
-          white-space: nowrap;
+          color: var(--accent);
+          opacity: 1;
         }
         .sg-spec-value {
-          font-size: 1rem;
-          font-weight: 900;
-          color: var(--text);
+          font-size: 1.25rem;
+          font-weight: 950;
+          color: #FFFFFF;
           letter-spacing: -0.02em;
-          line-height: 1.15;
+          line-height: 1;
+          filter: drop-shadow(0 0 12px rgba(255,255,255,0.2));
         }
         .sg-spec-note {
-          font-size: 0.6rem;
-          color: var(--text-muted);
-          opacity: 0.6;
-          white-space: normal;
-          line-height: 1.3;
+          font-size: 0.65rem;
+          color: var(--text);
+          opacity: 0.95;
+          line-height: 1.2;
+          margin-top: 0.15rem;
         }
         /* Prohibited */
         .sg-prohibited-section {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 1rem;
+          padding: 1.25rem;
+          background: rgba(239, 68, 68, 0.08);
+          border-radius: 20px;
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          box-shadow: inset 0 0 30px rgba(239, 68, 68, 0.03);
         }
         .sg-prohibited-header {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.6rem;
         }
-        .sg-ban-icon { color: #f87171; }
+        .sg-ban-icon { color: #EF4444; filter: drop-shadow(0 0 5px rgba(239, 68, 68, 0.3)); }
         .sg-prohibited-label {
           font-size: 0.65rem;
           font-weight: 900;
-          letter-spacing: 0.12em;
+          letter-spacing: 0.15em;
           text-transform: uppercase;
-          color: #f87171;
+          color: #EF4444;
+          filter: brightness(1.2);
         }
         .sg-prohibited-chips {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.5rem;
+          gap: 0.65rem;
         }
         .sg-chip {
-          font-size: 0.72rem;
-          font-weight: 700;
-          padding: 0.3rem 0.8rem;
-          background: rgba(248,113,113,0.08);
-          border: 1px solid rgba(248,113,113,0.25);
-          border-radius: 99px;
-          color: #fca5a5;
+          font-size: 0.75rem;
+          font-weight: 900;
+          padding: 0.55rem 1.25rem;
+          background: rgba(239, 68, 68, 0.22);
+          border: 1px solid rgba(239, 68, 68, 0.5);
+          border-radius: 14px;
+          color: #FFD1D1;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          letter-spacing: 0.03em;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+        .sg-chip:hover {
+          background: #EF4444;
+          color: white;
+          border-color: #EF4444;
+          transform: scale(1.05);
+          box-shadow: 0 5px 15px rgba(239, 68, 68, 0.2);
         }
         /* Live row */
         .sg-live-row {
           display: flex;
           align-items: center;
-          gap: 1rem;
+          gap: 1.5rem;
           flex-wrap: wrap;
-          padding: 0.85rem 1.1rem;
-          background: rgba(var(--accent-rgb),0.05);
-          border: 1px solid rgba(var(--accent-rgb),0.15);
-          border-radius: 14px;
+          padding: 1.1rem 1.5rem;
+          background: rgba(var(--accent-rgb), 0.04);
+          border: 1px solid rgba(var(--accent-rgb), 0.12);
+          border-radius: 18px;
+          backdrop-filter: blur(8px);
+          position: relative;
+          overflow: hidden;
+        }
+        .sg-live-row::before {
+          content: "";
+          position: absolute;
+          top: 0; left: 0; width: 4px; height: 100%;
+          background: var(--accent);
+          opacity: 0.6;
         }
         .sg-live-badge {
           display: flex;
           align-items: center;
-          gap: 0.4rem;
-          font-size: 0.6rem;
-          font-weight: 900;
-          letter-spacing: 0.12em;
+          gap: 0.5rem;
+          font-size: 0.65rem;
+          font-weight: 950;
+          letter-spacing: 0.15em;
           color: var(--accent);
           text-transform: uppercase;
         }
         .sg-live-dot {
-          width: 6px; height: 6px;
-          background: var(--accent);
+          width: 8px; height: 8px;
           border-radius: 50%;
-          animation: blink 1s infinite;
+          background: var(--accent);
+          box-shadow: 0 0 10px var(--accent);
+          animation: sg-blink 1.5s infinite;
+        }
+        @keyframes sg-blink {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(0.8); }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         .sg-tele-item {
-          font-size: 0.78rem;
-          font-weight: 700;
+          font-size: 0.75rem;
+          font-weight: 800;
           color: var(--text);
-          opacity: 0.8;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding-left: 1.25rem;
+          border-left: 1px solid rgba(var(--accent-rgb), 0.1);
+        }
+        .sg-tele-item:first-of-type {
+          border-left: none;
+          padding-left: 0.5rem;
         }
         .sg-close-btn {
           margin-top: 0.25rem;
           width: 100%;
         }
+
+
+        /* ══════════════════════════════════════════════════
+           ENHANCED ADMIN AUTH MODAL — CYBER-BOTANICAL
+           ══════════════════════════════════════════════════ */
+        .auth-modal-luxe {
+          position: relative;
+          width: 100%;
+          max-width: 440px;
+          padding: 2.5rem 2.5rem 2rem;
+          background: rgba(var(--panel-rgb, 15, 23, 42), 0.85);
+          backdrop-filter: blur(32px) saturate(160%);
+          border: 1px solid rgba(var(--accent-rgb, 16, 185, 129), 0.2);
+          border-radius: 40px;
+          box-shadow: 
+            0 30px 70px rgba(0, 0, 0, 0.5),
+            inset 0 0 100px rgba(var(--accent-rgb), 0.05);
+          overflow: hidden;
+          z-index: 1000;
+        }
+
+        .auth-nature-bg {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+        }
+        .auth-leaf {
+          position: absolute;
+          font-size: 1.5rem;
+          opacity: 0.15;
+          filter: blur(1px);
+        }
+        .leaf-1 { top: 10%; left: 10%; transform: rotate(-15deg); }
+        .leaf-2 { bottom: 15%; right: 10%; transform: rotate(45deg); }
+        .auth-orb {
+          position: absolute;
+          top: -20%; right: -20%;
+          width: 200px; height: 200px;
+          background: radial-gradient(circle, rgba(var(--accent-rgb), 0.15) 0%, transparent 70%);
+          filter: blur(40px);
+        }
+
+        .auth-close-btn {
+          position: absolute;
+          top: 1.5rem;
+          right: 1.5rem;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: var(--text-muted);
+          width: 36px; height: 36px;
+          border-radius: 12px;
+          display: grid; place-items: center;
+          cursor: pointer;
+          transition: all 0.3s var(--ease-spring);
+          z-index: 10;
+        }
+        .auth-close-btn:hover {
+          background: rgba(239, 68, 68, 0.1);
+          color: #ef4444;
+          border-color: rgba(239, 68, 68, 0.2);
+          transform: rotate(90deg);
+        }
+
+        .modal-header-luxe {
+          position: relative;
+          z-index: 1;
+          text-align: center;
+          margin-bottom: 1.75rem;
+        }
+        .auth-icon-container {
+          position: relative;
+          width: 64px; height: 64px;
+          margin: 0 auto 1.25rem;
+        }
+        .auth-icon-ring {
+          position: relative;
+          width: 100%; height: 100%;
+          background: rgba(var(--accent-rgb), 0.1);
+          border: 1px solid rgba(var(--accent-rgb), 0.3);
+          border-radius: 24px;
+          display: grid; place-items: center;
+          z-index: 2;
+          backdrop-filter: blur(10px);
+        }
+        .auth-icon-pulse {
+          position: absolute;
+          inset: -8px;
+          border-radius: 32px;
+          border: 2px solid var(--accent);
+          opacity: 0.2;
+          animation: auth-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes auth-pulse {
+          0% { transform: scale(0.9); opacity: 0.5; }
+          100% { transform: scale(1.2); opacity: 0; }
+        }
+
+        .auth-eyebrow {
+          font-size: 0.65rem;
+          font-weight: 900;
+          letter-spacing: 0.25em;
+          color: var(--accent);
+          margin-bottom: 0.5rem;
+          text-transform: uppercase;
+        }
+        .auth-title {
+          font-size: 1.75rem;
+          font-weight: 950;
+          letter-spacing: -0.02em;
+          color: var(--text);
+          margin-bottom: 0.5rem;
+        }
+        .auth-subtitle {
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          line-height: 1.5;
+          max-width: 280px;
+          margin: 0 auto;
+        }
+
+        .auth-form-luxe {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 1.75rem;
+        }
+        .auth-field-group {
+          display: flex;
+          flex-direction: column;
+          gap: 1.15rem;
+        }
+        .auth-field {
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+        }
+        .field-label-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding-left: 0.25rem;
+        }
+        .field-label-row span {
+          font-size: 0.6rem;
+          font-weight: 900;
+          letter-spacing: 0.1em;
+          color: var(--text-muted);
+        }
+
+        .input-wrapper-luxe {
+          position: relative;
+          width: 100%;
+        }
+        .input-wrapper-luxe input {
+          width: 100%;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 16px;
+          padding: 0.9rem 1.25rem;
+          font-size: 1rem;
+          color: var(--text);
+          font-family: var(--font-mono, monospace);
+          transition: all 0.3s ease;
+        }
+        .input-wrapper-luxe input:focus {
+          outline: none;
+          background: rgba(255, 255, 255, 0.05);
+          border-color: transparent;
+        }
+        .input-focus-border {
+          position: absolute;
+          inset: 0;
+          border-radius: 16px;
+          border: 2px solid var(--accent);
+          pointer-events: none;
+          opacity: 0;
+          transition: all 0.3s ease;
+          transform: scale(0.98);
+        }
+        .input-wrapper-luxe input:focus + .input-focus-border {
+          opacity: 1;
+          transform: scale(1);
+          box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.2);
+        }
+
+        .auth-error-luxe {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.85rem 1rem;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          border-radius: 12px;
+          color: #ef4444;
+          font-size: 0.8rem;
+          font-weight: 700;
+        }
+
+        .auth-actions-luxe {
+          display: grid;
+          grid-template-columns: 1fr 1.5fr;
+          gap: 1rem;
+        }
+        .auth-btn-secondary {
+          background: transparent;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: var(--text-muted);
+          padding: 0.85rem;
+          border-radius: 16px;
+          font-weight: 800;
+          font-size: 0.85rem;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        .auth-btn-secondary:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--text);
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+        .auth-btn-primary {
+          background: linear-gradient(135deg, var(--accent) 0%, #10B981 100%);
+          border: none;
+          color: #000;
+          padding: 0.85rem;
+          border-radius: 16px;
+          font-weight: 950;
+          font-size: 0.85rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.75rem;
+          cursor: pointer;
+          transition: all 0.3s var(--ease-spring);
+          box-shadow: 0 10px 25px rgba(var(--accent-rgb), 0.2);
+        }
+        .auth-btn-primary:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 15px 35px rgba(var(--accent-rgb), 0.4);
+          filter: brightness(1.1);
+        }
+        .auth-btn-primary:active { transform: translateY(-1px); }
+
+        .auth-footer {
+          margin-top: 1.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          font-size: 0.55rem;
+          font-weight: 900;
+          letter-spacing: 0.1em;
+          color: var(--text-muted);
+          opacity: 0.6;
+        }
+
+        [data-theme-mode="light"] .auth-modal-luxe {
+          background: rgba(255, 255, 255, 0.95);
+          border-color: rgba(16, 185, 129, 0.1);
+        }
+        [data-theme-mode="light"] .input-wrapper-luxe input {
+          background: #f8fafc;
+          border-color: #e2e8f0;
+          color: #0f172a;
+        }
+        [data-theme-mode="light"] .auth-btn-secondary {
+          border-color: #e2e8f0;
+        }
+        [data-theme-mode="light"] .auth-btn-primary {
+          color: #fff;
+        }
+
       `}</style>
 
-        <div className="feature-header animate-luxe-entry" style={{ gridColumn: '1 / -1', marginTop: '3rem', marginBottom: '1.5rem' }}>
-          <div className="live-status-indicator">
-            <span className="pulsing-dot" />
-            <span className="live-text">SYSTEM LIVE</span>
+         <ScrollReveal direction="up" distance={20} delay={0.1} className="full-width-section">
+          <div className="feature-header animate-luxe-entry" style={{ marginTop: '3rem', marginBottom: '1.5rem' }}>
+            <div className="live-status-indicator">
+              <span className="pulsing-dot" />
+              <span className="live-text">SYSTEM LIVE</span>
+            </div>
+            <p className="eyebrow-accent">MISSION CONTROL</p>
+            <h2 className="gradient-text-luxe">Analytics Dashboard</h2>
+            <div className="header-divider-luxe" />
+            <div className="eco-pulse-indicator">
+              <div className="eco-dot" />
+              <span className="eco-label">SUSTAINABILITY INDEX: OPTIMAL</span>
+            </div>
+            <p className="heading-subtext">Real-time telemetry and food health forecasting</p>
           </div>
-          <p className="eyebrow-accent">MISSION CONTROL</p>
-          <h2 className="gradient-text-luxe">Analytics Dashboard</h2>
-          <div className="header-divider-luxe" />
-          <p className="heading-subtext">Real-time telemetry and food health forecasting</p>
+        </ScrollReveal>
+
+        <div className="floating-leaf-system">
+          <span className="leaf-particle" style={{ top: '15%', left: '10%', animationDelay: '0s' }}>🍃</span>
+          <span className="leaf-particle" style={{ top: '65%', left: '80%', animationDelay: '4s' }}>🌿</span>
+          <span className="leaf-particle" style={{ top: '35%', left: '45%', animationDelay: '8s' }}>🌱</span>
+          <span className="leaf-particle" style={{ top: '80%', left: '20%', animationDelay: '2s' }}>🍃</span>
         </div>
 
-      <section style={{ gridColumn: '1 / -1', marginBottom: '2rem' }}>
-        <FleetMap />
-      </section>
+      <ScrollReveal direction="up" distance={30} delay={0.2} className="full-width-section">
+        <section style={{ gridColumn: '1 / -1', marginBottom: '2rem' }}>
+          <FleetMap />
+        </section>
+      </ScrollReveal>
 
       <section className="receiver-editorial-layout" style={{ gridColumn: '1 / -1' }}>
         <style>{`
@@ -1861,6 +2301,7 @@ export function KioskPage() {
               position: relative;
               overflow: hidden;
               background: var(--panel) !important;
+              min-height: 600px;
             }
             .retrieve-accent-glow {
               position: absolute;
@@ -1916,8 +2357,13 @@ export function KioskPage() {
             }
             .retrieve-vault-core.is-ready {
               border-color: var(--accent);
-              box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.15);
-              background: rgba(var(--accent-rgb), 0.05);
+              box-shadow: 0 0 35px rgba(var(--accent-rgb), 0.2);
+              background: radial-gradient(circle at center, rgba(var(--accent-rgb), 0.15) 0%, rgba(var(--accent-rgb), 0.05) 100%);
+              animation: corePulsate 2s ease-in-out infinite;
+            }
+            @keyframes corePulsate {
+              0%, 100% { transform: scale(1); box-shadow: 0 0 25px rgba(var(--accent-rgb), 0.15); }
+              50% { transform: scale(1.03); box-shadow: 0 0 45px rgba(var(--accent-rgb), 0.3); }
             }
             .retrieve-vault-core.is-locked {
               opacity: 0.8;
@@ -1978,13 +2424,28 @@ export function KioskPage() {
               margin-top: 1rem;
             }
             .meta-card {
-              background: rgba(0,0,0,0.1);
-              padding: 1rem;
+              background: rgba(var(--accent-rgb), 0.03);
+              padding: 0.85rem 1rem;
               border-radius: 16px;
-              border: 1px solid var(--glass-border);
+              border: 1px solid rgba(var(--accent-rgb), 0.1);
               display: flex;
               flex-direction: column;
-              gap: 0.25rem;
+              gap: 0.35rem;
+              transition: all 0.3s ease;
+              position: relative;
+              overflow: hidden;
+            }
+            .meta-card:hover {
+              background: rgba(var(--accent-rgb), 0.06);
+              border-color: rgba(var(--accent-rgb), 0.3);
+              transform: translateY(-2px);
+            }
+            .meta-card::before {
+              content: "";
+              position: absolute;
+              top: 0; left: 0; width: 2px; height: 100%;
+              background: var(--accent);
+              opacity: 0.5;
             }
             .meta-card .meta-label { margin: 0; }
             .meta-card .meta-val { font-size: 0.85rem; }
@@ -2035,7 +2496,8 @@ export function KioskPage() {
             }
             .access-meta {
               display: flex;
-              gap: 1.5rem;
+              justify-content: center;
+              gap: 2.5rem;
               margin-top: 1rem;
               padding-top: 1rem;
               border-top: 1px solid var(--line);
@@ -2055,13 +2517,30 @@ export function KioskPage() {
             }
             .meta-val {
               font-size: 0.75rem;
-              font-weight: 700;
+              font-weight: 800;
               color: var(--accent) !important;
               font-family: var(--font-mono);
+              text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.3);
+            }
+            .meta-item {
+              display: flex;
+              flex-direction: column;
+              gap: 0.2rem;
+              position: relative;
+            }
+            .meta-item:not(:last-child)::after {
+              content: "";
+              position: absolute;
+              right: -1.25rem;
+              top: 20%;
+              height: 60%;
+              width: 1px;
+              background: var(--line);
+              opacity: 0.3;
             }
 
             .retrieve-action-area-luxe {
-              margin-top: 2rem;
+              margin-top: 1rem;
               display: flex;
               flex-direction: column;
               align-items: center;
@@ -2285,26 +2764,428 @@ export function KioskPage() {
             @keyframes scanlineMove { from { transform: translateY(-100%); } to { transform: translateY(100%); } }
 
             .sector-title {
-              font-size: 0.6rem;
-              font-weight: 900;
-              color: var(--accent);
-              letter-spacing: 0.2em;
-              margin-bottom: 1rem;
+              font-size: 1.1rem;
+              font-weight: 950;
+              color: #10B981;
+              letter-spacing: -0.01em;
+              margin-bottom: 1.25rem;
               display: flex;
               align-items: center;
-              gap: 0.6rem;
-              opacity: 0.8;
+              gap: 0.85rem;
               text-transform: uppercase;
+              opacity: 1;
+              text-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
             }
-            .sector-title::before {
-              content: "[";
-              font-weight: 400;
-              opacity: 0.5;
+            .sector-title svg {
+              color: var(--accent);
+              filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4));
+              flex-shrink: 0;
             }
-            .sector-title::after {
-              content: "]";
-              font-weight: 400;
-              opacity: 0.5;
+            
+            /* Cyber-Nature Card Redesign (Dark + Nature) */
+            .nature-card-redesign {
+              background: rgba(12, 14, 18, 0.85) !important;
+              backdrop-filter: blur(40px) saturate(180%) !important;
+              -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+              border: 1px solid rgba(16, 185, 129, 0.2) !important;
+              border-radius: 32px !important;
+              box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.4),
+                inset 0 0 40px rgba(16, 185, 129, 0.05) !important;
+              color: #F0F6FC !important;
+              padding: 2.5rem !important;
+              position: relative !important;
+              overflow: hidden !important;
+              transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            }
+
+            .nature-card-redesign::before {
+              content: "";
+              position: absolute;
+              inset: 0;
+              background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%);
+              pointer-events: none;
+            }
+
+            /* Neon Glow Border Effect */
+            .nature-card-redesign::after {
+              content: "";
+              position: absolute;
+              inset: -1px;
+              background: linear-gradient(90deg, #10B981, #34D399, #10B981);
+              background-size: 200% auto;
+              mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+              -webkit-mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+              -webkit-mask-composite: xor;
+              mask-composite: exclude;
+              padding: 1.5px;
+              border-radius: inherit;
+              opacity: 0.3;
+              transition: opacity 0.5s ease;
+              animation: shimmer 4s linear infinite;
+            }
+
+            @keyframes shimmer {
+              to { background-position: 200% center; }
+            }
+
+            .nature-card-redesign:hover {
+              transform: translateY(-10px) scale(1.01) !important;
+              border-color: rgba(16, 185, 129, 0.6) !important;
+              box-shadow: 
+                0 40px 80px rgba(0, 0, 0, 0.6),
+                0 0 30px rgba(16, 185, 129, 0.2) !important;
+            }
+
+            .nature-card-redesign:hover::after {
+              opacity: 1;
+            }
+
+            /* Technical Corner Marks */
+            .nature-corner {
+              position: absolute;
+              width: 20px;
+              height: 20px;
+              border: 2px solid #10B981;
+              pointer-events: none;
+              z-index: 2;
+              opacity: 0.4;
+              transition: all 0.5s ease;
+            }
+            .nature-corner-tl { top: 15px; left: 15px; border-right: 0; border-bottom: 0; }
+            .nature-corner-tr { top: 15px; right: 15px; border-left: 0; border-bottom: 0; }
+            .nature-corner-bl { bottom: 15px; left: 15px; border-right: 0; border-top: 0; }
+            .nature-corner-br { bottom: 15px; right: 15px; border-left: 0; border-top: 0; }
+
+            .nature-card-redesign:hover .nature-corner {
+              opacity: 1;
+              width: 30px;
+              height: 30px;
+            }
+
+            .nature-card-redesign .premium-h3 {
+              color: #FFFFFF !important;
+            }
+
+            .nature-card-redesign .premium-p {
+              color: #94A3B8 !important;
+            }
+
+            /* Nature List Item - Dark Integration */
+            .nature-list-item {
+              background: rgba(255, 255, 255, 0.05) !important; /* Darker subcards */
+              border: 1px solid rgba(255, 255, 255, 0.1) !important;
+              color: #F0F6FC !important;
+            }
+
+            .nature-list-item:hover {
+              background: rgba(255, 255, 255, 0.1) !important;
+              border-color: rgba(16, 185, 129, 0.4) !important;
+            }
+
+            .nature-list-item .item-value {
+              color: #FFFFFF !important;
+            }
+            
+            .nature-list-item .item-unit {
+              color: #94A3B8 !important;
+            }
+            
+            .nature-list-item .item-sublabel {
+              color: #94A3B8 !important;
+            }
+
+            /* Waveform Styles */
+            .nature-waves {
+              position: absolute;
+              bottom: 0;
+              left: 0;
+              width: 100%;
+              height: 80px;
+              pointer-events: none;
+              z-index: 0;
+              opacity: 0.6;
+            }
+
+            .nature-wave {
+              position: absolute;
+              bottom: 0;
+              left: 0;
+              width: 200%;
+              height: 100%;
+              background-repeat: repeat-x;
+              background-position: 0 bottom;
+              transform: translate3d(0, 0, 0);
+            }
+
+            .nature-wave-1 {
+              background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 80'%3E%3Cpath d='M0,40 C150,20 350,60 500,40 C650,20 850,60 1000,40 L1000,80 L0,80 Z' fill='%2310B981' fill-opacity='0.1'/%3E%3C/svg%3E");
+              animation: waveMove 15s linear infinite;
+              z-index: 3;
+            }
+
+            .nature-wave-2 {
+              background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 80'%3E%3Cpath d='M0,40 C150,60 350,20 500,40 C650,60 850,20 1000,40 L1000,80 L0,80 Z' fill='%2334D399' fill-opacity='0.08'/%3E%3C/svg%3E");
+              animation: waveMove 10s linear infinite;
+              z-index: 2;
+              bottom: 10px;
+            }
+
+            .nature-leaf-accent {
+              position: absolute;
+              bottom: -10px;
+              left: -10px;
+              font-size: 4rem;
+              opacity: 0.15;
+              pointer-events: none;
+              z-index: 1;
+              transform: rotate(-15deg);
+              filter: saturate(0.5) contrast(1.2);
+              transition: all 0.5s ease;
+            }
+
+            .nature-card-redesign:hover .nature-leaf-accent {
+              opacity: 0.25;
+              transform: rotate(0deg) scale(1.1);
+            }
+
+            /* Nature Pills */
+            .nature-pill {
+              background: #DCFCE7 !important;
+              color: #065F46 !important;
+              border: 1px solid rgba(5, 150, 105, 0.2) !important;
+              padding: 0.4rem 1rem !important;
+              border-radius: 99px !important;
+              font-size: 0.65rem !important;
+              font-weight: 900 !important;
+              letter-spacing: 0.1em !important;
+              display: flex !important;
+              align-items: center !important;
+              gap: 0.5rem !important;
+            }
+
+            /* Progress Bar Redesign */
+            .nature-progress-track {
+              height: 8px;
+              background: rgba(0, 0, 0, 0.05);
+              border-radius: 99px;
+              overflow: hidden;
+              margin: 1.5rem 0;
+            }
+
+            .nature-progress-fill {
+              height: 100%;
+              background: linear-gradient(90deg, #10B981 0%, #F59E0B 100%);
+              border-radius: inherit;
+              transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+
+            /* Nature List Item - Premium Enhancement */
+            .nature-list-item {
+              background: rgba(255, 255, 255, 0.4) !important;
+              backdrop-filter: blur(12px) !important;
+              -webkit-backdrop-filter: blur(12px) !important;
+              border: 1px solid rgba(255, 255, 255, 0.7) !important;
+              border-radius: 24px !important;
+              padding: 1.25rem 1.75rem !important;
+              display: grid !important;
+              grid-template-columns: auto 1fr auto !important;
+              align-items: center !important;
+              gap: 1.25rem !important;
+              margin-bottom: 0.85rem !important;
+              box-shadow: 
+                0 4px 24px rgba(0, 0, 0, 0.02),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.4) !important;
+              transition: all 0.4s var(--ease-spring) !important;
+              position: relative !important;
+              overflow: hidden !important;
+            }
+
+            .nature-list-item:hover {
+              transform: translateY(-4px) scale(1.01) !important;
+              background: rgba(255, 255, 255, 0.6) !important;
+              box-shadow: 0 12px 32px rgba(16, 185, 129, 0.08) !important;
+              border-color: rgba(16, 185, 129, 0.2) !important;
+            }
+
+            .nature-list-item::after {
+              content: "";
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background: linear-gradient(135deg, rgba(255,255,255,0.4), transparent);
+              pointer-events: none;
+            }
+
+            .nature-list-item .item-label-group {
+              display: flex;
+              flex-direction: column;
+              gap: 0.1rem;
+            }
+
+            .nature-list-item .item-label {
+              font-size: 0.75rem !important;
+              font-weight: 800 !important;
+              color: #10B981 !important;
+              text-transform: uppercase !important;
+              letter-spacing: 0.05em !important;
+            }
+
+            .nature-list-item .item-sublabel {
+              font-size: 0.6rem !important;
+              font-weight: 700 !important;
+              color: #6B7280 !important;
+              text-transform: uppercase !important;
+              letter-spacing: 0.02em !important;
+            }
+
+            .nature-list-item .item-value-group {
+              display: flex;
+              align-items: baseline;
+              gap: 0.25rem;
+              justify-content: flex-end;
+            }
+
+            .nature-list-item .item-value {
+              font-size: 1.4rem !important;
+              font-weight: 900 !important;
+              color: #1F2937 !important;
+              letter-spacing: -0.02em !important;
+            }
+
+            .nature-list-item .item-unit {
+              font-size: 0.75rem !important;
+              font-weight: 800 !important;
+              color: #6B7280 !important;
+            }
+
+            .sg-specs-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 1rem;
+            }
+
+            .nature-spec-card {
+              background: rgba(255, 255, 255, 0.03) !important;
+              backdrop-filter: blur(20px) !important;
+              border: 1px solid rgba(16, 185, 129, 0.15) !important;
+              border-radius: 28px !important;
+              padding: 1.25rem !important;
+              display: flex !important;
+              align-items: center !important;
+              gap: 1.25rem !important;
+              transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+              position: relative;
+              overflow: hidden;
+              margin: 0 !important;
+            }
+
+            .nature-spec-card:hover {
+              transform: translateY(-5px) scale(1.02) !important;
+              background: rgba(16, 185, 129, 0.08) !important;
+              border-color: rgba(16, 185, 129, 0.4) !important;
+              box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3), 0 0 20px rgba(16, 185, 129, 0.1) !important;
+            }
+
+            .spec-icon-container {
+              width: 44px;
+              height: 44px;
+              background: rgba(16, 185, 129, 0.1);
+              border-radius: 14px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 1.25rem;
+              position: relative;
+              z-index: 1;
+            }
+
+            .spec-info {
+              display: flex;
+              flex-direction: column;
+              gap: 0.1rem;
+              z-index: 1;
+            }
+
+            .spec-label {
+              font-size: 0.6rem !important;
+              font-weight: 900 !important;
+              color: #34D399 !important;
+              text-transform: uppercase !important;
+              letter-spacing: 0.12em !important;
+              opacity: 0.9;
+            }
+
+            .spec-value-group {
+              display: flex;
+              align-items: baseline;
+              gap: 0.3rem;
+            }
+
+            .spec-value {
+              font-size: 1.4rem !important;
+              font-weight: 900 !important;
+              color: #FFFFFF !important;
+              letter-spacing: -0.02em !important;
+              text-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+            }
+
+            .spec-unit {
+              font-size: 0.8rem !important;
+              font-weight: 800 !important;
+              color: #34D399 !important;
+            }
+
+            .sg-prohibited-section-luxe {
+              background: rgba(239, 68, 68, 0.03) !important;
+              backdrop-filter: blur(10px);
+              border: 1px solid rgba(239, 68, 68, 0.15) !important;
+              border-radius: 24px;
+              padding: 1.5rem;
+              position: relative;
+              overflow: hidden;
+              z-index: 1;
+            }
+
+            .sg-prohibited-section-luxe::before {
+              content: "";
+              position: absolute;
+              top: 0; left: 0; width: 4px; height: 100%;
+              background: #EF4444;
+              opacity: 0.6;
+            }
+
+            .restriction-badge {
+              background: rgba(239, 68, 68, 0.1) !important;
+              color: #EF4444 !important;
+              border: 1px solid rgba(239, 68, 68, 0.2) !important;
+              padding: 0.5rem 1rem !important;
+              border-radius: 99px !important;
+              font-size: 0.6rem !important;
+              font-weight: 900 !important;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+              transition: all 0.3s ease;
+            }
+
+            .restriction-badge:hover {
+              background: rgba(239, 68, 68, 0.2) !important;
+              transform: translateY(-2px);
+            }
+
+            .telemetry-bento-grid-enhanced {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 1rem;
             }
             
             .cyber-stats-grid {
@@ -2340,6 +3221,190 @@ export function KioskPage() {
               transform: translateX(6px);
               box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
             }
+
+            .luxe-tag-cloud-enhanced {
+              display: flex;
+              flex-direction: column;
+              gap: 0.5rem;
+            }
+
+            .nature-mini-bar {
+              height: 4px;
+              background: rgba(0, 0, 0, 0.2);
+              border-radius: 99px;
+              width: 80px;
+              overflow: hidden;
+            }
+
+            .nature-mini-fill {
+              height: 100%;
+              background: #10B981;
+              box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+              transition: width 1s ease-out;
+            }
+
+            :root[data-theme-mode="dark"] .nature-mini-bar {
+              background: rgba(255, 255, 255, 0.05);
+            }
+
+            /* --- Theme Visibility Enhancements --- */
+
+            /* Dark Mode Polish (Ensuring vividness) */
+            :root[data-theme-mode="dark"] .nature-card-redesign {
+              background: rgba(10, 15, 12, 0.92) !important;
+              border-color: rgba(16, 185, 129, 0.3) !important;
+              box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6) !important;
+            }
+
+            :root[data-theme-mode="dark"] .nature-list-item {
+              background: rgba(255, 255, 255, 0.04) !important;
+              border-color: rgba(16, 185, 129, 0.15) !important;
+              color: #34D399 !important;
+              box-shadow: inset 0 0 20px rgba(16, 185, 129, 0.02) !important;
+            }
+
+            :root[data-theme-mode="dark"] .nature-list-item .item-label {
+              color: #34D399 !important;
+              text-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+            }
+
+            :root[data-theme-mode="dark"] .nature-list-item .item-value {
+              color: #FFFFFF !important;
+              text-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+            }
+
+            :root[data-theme-mode="dark"] .spec-value {
+              color: #FFFFFF !important;
+              text-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+            }
+
+            :root[data-theme-mode="dark"] .nature-pill {
+              background: rgba(16, 185, 129, 0.15) !important;
+              border-color: rgba(16, 185, 129, 0.3) !important;
+              color: #34D399 !important;
+            }
+
+            /* Light Mode Overrides */
+            :root[data-theme-mode="light"] .nature-card-redesign {
+              background: rgba(255, 255, 255, 0.8) !important;
+              backdrop-filter: blur(30px) saturate(150%) !important;
+              border-color: rgba(16, 185, 129, 0.25) !important;
+              box-shadow: 0 30px 60px rgba(0, 0, 0, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.5) !important;
+              color: #1F2937 !important;
+            }
+
+            :root[data-theme-mode="light"] .nature-card-redesign .sector-title {
+              color: #065F46 !important;
+              text-shadow: none;
+            }
+
+            :root[data-theme-mode="light"] .nature-card-redesign .premium-h3 {
+              color: #064E3B !important;
+            }
+
+            :root[data-theme-mode="light"] .nature-card-redesign .premium-p {
+              color: #4B5563 !important;
+            }
+
+            :root[data-theme-mode="light"] .nature-spec-card {
+              background: rgba(255, 255, 255, 0.6) !important;
+              border-color: rgba(16, 185, 129, 0.2) !important;
+              box-shadow: 0 8px 24px rgba(16, 185, 129, 0.05) !important;
+            }
+
+            :root[data-theme-mode="light"] .nature-spec-card:hover {
+              background: rgba(16, 185, 129, 0.08) !important;
+              border-color: rgba(16, 185, 129, 0.4) !important;
+            }
+
+            :root[data-theme-mode="light"] .spec-value {
+              color: #064E3B !important;
+              text-shadow: none;
+            }
+
+            :root[data-theme-mode="light"] .spec-label,
+            :root[data-theme-mode="light"] .spec-unit {
+              color: #059669 !important;
+              font-weight: 800;
+            }
+
+            :root[data-theme-mode="light"] .spec-icon-container {
+              background: rgba(16, 185, 129, 0.08);
+            }
+
+            :root[data-theme-mode="light"] .nature-pill {
+              background: #065F46 !important;
+              color: #FFFFFF !important;
+            }
+
+            :root[data-theme-mode="light"] .nature-list-item {
+              background: rgba(255, 255, 255, 0.8) !important;
+              border-color: rgba(16, 185, 129, 0.15) !important;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;
+            }
+
+            :root[data-theme-mode="light"] .nature-list-item .item-label {
+              color: #059669 !important;
+            }
+
+            :root[data-theme-mode="light"] .nature-list-item .item-value {
+              color: #1F2937 !important;
+            }
+
+            :root[data-theme-mode="light"] .nature-corner {
+              border-color: #10B981 !important;
+              opacity: 0.5;
+            }
+
+            :root[data-theme-mode="light"] .nature-waves {
+              opacity: 0.7;
+            }
+
+            :root[data-theme-mode="light"] .nature-leaf-accent {
+              opacity: 0.35;
+              filter: saturate(1.5) brightness(0.8);
+            }
+
+            /* Light Mode Overrides for Admin Area */
+            :root[data-theme-mode="light"] .admin-override-area {
+              background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.03) 100%) !important;
+              border-style: solid !important;
+              border-color: rgba(245, 158, 11, 0.3) !important;
+              box-shadow: 0 10px 25px rgba(245, 158, 11, 0.05) !important;
+            }
+            
+            :root[data-theme-mode="light"] .divider-text {
+              color: #D97706 !important;
+            }
+
+            :root[data-theme-mode="light"] .admin-slide {
+              background: rgba(245, 158, 11, 0.05) !important;
+              border-color: rgba(245, 158, 11, 0.2) !important;
+            }
+
+            .retrieve-vault-core {
+              background: #FFFFFF !important;
+              border: 1px solid rgba(16, 185, 129, 0.1) !important;
+              transition: all 0.3s ease;
+            }
+
+            :root[data-theme-mode="dark"] .retrieve-vault-core {
+              background: rgba(255, 255, 255, 0.03) !important;
+              border-color: rgba(16, 185, 129, 0.3) !important;
+            }
+
+            .luxe-slide-container {
+              background: #FFFFFF !important;
+              border: 1px solid rgba(16, 185, 129, 0.1) !important;
+              border-radius: 99px;
+              overflow: hidden;
+            }
+
+            :root[data-theme-mode="dark"] .luxe-slide-container {
+              background: rgba(255, 255, 255, 0.05) !important;
+              border-color: rgba(16, 185, 129, 0.3) !important;
+            }
+
             .cyber-box:hover::before {
               opacity: 1;
             }
@@ -2475,6 +3540,57 @@ export function KioskPage() {
               border-radius: 99px;
               opacity: 0.3;
             }
+
+            /* New Eco Elements */
+            .eco-pulse-indicator {
+              display: flex;
+              align-items: center;
+              gap: 0.75rem;
+              background: rgba(16, 185, 129, 0.05);
+              padding: 0.5rem 1.25rem;
+              border-radius: 99px;
+              border: 1px solid rgba(16, 185, 129, 0.2);
+              margin-top: 1rem;
+            }
+            .eco-dot {
+              width: 8px; height: 8px;
+              background: #10B981;
+              border-radius: 50%;
+              box-shadow: 0 0 10px #10B981;
+              animation: ecoPulse 2s infinite;
+            }
+            @keyframes ecoPulse {
+              0% { transform: scale(1); opacity: 1; }
+              50% { transform: scale(1.5); opacity: 0.5; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            .eco-label {
+              font-size: 0.6rem;
+              font-weight: 900;
+              color: #10B981;
+              letter-spacing: 0.2em;
+              text-transform: uppercase;
+            }
+
+            .floating-leaf-system {
+              position: absolute;
+              top: 0; left: 0; width: 100%; height: 100%;
+              pointer-events: none;
+              overflow: hidden;
+              z-index: 0;
+            }
+            .leaf-particle {
+              position: absolute;
+              font-size: 1.2rem;
+              opacity: 0.1;
+              animation: leafDrift 12s linear infinite;
+            }
+            @keyframes leafDrift {
+              0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+              10% { opacity: 0.15; }
+              90% { opacity: 0.15; }
+              100% { transform: translate(100px, 100px) rotate(360deg); opacity: 0; }
+            }
             .heading-subtext {
               font-size: 1.1rem;
               font-weight: 500;
@@ -2529,451 +3645,360 @@ export function KioskPage() {
             }
           `}</style>
 
-        <SurfaceCard className={`receiver-card receiver-card-profile luxe-profile-card ${!donation ? 'is-empty-luxe' : ''}`}>
-          <div className="card-header-mini">
-            <p className="card-label">{t("publicFoodProfile")}</p>
-            <span className="mini-icon">🌿</span>
-          </div>
-          <div className="profile-hero">
-            <h3 className="premium-h3">{displayDonation?.categoryLabel ?? t("lockerReady")}</h3>
-            <p className="premium-p">{displayDonation?.allergensNotes ?? t("lockerReadyBody")}</p>
-          </div>
-          <div className="luxe-metric-grid">
-            <div className="luxe-metric-item">
-              <span className="item-label">{t("preference")}</span>
-              <div className="item-value">
-                {displayDonation?.dietTag === 'veg' && <span className="diet-icon">🟢</span>}
-                {displayDonation?.dietTag === 'non_veg' && <span className="diet-icon">🔴</span>}
-                {displayDonation?.dietTag === 'vegan' && <span className="diet-icon">🍃</span>}
-                <span className="diet-text">{displayDonation?.dietTag?.replace("_", " ") ?? "-"}</span>
-              </div>
+        <ScrollReveal direction="up" distance={40} delay={0.4} className="receiver-card-profile">
+          <SurfaceCard className={`nature-card-redesign receiver-card ${!donation ? 'is-empty-luxe' : ''}`}>
+            <div className="nature-waves">
+              <div className="nature-wave nature-wave-1" />
+              <div className="nature-wave nature-wave-2" />
             </div>
-            <div className="luxe-metric-item">
-              <span className="item-label">{t("registered")}</span>
-              <div className="item-value date-value">
-                {displayDonation ? formatDateTime(displayDonation.createdAt) : "-"}
-              </div>
-            </div>
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard className={`receiver-card receiver-card-telemetry luxe-telemetry-card ${!donation ? 'is-empty-luxe' : ''}`}>
-          <div className="card-header-mini">
-            <p className="card-label">{t("liveTelemetry")}</p>
-            <div className="telemetry-meta-group">
-              <div className="signal-strength">
-                <span className="signal-bar active" />
-                <span className="signal-bar active" />
-                <span className="signal-bar active" />
-                <span className="signal-bar" />
-              </div>
-              <div className="sensor-status">
-                <span className="pulse-dot green" />
-                SENSORS ACTIVE
-              </div>
-            </div>
-          </div>
-          <div className="telemetry-bento-grid-enhanced">
-            <div className="bento-item-luxe">
-              <div className="mini-gauge">
-                <svg viewBox="0 0 36 36" className="circular-chart green">
-                  <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                  <path className="circle" strokeDasharray={`${(telemetry.internalTempC / 50) * 100}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-                <span className="gauge-icon">🌡️</span>
-              </div>
-              <div className="bento-copy">
-                <span className="bento-label">{t("internalTemp")}</span>
-                <div className="value-group">
-                  <span className="bento-value">{telemetry.internalTempC}</span>
-                  <span className="bento-unit">°C</span>
-                </div>
-              </div>
-            </div>
-            <div className="bento-item-luxe">
-              <div className="mini-gauge">
-                <svg viewBox="0 0 36 36" className="circular-chart blue">
-                  <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                  <path className="circle" strokeDasharray={`${telemetry.humidityPct}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                </svg>
-                <span className="gauge-icon">💧</span>
-              </div>
-              <div className="bento-copy">
-                <span className="bento-label">{t("humidity")}</span>
-                <div className="value-group">
-                  <span className="bento-value">{telemetry.humidityPct}</span>
-                  <span className="bento-unit">%</span>
-                </div>
-              </div>
-            </div>
-            <div className="bento-item-luxe">
-              <div className="bento-icon-bg">📊</div>
-              <div className="bento-copy">
-                <span className="bento-label">{t("pressure")}</span>
-                <div className="value-group">
-                  <span className="bento-value">{telemetry.pressureHpa}</span>
-                  <span className="bento-unit">hPa</span>
-                </div>
-              </div>
-            </div>
-            <div className="bento-item-luxe">
-              <div className="bento-icon-bg">✨</div>
-              <div className="bento-copy">
-                <span className="bento-label">{t("airQuality")}</span>
-                <div className="value-group">
-                  <span className="bento-value">{telemetry.gasResistanceOhms}</span>
-                  <span className="bento-unit">Ω</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="botanical-corner-accent top-right">🌿</div>
-        </SurfaceCard>
-
-        <SurfaceCard className={`receiver-card receiver-card-gas luxe-gas-card ${!donation ? 'is-empty-luxe' : ''}`}>
-          <div className="vapor-ambient-effect" />
-          <div className="vapor-waveform-container">
-            <div className="wave wave-1" />
-            <div className="wave wave-2" />
-            <div className="wave wave-3" />
-          </div>
-          
-          <div className="card-header-mini">
-            <p className="card-label">{t("gasProfile")}</p>
-            <div className="aqi-badge">
-              <span className="aqi-dot" />
-              SENSORY ANALYZER
-            </div>
-          </div>
-          
-          <div className="gas-analysis-copy">
-            <h3 className="premium-h3">Vapor Signature</h3>
-            <p className="premium-p mb-1">Detected volatile organic compounds (VOCs)</p>
+            <div className="nature-leaf-accent" style={{ bottom: '20px', left: '20px' }}>🍃</div>
+            <div className="nature-leaf-accent" style={{ top: '20px', right: '20px', transform: 'rotate(180deg)' }}>🌱</div>
             
-            <div className="gas-spectrum-visualizer">
-              <div className="spectrum-track">
-                <div className="spectrum-fill" style={{ width: '65%', background: 'linear-gradient(90deg, var(--accent) 0%, var(--warning) 100%)' }} />
+            <div className="card-header-mini">
+              <p className="sector-title"><Box size={18} className="animate-pulse" />{t("publicFoodProfile")}</p>
+              <div className="nature-pill"><Activity size={10} />SENSORY DATA</div>
+            </div>
+            <div className="profile-hero" style={{ position: 'relative', zIndex: 1, marginBottom: '1rem' }}>
+              <h3 className="premium-h3" style={{ fontSize: '1.6rem', marginBottom: '0.4rem', color: '#FFFFFF' }}>
+                {displayDonation?.categoryLabel ?? t("lockerReady")}
+              </h3>
+              <p className="premium-p" style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>
+                {displayDonation?.allergensNotes && displayDonation.allergensNotes !== 'none' 
+                  ? displayDonation.allergensNotes 
+                  : "Standard handling protocols active. No specific restrictions noted."}
+              </p>
+            </div>
+
+            <div className="luxe-metric-grid" style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="nature-spec-card">
+                <div className="spec-icon-container">
+                  {displayDonation?.dietTag === 'veg' ? '🥗' : displayDonation?.dietTag === 'non_veg' ? '🥩' : '🍃'}
+                </div>
+                <div className="spec-info">
+                  <span className="spec-label">{t("preference")}</span>
+                  <span className="spec-value" style={{ fontSize: '1rem', textTransform: 'uppercase' }}>
+                    {displayDonation?.dietTag?.replace("_", " ") ?? "-"}
+                  </span>
+                </div>
               </div>
-              <div className="spectrum-labels">
+              
+              <div className="nature-spec-card">
+                <div className="spec-icon-container">📅</div>
+                <div className="spec-info">
+                  <span className="spec-label">{t("registered")}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span className="spec-value" style={{ fontSize: '0.9rem' }}>
+                      {displayDonation ? formatDateTime(displayDonation.createdAt).split(',')[0] : "-"}
+                    </span>
+                    <span className="spec-unit" style={{ fontSize: '0.65rem', marginTop: '-2px', opacity: 0.8 }}>
+                      {displayDonation ? formatDateTime(displayDonation.createdAt).split(',')[1] : ""}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </SurfaceCard>
+        </ScrollReveal>
+
+        <ScrollReveal direction="up" distance={40} delay={0.5} className="receiver-card-telemetry">
+          <SurfaceCard className={`nature-card-redesign receiver-card ${!donation ? 'is-empty-luxe' : ''}`}>
+            <div className="nature-waves">
+              <div className="nature-wave nature-wave-1" />
+              <div className="nature-wave nature-wave-2" />
+            </div>
+            <div className="nature-leaf-accent" style={{ right: '-10px', top: '15px', transform: 'rotate(15deg)' }}>🌿</div>
+            <div className="nature-leaf-accent" style={{ left: '10px', bottom: '15px', transform: 'rotate(-45deg)' }}>🍃</div>
+            
+            <div className="card-header-mini">
+              <p className="sector-title"><Activity size={18} className="animate-pulse" />{t("liveTelemetry")}</p>
+              <div className="nature-pill"><Activity size={10} />ENVIRONMENTAL HARMONY</div>
+            </div>
+            
+            <div className="telemetry-bento-grid-enhanced" style={{ position: 'relative', zIndex: 1 }}>
+              <div className="nature-spec-card">
+                <div className="spec-icon-container">🌡️</div>
+                <div className="spec-info">
+                  <span className="spec-label">{t("internalTemp")}</span>
+                  <div className="spec-value-group">
+                    <span className="spec-value">{telemetry.internalTempC}</span>
+                    <span className="spec-unit">°C</span>
+                  </div>
+                </div>
+              </div>
+              <div className="nature-spec-card">
+                <div className="spec-icon-container">💧</div>
+                <div className="spec-info">
+                  <span className="spec-label">{t("humidity")}</span>
+                  <div className="spec-value-group">
+                    <span className="spec-value">{telemetry.humidityPct}</span>
+                    <span className="spec-unit">%</span>
+                  </div>
+                </div>
+              </div>
+              <div className="nature-spec-card">
+                <div className="spec-icon-container">📊</div>
+                <div className="spec-info">
+                  <span className="spec-label">{t("pressure")}</span>
+                  <div className="spec-value-group">
+                    <span className="spec-value">{telemetry.pressureHpa}</span>
+                    <span className="spec-unit">hPa</span>
+                  </div>
+                </div>
+              </div>
+              <div className="nature-spec-card">
+                <div className="spec-icon-container">✨</div>
+                <div className="spec-info">
+                  <span className="spec-label">{t("airQuality")}</span>
+                  <div className="spec-value-group">
+                    <span className="spec-value">{telemetry.gasResistanceOhms}</span>
+                    <span className="spec-unit">Ω</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </SurfaceCard>
+        </ScrollReveal>
+
+        <ScrollReveal direction="up" distance={40} delay={0.6} className="receiver-card-gas">
+          <SurfaceCard className={`nature-card-redesign receiver-card ${!donation ? 'is-empty-luxe' : ''}`}>
+            <div className="nature-waves">
+              <div className="nature-wave nature-wave-1" />
+              <div className="nature-wave nature-wave-2" />
+            </div>
+            <div className="nature-leaf-accent" style={{ top: '25px', left: '25px', transform: 'rotate(-45deg)' }}>🌿</div>
+            <div className="nature-leaf-accent" style={{ bottom: '15px', right: '30px', transform: 'rotate(15deg)' }}>🍃</div>
+            
+            <div className="card-header-mini">
+              <p className="sector-title"><Wind size={18} className="animate-pulse" />{t("gasProfile")}</p>
+              <div className="nature-pill"><Activity size={10} />SENSORY ANALYZER</div>
+            </div>
+            
+            <div className="gas-analysis-copy" style={{ position: 'relative', zIndex: 1 }}>
+              <h3 className="premium-h3">Vapor Signature</h3>
+              <p className="premium-p mb-1">Detected volatile organic compounds (VOCs)</p>
+              
+              <div className="nature-progress-track">
+                <div className="nature-progress-fill" style={{ width: '65%' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '-1rem', marginBottom: '1.5rem', fontSize: '0.6rem', fontWeight: 900, color: '#065F46', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 <span>Neutral</span>
                 <span>Active</span>
               </div>
+
+              <div className="luxe-tag-cloud-enhanced">
+                {telemetry.heuristicGasProfile.map((entry, idx) => (
+                  <div key={entry} className="nature-list-item" style={{ animationDelay: `${idx * 0.1}s`, margin: 0, marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} />
+                      <span className="item-label" style={{ fontSize: '0.75rem' }}>{entry}</span>
+                    </div>
+                    <div className="nature-mini-bar">
+                      <div className="nature-mini-fill" style={{ width: `${80 - (idx * 15)}%` }} />
+                    </div>
+                  </div>
+                ))}
+                {telemetry.heuristicGasProfile.length === 0 && (
+                  <div className="nature-list-item muted">
+                    <span className="item-label">NO ACTIVE SIGNATURES DETECTED</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </SurfaceCard>
+        </ScrollReveal>
+
+        <ScrollReveal direction="up" distance={40} delay={0.7} className="receiver-card-actions">
+          <SurfaceCard className="nature-card-redesign receiver-card sg-inline-card">
+            <div className="nature-waves">
+              <div className="nature-wave nature-wave-1" />
+              <div className="nature-wave nature-wave-2" />
+            </div>
+            <div className="nature-leaf-accent" style={{ top: '30px', right: '30px', transform: 'rotate(90deg)' }}>🌱</div>
+            <div className="nature-leaf-accent" style={{ bottom: '20px', left: '20px' }}>🌿</div>
+            
+            <div className="card-header-mini" style={{ marginBottom: '1.5rem' }}>
+              <p className="sector-title"><Shield size={18} className="animate-pulse" />Safety & Capacity</p>
+              <div className="nature-pill"><ShieldCheck size={10} />CERTIFIED SAFE</div>
             </div>
 
-            <div className="luxe-tag-cloud-enhanced">
-              {telemetry.heuristicGasProfile.map((entry, idx) => (
-                <div key={entry} className="luxe-vapor-tag" style={{ animationDelay: `${idx * 0.1}s` }}>
-                  <div className="tag-glow-dot" />
-                  <span className="tag-text">{entry}</span>
-                  <div className="tag-intensity-bar">
-                    <div className="intensity-fill" style={{ width: `${80 - (idx * 15)}%` }} />
+            <div className="sg-specs-grid" style={{ marginBottom: '1.5rem', position: 'relative', zIndex: 1 }}>
+              {[
+                { label: "Max Weight", value: "12", unit: "kg", icon: "⚖️" },
+                { label: "Volume", value: "20", unit: "L", icon: "📦" },
+                { label: "Temp Zone", value: "2 – 8", unit: "°C", icon: "🌡️" },
+                { label: "Humidity", value: "≤ 75", unit: "%", icon: "💧" }
+              ].map(spec => (
+                <div key={spec.label} className="nature-spec-card">
+                  <div className="spec-icon-container">
+                    {spec.icon}
+                  </div>
+                  <div className="spec-info">
+                    <span className="spec-label">{spec.label}</span>
+                    <div className="spec-value-group">
+                      <span className="spec-value">{spec.value}</span>
+                      <span className="spec-unit">{spec.unit}</span>
+                    </div>
                   </div>
                 </div>
               ))}
-              {telemetry.heuristicGasProfile.length === 0 && (
-                <div className="luxe-vapor-tag muted">
-                  <span className="tag-text">NO ACTIVE SIGNATURES DETECTED</span>
-                </div>
-              )}
             </div>
-          </div>
-          <div className="botanical-corner-accent bottom-right">🍃</div>
-        </SurfaceCard>
 
-        <SurfaceCard className="receiver-card receiver-card-retrieve luxe-retrieve-card">
-          <div className="vapor-ambient-effect" />
-          <div className="retrieve-accent-glow" />
-          <div className="vault-chamber-bg" />
-          
-          <div className="card-header-mini">
-            <p className="card-label">{t("retrieveItem")}</p>
-            {donation && (
-              <div className="security-verified-badge">
-                <span className="verify-dot" />
-                SIGNATURE VERIFIED
+            <div className="sg-prohibited-section-luxe">
+              <p className="sector-title" style={{ color: '#EF4444', marginBottom: '1rem', fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Ban size={14} className="animate-pulse" /> RESTRICTIONS
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+                {[
+                  { label: "Raw Meat", icon: "🥩" },
+                  { label: "Liquids", icon: "🥤" },
+                  { label: "Allergens", icon: "🥜" }
+                ].map(item => (
+                  <span key={item.label} className="restriction-badge">
+                    <span>{item.icon}</span>
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </SurfaceCard>
+        </ScrollReveal>
+
+        <ScrollReveal direction="up" distance={40} delay={0.8} className="receiver-card-retrieve">
+          <SurfaceCard className="nature-card-redesign receiver-card">
+            <div className="nature-waves">
+              <div className="nature-wave nature-wave-1" />
+              <div className="nature-wave nature-wave-2" />
+            </div>
+            <div className="nature-leaf-accent" style={{ top: '20px', left: '40%', opacity: 0.15 }}>🌿</div>
+            <div className="nature-leaf-accent" style={{ bottom: '20px', right: '20px' }}>🌱</div>
+            
+            <div className="card-header-mini">
+              <p className="sector-title"><Lock size={18} className="animate-pulse" />{t("retrieveItem")}</p>
+              {donation && <div className="nature-pill"><ShieldCheck size={10} />SIGNATURE MATCHED</div>}
+            </div>
+
+            <div className="retrieve-hero-luxe" style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', margin: '1rem 0', position: 'relative', zIndex: 1 }}>
+              <div className="vault-visualizer" style={{ flexShrink: 0, width: '120px', height: '120px' }}>
+                <div className="mechanical-rings" style={{ opacity: 0.1 }}>
+                  <div className="ring ring-1" style={{ borderColor: '#065F46' }} />
+                  <div className="ring ring-2" style={{ borderColor: '#065F46' }} />
+                </div>
+                <div className={`retrieve-vault-core ${donation && calculatedQualityScore >= 30 ? 'is-ready' : 'is-locked'}`}>
+                  <div className="vault-box">
+                    <span className="box-icon" style={{ fontSize: '2rem' }}>{calculatedQualityScore < 30 ? "⚠️" : "📦"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="retrieve-details-hub" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <h3 className="premium-h3" style={{ fontSize: '1.4rem' }}>
+                  {donation 
+                    ? (calculatedQualityScore < 30 ? "Access Restricted" : "Safe to Retrieve") 
+                    : "Vault Standby"}
+                </h3>
+                <p className="premium-p" style={{ fontSize: '0.85rem' }}>
+                  {donation 
+                    ? (calculatedQualityScore < 30 
+                        ? "Quality dropped below safety threshold." 
+                        : "Item health verified. Please use the slider to open.") 
+                    : t("receiverRule")}
+                </p>
+                
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <div className="nature-pill" style={{ fontSize: '0.55rem' }}><Activity size={10} />INDEX: {calculatedQualityScore}%</div>
+                  <div className="nature-pill" style={{ fontSize: '0.55rem' }}><ShieldCheck size={10} />HEALTH: OPTIMAL</div>
+                </div>
+              </div>
+            </div>
+
+            {recommendedActions.length > 0 && (
+              <div className="hrd-actions-block" style={{ marginBottom: '1.5rem', background: 'rgba(5, 150, 105, 0.05)', border: '1px solid rgba(5, 150, 105, 0.1)', borderLeft: '4px solid #10B981', position: 'relative', zIndex: 1 }}>
+                <p className="sector-title" style={{ color: '#065F46', marginBottom: '0.75rem', fontSize: '0.55rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Zap size={12} className="animate-pulse" /> RECOMMENDED ACTIONS
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.4rem' }}>
+                  {recommendedActions.map((action, idx) => (
+                    <div key={action} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.75rem', color: '#064E3B', fontWeight: 700 }}>
+                      <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#10B981' }} />
+                      {action}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-          </div>
 
-          <div className="retrieve-hero-luxe" style={{ gridTemplateColumns: '150px 1fr', gap: '2rem' }}>
-            <div className="vault-visualizer">
-              <div className="mechanical-rings">
-                <div className="ring ring-1" />
-                <div className="ring ring-2" />
-                <div className="ring ring-3" />
-              </div>
-              <div className={`retrieve-vault-core ${donation && calculatedQualityScore >= 30 ? 'is-ready' : 'is-locked'}`}>
-                <div className="scanner-line" />
-                <div className="vault-box">
-                  <span className="box-icon">{calculatedQualityScore < 30 ? "⚠️" : "📦"}</span>
-                  <div className="core-glow" />
-                </div>
-              </div>
+            <div className="retrieve-action-area-luxe" style={{ position: 'relative', zIndex: 1, marginTop: '0' }}>
+              <SlideConfirm 
+                label={calculatedQualityScore < 30 ? "Restricted" : (t("slideToRetrieve") || "Slide to Retrieve")}
+                onConfirm={retrieveFood}
+                disabled={!donation || isFaulted || isBusy || isSanitizing || calculatedQualityScore < 30}
+                className="luxe-slide-container"
+              />
             </div>
 
-            <div className="retrieve-details-hub">
-              <h3 className="premium-h3" style={{ color: calculatedQualityScore < 30 ? "#EF4444" : "inherit" }}>
-                {donation 
-                  ? (calculatedQualityScore < 30 ? "Hazard: Access Denied" : "Secure Access Ready") 
-                  : "Vault Locked"}
-              </h3>
-              <p className="premium-p">
-                {donation 
-                  ? (calculatedQualityScore < 30 
-                      ? "Food quality has dropped below safe consumption threshold (30%). Retrieval is restricted for your safety." 
-                      : "Item signature matched. Safety protocols cleared.") 
-                  : t("receiverRule")}
-              </p>
-              
-              <div className="vault-tech-specs">
-                <div className="tech-specs-grid">
-                  <div className="spec-pill-enhanced">
-                    <span className="spec-dot pulsing" />
-                    <div className="spec-copy">
-                      <span className="spec-label">UV-C</span>
-                      <span className="spec-status">ACTIVE</span>
-                    </div>
-                  </div>
-                  <div className="spec-pill-enhanced">
-                    <span className="spec-dot pulsing blue" />
-                    <div className="spec-copy">
-                      <span className="spec-label">ION</span>
-                      <span className="spec-status">STABLE</span>
-                    </div>
-                  </div>
-                  <div className="spec-pill-enhanced">
-                    <span className="spec-dot green" />
-                    <div className="spec-copy">
-                      <span className="spec-label">OZONE</span>
-                      <span className="spec-status">0.01ppm</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="access-meta-enhanced">
-                  <div className="meta-card">
-                    <span className="meta-label">CREATED AT</span>
-                    <span className="meta-val">{displayDonation?.createdAt ? formatDateTime(displayDonation.createdAt) : "—"}</span>
-                  </div>
-                  <div className="meta-card">
-                    <span className="meta-label">HEALTH INDEX</span>
-                    <span className="meta-val pulse">{calculatedQualityScore}%</span>
-                  </div>
-                </div>
-              </div>
-
-              {donation && (
-                <div className="access-meta">
-                  <div className="meta-item">
-                    <span className="meta-label">ID</span>
-                    <span className="meta-val">#{donation?.id?.slice(0, 8)}</span>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-label">LOCK</span>
-                    <span className="meta-val">BIO-SYNC</span>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-label">AUTH</span>
-                    <span className="meta-val pulse">PASS</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="retrieve-action-area-luxe">
-            <SlideConfirm 
-              label={calculatedQualityScore < 30 ? "Retrieval Restricted (Low Quality)" : (t("slideToRetrieve") || "Slide to Retrieve")}
-              onConfirm={retrieveFood}
-              disabled={!donation || isFaulted || isBusy || isSanitizing || calculatedQualityScore < 30}
-            />
-            
-            <div className="admin-override-area">
+            {/* Admin Override - Always available for force-entry/maintenance */}
+            <div className="admin-override-area" style={{ marginTop: '2rem', position: 'relative', zIndex: 1 }}>
               <div className="admin-divider">
                 <span className="divider-text">ADMINISTRATIVE OVERRIDE</span>
               </div>
               <SlideConfirm 
-                className="admin-slide"
-                label={calculatedQualityScore >= 30 ? "Standard Access Only" : (t("adminSlideToRetrieve") || "Admin: Remove Spoiled Item")}
-                completedLabel="Admin Cleared"
+                label="Force Open Vault"
                 onConfirm={handleAdminRetrieve}
-                disabled={!donation || isBusy || isSanitizing || calculatedQualityScore >= 30}
+                className="luxe-slide-container admin-slide"
+                disabled={isBusy || isSanitizing}
               />
             </div>
+          </SurfaceCard>
+        </ScrollReveal>
 
-            <p className="safety-footer-text">
-              <span className="lock-icon">{calculatedQualityScore < 30 ? "🚫" : "🔒"}</span> 
-              {calculatedQualityScore < 30 ? "Health hazard detected. Contact support." : t("receiverRule")}
-            </p>
+        <ScrollReveal direction="up" distance={40} delay={0.3} className="receiver-card-chart">
+          <div className="bento-chart-container">
+            <FoodHealthCardPremium 
+              variant="compact"
+              risk={100 - calculatedQualityScore}
+              quality={calculatedQualityScore}
+              temp={telemetry.internalTempC}
+              shelfLifeHours={Math.round(displayHoursRemaining)}
+              insight={calculatedQualityScore > 70 
+                ? "System Stable: Food freshness is currently peak. No biological hazards detected." 
+                : calculatedQualityScore > 30 
+                ? "Warning: Quality degradation detected. Consumption recommended within next 12 hours."
+                : "Critical Alert: Spoilage risk exceeds safety thresholds. Retrieval restricted."
+              }
+            />
           </div>
-        </SurfaceCard>
+        </ScrollReveal>
 
-        <SurfaceCard className="receiver-card receiver-card-actions sg-inline-card">
-          <div className="vapor-ambient-effect" />
+        <ScrollReveal direction="up" distance={40} delay={0.85} className="receiver-card-logs">
+          <SurfaceCard className="nature-card-redesign receiver-card luxe-logs-card" style={{ height: '100%' }}>
+            <div className="nature-waves">
+              <div className="nature-wave nature-wave-1" />
+              <div className="nature-wave nature-wave-2" />
+            </div>
+            <div className="nature-leaf-accent">📜</div>
+            
+            <div className="card-header-mini">
+              <p className="sector-title"><Activity size={18} className="animate-pulse" />{t("logs")}</p>
+              <div className="nature-pill"><Activity size={10} />SYSTEM EVENTS</div>
+            </div>
 
-          {/* Card header */}
-          <div className="card-header-mini" style={{ marginBottom: '1.75rem' }}>
-            <div className="header-title-stack">
-              <span className="sector-title" style={{ marginBottom: '0.25rem', opacity: 0.6 }}>
-                SAFE Unit · {currentLocker.lockerId.split('-')[1] ?? currentLocker.lockerId}
-              </span>
-              <p className="card-label" style={{ fontSize: '1.5rem', fontWeight: 950, letterSpacing: '-0.02em', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <ShieldCheck size={22} style={{ color: 'var(--accent)' }} />
-                Safety &amp; Capacity
-              </p>
-            </div>
-            <div className="sg-live-badge" style={{ padding: '0.4rem 0.9rem', background: 'rgba(var(--accent-rgb),0.08)', border: '1px solid rgba(var(--accent-rgb),0.2)', borderRadius: '99px' }}>
-              <span className="sg-live-dot" />
-              CERTIFIED
-            </div>
-          </div>
-
-          {/* Specs grid */}
-          <div className="sg-specs-grid" style={{ marginBottom: '1.5rem' }}>
-            <div className="sg-spec-card">
-              <div className="sg-spec-icon-wrap accent"><Weight size={16} /></div>
-              <div className="sg-spec-info">
-                <span className="sg-spec-label">Max Weight</span>
-                <span className="sg-spec-value">12 kg</span>
-                <span className="sg-spec-note">Per donation load</span>
-              </div>
-            </div>
-            <div className="sg-spec-card">
-              <div className="sg-spec-icon-wrap accent"><Box size={16} /></div>
-              <div className="sg-spec-info">
-                <span className="sg-spec-label">Volume</span>
-                <span className="sg-spec-value">20 L</span>
-                <span className="sg-spec-note">Interior capacity</span>
-              </div>
-            </div>
-            <div className="sg-spec-card">
-              <div className="sg-spec-icon-wrap blue"><Thermometer size={16} /></div>
-              <div className="sg-spec-info">
-                <span className="sg-spec-label">Temp Range</span>
-                <span className="sg-spec-value">2 – 8 °C</span>
-                <span className="sg-spec-note">Cold-chain zone</span>
-              </div>
-            </div>
-            <div className="sg-spec-card">
-              <div className="sg-spec-icon-wrap blue"><Droplets size={16} /></div>
-              <div className="sg-spec-info">
-                <span className="sg-spec-label">Humidity</span>
-                <span className="sg-spec-value">≤ 75% RH</span>
-                <span className="sg-spec-note">Microbial gate</span>
-              </div>
-            </div>
-            <div className="sg-spec-card">
-              <div className="sg-spec-icon-wrap purple"><Zap size={16} /></div>
-              <div className="sg-spec-info">
-                <span className="sg-spec-label">UV-C Cycle</span>
-                <span className="sg-spec-value">90 sec</span>
-                <span className="sg-spec-note">Between every use</span>
-              </div>
-            </div>
-            <div className="sg-spec-card">
-              <div className="sg-spec-icon-wrap purple"><Wind size={16} /></div>
-              <div className="sg-spec-info">
-                <span className="sg-spec-label">AQI Limit</span>
-                <span className="sg-spec-value">≤ 50 AQI</span>
-                <span className="sg-spec-note">BME688 gate</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Prohibited items */}
-          <div className="sg-prohibited-section" style={{ marginBottom: '1.5rem' }}>
-            <div className="sg-prohibited-header">
-              <Ban size={13} className="sg-ban-icon" />
-              <span className="sg-prohibited-label">Prohibited Items</span>
-            </div>
-            <div className="sg-prohibited-chips">
-              {["Raw Meat >500g", "Liquids >500ml", "Unlabelled allergens", "Frozen goods", "Pressurised cans"].map(item => (
-                <span key={item} className="sg-chip">{item}</span>
+            <div className="log-list-enhanced" style={{ position: 'relative', zIndex: 1, maxHeight: '450px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+              {state.logs.slice(0, 8).map((event, idx) => (
+                <div key={event.id} className="nature-list-item" style={{ animationDelay: `${idx * 0.1}s`, margin: 0, marginBottom: '0.5rem', padding: '0.85rem 1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ width: '32px', height: '32px', background: '#F0FDF4', borderRadius: '8px', display: 'grid', placeItems: 'center', fontSize: '1rem' }}>
+                      {event.type.includes('fault') ? '⚠️' : '🔹'}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 900, color: '#064E3B' }}>{event.type.replace(/_/g, ' ').toUpperCase()}</span>
+                      <span style={{ fontSize: '0.6rem', color: '#059669', fontWeight: 600 }}>{formatDateTime(event.createdAt)}</span>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
-
-          {/* Live sensor snapshot */}
-          <div className="sg-live-row">
-            <div className="sg-live-badge">
-              <span className="sg-live-dot" /> LIVE SENSOR
-            </div>
-            <span className="sg-tele-item">🌡 {currentLocker.telemetry.internalTempC.toFixed(1)} °C</span>
-            <span className="sg-tele-item">💧 {currentLocker.telemetry.humidityPct.toFixed(0)} % RH</span>
-            <span className="sg-tele-item">🔬 {currentLocker.telemetry.sensorHealth}</span>
-          </div>
-        </SurfaceCard>
-
-        <div className="receiver-card-chart bento-chart-container">
-          <FoodHealthCardPremium 
-            variant="compact"
-            risk={100 - calculatedQualityScore}
-            quality={calculatedQualityScore}
-            temp={telemetry.internalTempC}
-            shelfLifeHours={Math.round(displayHoursRemaining)}
-            insight={calculatedQualityScore > 70 
-              ? "System Stable: Food freshness is currently peak. No biological hazards detected." 
-              : calculatedQualityScore > 30 
-              ? "Warning: Quality degradation detected. Consumption recommended within next 12 hours."
-              : "Critical Alert: Spoilage risk exceeds safety thresholds. Retrieval restricted."
-            }
-          />
-        </div>
-
-        <SurfaceCard className="receiver-card receiver-card-logs luxe-logs-card">
-          <div className="vapor-ambient-effect" />
-          <div className="card-header-mini">
-            <div className="header-title-stack">
-              <span className="sector-title" style={{ marginBottom: '0.25rem' }}>EVENT_PROTOCOL_04</span>
-              <p className="card-label" style={{ fontSize: '1.25rem', fontWeight: 900 }}>{t("logs").toUpperCase()}</p>
-            </div>
-            <div className="log-status-badge">
-              <span className="pulse-dot green" />
-              RECORDING_LIVE
-            </div>
-          </div>
-
-          <div className="log-list-enhanced">
-            {state.logs.slice(0, 8).map((event, idx) => {
-              const getEventIcon = (type: string) => {
-                if (type.includes('lock')) return '🔒';
-                if (type.includes('door')) return '🚪';
-                if (type.includes('sync')) return '☁️';
-                if (type.includes('fault')) return '⚠️';
-                if (type.includes('sanit')) return '✨';
-                if (type.includes('deposit') || type.includes('regis')) return '🥗';
-                if (type.includes('retriev')) return '📦';
-                return '🔹';
-              };
-
-              const getEventTone = (type: string) => {
-                if (type.includes('fault')) return 'danger';
-                if (type.includes('lock') || type.includes('door')) return 'accent';
-                if (type.includes('sanit')) return 'success';
-                return 'neutral';
-              };
-
-              return (
-                <article 
-                  key={event.id} 
-                  className={`log-item-luxe is-${getEventTone(event.type)}`}
-                  style={{ animationDelay: `${idx * 0.1}s` }}
-                >
-                  <div className="log-icon-box">{getEventIcon(event.type)}</div>
-                  <div className="log-content-luxe">
-                    <div className="log-header-luxe">
-                      <strong className="log-type">{event.type.replace(/_/g, ' ').toUpperCase()}</strong>
-                      <span className="log-time">{formatDateTime(event.createdAt)}</span>
-                    </div>
-                    <p className="log-detail">{event.detail}</p>
-                  </div>
-                  <div className="log-indicator-line" />
-                </article>
-              );
-            })}
-          </div>
-          <div className="botanical-corner-accent bottom-left">📜</div>
-        </SurfaceCard>
+          </SurfaceCard>
+        </ScrollReveal>
       </section>
     </div>
   );
