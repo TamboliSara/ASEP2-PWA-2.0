@@ -15,7 +15,14 @@ import {
   Settings2,
   Clock,
   Layers,
-  MoreHorizontal
+  MoreHorizontal,
+  FileText,
+  X,
+  User,
+  Mail,
+  Heart,
+  Info,
+  Package
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatusPill } from "../components/StatusPill";
@@ -25,23 +32,84 @@ import { Menu } from "../components/ui/fluid-menu";
 import { FleetMap } from "../components/FleetMap";
 import { useLockerController } from "../features/useLockerController";
 import { useTranslation } from "../store/useTranslation";
-import { formatDateTime } from "../utils/format";
+import { formatDateTime, getHoursRemaining } from "../utils/format";
 import { sampleFleetLockers } from "../utils/mockData";
 import { useState } from "react";
 import { ScrollReveal } from "../components/ScrollReveal";
 import { TextReveal } from "../components/TextReveal";
+import { generateTelemetryPDF } from "../utils/pdfGenerator";
 
 export function AdminPageV2() {
   const { t } = useTranslation();
-  const { state, currentLocker, clearFault, syncNow, reconnectLocker, resetDonations, signOut } = useLockerController();
+  const { state, selectLocker, currentLocker, clearFault, syncNow, reconnectLocker, resetDonations, signOut } = useLockerController();
   const fleet = sampleFleetLockers;
+  const [showSafeSelector, setShowSafeSelector] = useState(false);
+
+  const handleGeneratePDF = (targetLocker = currentLocker) => {
+    // Calculate Receiver Telemetry (Freshness Analysis)
+    const deadline = targetLocker.deadlineEstimate;
+    const hrsRemaining = deadline ? getHoursRemaining(deadline.absoluteIso) : 0;
+    const finalHrs = isNaN(hrsRemaining) ? (deadline?.hoursRemaining || 0) : hrsRemaining;
+    
+    const MAX_SHELF_LIFE = 48; // Standard normalization hours
+    const qualityScore = Math.min(100, Math.round((Math.max(0, finalHrs) / MAX_SHELF_LIFE) * 100));
+    const riskLevel = finalHrs < 4 ? "Critical" : finalHrs < 8 ? "Warning" : "Safe";
+    const spoilageStatus = finalHrs <= 0 ? "Expired" : finalHrs <= 4 ? "Warning" : "Fresh";
+    
+    const aiInsight = finalHrs < 4 
+      ? "Critical Risk: Immediate intervention required to prevent spoilage. Unit stability is compromised."
+      : finalHrs < 8 
+        ? "Warning: Quality degradation detected. Community pickup should be prioritized immediately."
+        : "Conditions Optimal: Food quality is stable and safe for distribution. No immediate action required.";
+
+    generateTelemetryPDF({
+      terminalId: "KSK-9902",
+      generatedBy: "Admin User",
+      timestamp: new Date().toISOString(),
+      fleet: fleet,
+      currentLocker: targetLocker,
+      stats: {
+        totalDonations: "142",
+        activeLockers: "8/12",
+        mealsServed: "24"
+      },
+      foodItem: targetLocker.activeDonation ? {
+        name: targetLocker.activeDonation.foodName,
+        category: targetLocker.activeDonation.categoryLabel,
+        donor: targetLocker.activeDonation.donorName
+      } : {
+        name: "N/A (System Check)",
+        category: "N/A",
+        donor: "N/A"
+      },
+      receiverTelemetry: {
+        qualityScore,
+        hoursRemaining: finalHrs,
+        riskLevel,
+        aiInsight,
+        spoilageStatus
+      },
+      communityContributions: state.lockers
+        .filter(l => l.activeDonation)
+        .map(l => ({
+          lockerId: l.lockerId,
+          donorName: l.activeDonation!.donorName,
+          donorContact: l.activeDonation!.donorContact,
+          foodName: l.activeDonation!.foodName,
+          dietTag: l.activeDonation!.dietTag,
+          qualityScore: l.activeDonation!.latestQualityScore,
+          createdAt: l.activeDonation!.createdAt
+        }))
+    });
+    setShowSafeSelector(false);
+  };
 
   if (!state.isAdminAuthenticated) {
     return (
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] as const }}
         className="min-h-[calc(100vh-180px)] flex items-center justify-center w-full max-w-2xl mx-auto"
       >
         <section className="relative overflow-hidden rounded-[2.5rem] border border-line bg-panel/30 backdrop-blur-2xl p-10 md:p-14 shadow-2xl">
@@ -131,18 +199,18 @@ export function AdminPageV2() {
           
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="hero-copy max-w-2xl">
-              <TextReveal direction="up" distance={15} delay={0.1}>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-accent" />
-                  <p className="text-[11px] font-black tracking-widest uppercase text-accent m-0 leading-none">FLEET OVERVIEW</p>
-                </div>
+              <TextReveal mode="words" direction="up" distance={15} delay={0.1}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2 h-2 rounded-full bg-accent" />
+                    <p className="text-[11px] font-black tracking-widest uppercase text-accent m-0 leading-none">FLEET OVERVIEW</p>
+                  </div>
               </TextReveal>
-              <TextReveal direction="up" distance={20} delay={0.2}>
+              <TextReveal mode="words" direction="up" distance={20} delay={0.2}>
                 <h2 className="text-3xl md:text-4xl leading-[1.05] font-black tracking-tight mb-3 text-text drop-shadow-sm dark:drop-shadow-none">
                   Maintenance and<br />safety dashboard
                 </h2>
               </TextReveal>
-              <TextReveal direction="up" distance={20} delay={0.3}>
+              <TextReveal mode="block" direction="up" distance={20} delay={0.3} threshold={0.1}>
                 <p className="text-text-muted font-medium text-base md:text-[17px] leading-relaxed max-w-[500px]">
                   Monitor every locker, inspect active donations, and open the current kiosk for deeper cleaning or safety actions.
                 </p>
@@ -150,22 +218,31 @@ export function AdminPageV2() {
             </div>
             
             <div className="hero-actions flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-3">
-                <Link 
-                  className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-panel-elevated hover:bg-line/20 border border-transparent transition-all duration-300 font-black text-xs uppercase tracking-widest text-text shadow-sm hover:-translate-y-0.5"
+              <div className="flex items-center gap-4">
+                <HeroActionButton 
                   to="/connect"
-                >
-                  <Settings2 className="w-4 h-4 text-accent" />
-                  <span>CONNECT</span>
-                </Link>
-                <button 
-                  className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-panel-elevated hover:bg-line/20 border border-transparent transition-all duration-300 font-black text-xs uppercase tracking-widest text-text shadow-sm hover:-translate-y-0.5"
-                  type="button" 
+                  icon={<Settings2 className="w-5 h-5" />}
+                  label="CONNECT"
+                  accent="teal"
+                  index={0}
+                />
+                
+                <HeroActionButton 
+                  onClick={() => setShowSafeSelector(true)}
+                  icon={<Box className="w-6 h-6" />}
+                  label="AUDIT REPORT"
+                  accent="teal"
+                  featured
+                  index={1}
+                />
+                
+                <HeroActionButton 
                   onClick={signOut}
-                >
-                  <LogOut className="w-4 h-4 text-danger/80" />
-                  <span>SIGNOUT</span>
-                </button>
+                  icon={<LogOut className="w-5 h-5" />}
+                  label="SIGNOUT"
+                  accent="rose"
+                  index={2}
+                />
               </div>
             </div>
           </div>
@@ -188,17 +265,25 @@ export function AdminPageV2() {
         </ScrollReveal>
 
         <ScrollReveal direction="up" distance={30} delay={0.2}>
-          <MetricCardPremium 
-            title={t("activeLockers") || "Active Lockers"}
-            subtitle="Fleet Availability"
-            value="8/12"
-            trend={`66% ${t("utilization") || "Capacity"}`}
-            trendDirection="neutral"
-            icon={<Layers className="w-6 h-6" />}
-            bgIcon={<Layers className="w-40 h-40" />}
-            accentColor="var(--accent-warm)"
-            index={1}
-          />
+          {(() => {
+            const total = state.lockers.length;
+            const empty = state.lockers.filter(l => l.occupancyState === 'empty').length;
+            const utilized = state.lockers.filter(l => l.occupancyState !== 'empty').length;
+            const utilPercent = Math.round((utilized / total) * 100);
+            return (
+              <MetricCardPremium 
+                title="SAFE Readiness"
+                subtitle="Mission Availability"
+                value={`${empty}/${total}`}
+                trend={`${utilPercent}% DEPLOYMENT LOAD`}
+                trendDirection="neutral"
+                icon={<Layers className="w-6 h-6" />}
+                bgIcon={<Layers className="w-40 h-40" />}
+                accentColor="var(--accent-warm)"
+                index={1}
+              />
+            );
+          })()}
         </ScrollReveal>
 
         <ScrollReveal direction="up" distance={30} delay={0.3}>
@@ -215,305 +300,512 @@ export function AdminPageV2() {
           />
         </ScrollReveal>
       </section>
-
-      <ScrollReveal direction="up" distance={40} delay={0.4}>
-        <FleetMap />
-      </ScrollReveal>
-
       <div className="admin-content-layout flex flex-col gap-6 mt-6">
-        <ScrollReveal direction="up" distance={40} delay={0.5}>
-          <SurfaceCard className="!p-5">
-            <div className="luxe-card-header flex justify-between items-start mb-5">
-              <div className="luxe-card-title-stack">
-                <TextReveal direction="left" distance={10} delay={0.1}>
-                  <p className="text-[10px] font-black tracking-widest uppercase text-accent/80 mb-1">{t("lockerSummaries")}</p>
-                </TextReveal>
-                <TextReveal direction="left" distance={15} delay={0.2}>
-                  <h3 className="text-2xl font-black">{t("systemInventory")}</h3>
-                </TextReveal>
-              </div>
-              <div className="w-12 h-12 rounded-2xl bg-panel-elevated border border-line flex items-center justify-center text-xl shadow-inner">
-                <Box className="w-6 h-6 text-text-muted" />
-              </div>
-            </div>
+        <ScrollReveal type="zoom" direction="up" distance={40} delay={0.6} parallax={0.1}>
+          <div className="obsidian-card premium-noise !p-6 rounded-[2.25rem] group border-emerald-500/20">
+            <Scanline />
+            <BotanicalDecoration />
             
-            <div className="locker-summary-list grid gap-4">
-              {fleet.map((locker, idx) => (
-                <ScrollReveal key={locker.lockerId} direction="up" distance={20} delay={idx * 0.05}>
-                  <article className="luxe-summary-item flex flex-col md:flex-row md:items-center justify-between p-6 rounded-[2.2rem] bg-panel-elevated/40 border border-line/50 hover:border-accent/40 hover:bg-panel-elevated/60 transition-all duration-500 group relative overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1">
-                    {/* Technical Overlays */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-accent-warm/5 blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-                    
-                    <div className="flex items-center gap-6 relative z-10">
-                      <div className="relative">
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center font-black text-xl border-2 transition-all duration-700
-                          ${locker.occupancyState === 'occupied' 
-                            ? 'bg-accent/10 border-accent/30 text-accent shadow-[0_0_20px_rgba(20,184,166,0.1)] group-hover:shadow-[0_0_30px_rgba(20,184,166,0.3)]' 
-                            : locker.occupancyState === 'maintenance'
-                              ? 'bg-danger/10 border-danger/30 text-danger shadow-[0_0_20px_rgba(239,68,68,0.1)]'
-                              : 'bg-panel/50 border-line text-text-muted group-hover:border-accent/20'}`}
-                        >
-                          {locker.lockerLabel.split(' ')[1]?.[0] || 'L'}
+            <div className="relative z-10">
+              <div className="luxe-card-header mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div className="luxe-card-title-stack">
+                  <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
+                    <p className="text-[11px] font-black tracking-[0.4em] uppercase text-emerald-600 dark:text-emerald-500/60 mb-2 flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                      Fleet Donation Registry
+                    </p>
+                  </TextReveal>
+                  <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
+                    <h3 className="text-3xl font-black tracking-tight text-text leading-none">
+                      Active Community Contributions
+                    </h3>
+                  </TextReveal>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-black text-[10px] uppercase tracking-widest">
+                  <Heart className="w-3 h-3" />
+                  {state.lockers.filter(l => l.activeDonation).length} Active SAFEs
+                </div>
+              </div>
+
+              {state.lockers.filter(l => l.activeDonation).length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {state.lockers.filter(l => l.activeDonation).map((locker, idx) => (
+                    <motion.div 
+                      key={locker.lockerId}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 * idx }}
+                      className={`relative p-5 rounded-[1.75rem] border transition-all duration-500 group/donation overflow-hidden cursor-pointer
+                        ${locker.lockerId === state.selectedLockerId 
+                          ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[0_0_40px_rgba(16,184,129,0.1)]' 
+                          : 'bg-panel-elevated/40 dark:bg-white/5 border-line dark:border-white/10 hover:border-emerald-500/30'}`}
+                      onClick={() => selectLocker(locker.lockerId)}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg border transition-all duration-500
+                              ${locker.lockerId === state.selectedLockerId ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-muted/10 dark:bg-white/5 border-line dark:border-white/10 group-hover/donation:border-emerald-500/50'}`}>
+                              <User className="w-5 h-5" />
+                            </div>
+                            <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md bg-emerald-500 text-[7px] font-black text-white uppercase tracking-tighter">
+                              {locker.lockerId.replace('chamber-', 'SAFE')}
+                            </div>
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500/60 leading-none mb-1">VERIFIED DONOR</span>
+                            <span className="text-base font-black text-text truncate leading-tight">{locker.activeDonation?.donorName}</span>
+                            <div className="flex items-center gap-1 mt-0.5 opacity-60">
+                              <Mail className="w-2.5 h-2.5 text-text-muted" />
+                              <span className="text-[9px] font-medium text-text-muted truncate lowercase">{locker.activeDonation?.donorContact}</span>
+                            </div>
+                          </div>
                         </div>
-                        
-                        {/* Status Pulse Dot */}
-                        <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-panel z-20 flex items-center justify-center
-                          ${locker.faultState !== "none" ? 'bg-danger' : locker.occupancyState === "occupied" ? 'bg-accent' : 'bg-success'}`}>
-                          <div className="w-full h-full rounded-full bg-white animate-ping opacity-40" />
+                        <div className={`w-2 h-2 rounded-full mt-2 ${locker.activeDonation?.latestQualityScore === 'fresh' ? 'bg-emerald-500 shadow-[0_0_8px_#10B981]' : locker.activeDonation?.latestQualityScore === 'aging' ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Package className="w-3 h-3 text-emerald-500" />
+                          <span className="text-[8px] font-black uppercase tracking-widest text-text-muted opacity-60">Stored Asset</span>
+                        </div>
+                        <div className="px-3 py-1.5 rounded-lg bg-panel dark:bg-white/5 border border-line dark:border-white/5">
+                          <span className="text-sm font-black text-text tracking-tight">{locker.activeDonation?.foodName}</span>
                         </div>
                       </div>
 
-                      <div className="luxe-summary-info">
-                        <div className="flex items-center gap-3 mb-1.5">
-                          <h4 className="font-black text-xl tracking-tight text-text group-hover:text-accent transition-colors">{locker.lockerLabel}</h4>
-                          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-panel/80 border border-line text-[9px] font-mono font-bold uppercase tracking-widest text-text-muted shadow-inner">
-                            <Database className="w-2.5 h-2.5 opacity-50" />
-                            {locker.lockerId}
-                          </div>
+                      <div className="grid grid-cols-2 gap-2 mb-4">
+                        <div className={`p-3 rounded-xl border transition-colors duration-300 flex flex-col gap-0.5
+                          ${locker.activeDonation?.dietTag === 'veg' || locker.activeDonation?.dietTag === 'vegan'
+                            ? 'bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-700 dark:text-emerald-400' 
+                            : 'bg-amber-500/[0.08] border-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
+                          <span className="text-[7px] font-black uppercase tracking-widest opacity-60">Dietary</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">
+                            {locker.activeDonation?.dietTag || 'Standard'}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-1.5 h-px bg-accent/40" />
-                          <p className="text-[10px] font-black text-accent/70 uppercase tracking-[0.25em]">{locker.zoneLabel}</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-wrap items-center gap-10 mt-6 md:mt-0 relative z-10">
-                      <div className="hidden lg:flex flex-col items-start gap-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-black text-text-muted uppercase tracking-[0.15em]">Locker Utilization</span>
-                          <span className="text-[9px] font-mono font-bold text-accent">{Math.round((locker.occupiedUnits / locker.totalUnits) * 100)}%</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="flex gap-1.5 h-4 items-center">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <motion.div 
-                                key={i} 
-                                initial={false}
-                                animate={{ 
-                                  height: i < (locker.occupiedUnits / locker.totalUnits) * 5 ? [12, 16, 12] : 8,
-                                  opacity: i < (locker.occupiedUnits / locker.totalUnits) * 5 ? 1 : 0.2
-                                }}
-                                transition={{ 
-                                  duration: 1.5, 
-                                  repeat: Infinity, 
-                                  delay: i * 0.1,
-                                  repeatType: "reverse"
-                                }}
-                                className={`w-1 rounded-full ${i < (locker.occupiedUnits / locker.totalUnits) * 5 ? 'bg-accent shadow-[0_0_8px_rgba(20,184,166,0.4)]' : 'bg-line'}`} 
-                              />
-                            ))}
-                          </div>
-                          <p className="text-sm font-mono font-black text-text">
-                            {locker.occupiedUnits} <span className="text-text-muted opacity-40">/</span> {locker.totalUnits}
-                          </p>
+                        <div className={`p-3 rounded-xl border transition-colors duration-300 flex flex-col gap-0.5
+                          ${locker.activeDonation?.latestQualityScore === 'fresh' 
+                            ? 'bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-700 dark:text-emerald-400' 
+                            : locker.activeDonation?.latestQualityScore === 'aging'
+                            ? 'bg-amber-500/[0.08] border-amber-500/20 text-amber-700 dark:text-amber-400'
+                            : 'bg-rose-500/[0.08] border-rose-500/20 text-rose-700 dark:text-rose-400'}`}>
+                          <span className="text-[7px] font-black uppercase tracking-widest opacity-60">Quality</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest">
+                            {locker.activeDonation?.latestQualityScore || 'Nominal'}
+                          </span>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center gap-6">
-                        {locker.faultState !== "none" || locker.foodQualityScore === "spoilt" ? (
-                          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-danger/10 border border-danger/30 shadow-[0_0_20px_rgba(239,68,68,0.15)] group-hover:bg-danger/20 transition-all">
-                            <AlertTriangle className="w-4 h-4 text-danger animate-pulse" />
-                            <span className="text-[10px] font-black tracking-widest uppercase text-danger">Quarantined</span>
-                          </div>
-                        ) : null}
-                        
-                        <div className="flex flex-col items-end min-w-[100px]">
-                          <StatusPill
-                            value={locker.occupancyState}
-                            tone={locker.faultState !== "none" || locker.foodQualityScore === "spoilt" ? "danger" : locker.occupancyState === "occupied" ? "warning" : "success"}
-                          />
-                          <div className="flex items-center gap-1.5 mt-2 opacity-30 group-hover:opacity-60 transition-opacity">
-                            <Activity className="w-2.5 h-2.5" />
-                            <span className="text-[8px] font-black uppercase tracking-tighter text-text">Active Stream</span>
-                          </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-line dark:border-white/5">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3 h-3 text-text-muted opacity-40" />
+                          <span className="text-[9px] font-mono font-bold text-text-muted">{formatDateTime(locker.activeDonation?.createdAt || "")}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                           <span className="text-[8px] font-black uppercase tracking-tighter text-text-muted opacity-40">System Logged</span>
+                           <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
                         </div>
                       </div>
-                    </div>
-                    
-                    {/* Corner Decoration */}
-                    <div className="absolute top-0 left-0 w-1 h-0 group-hover:h-full bg-accent transition-all duration-700 ease-in-out" />
-                  </article>
-                </ScrollReveal>
-              ))}
+
+                      {/* Selection Glow */}
+                      {locker.lockerId === state.selectedLockerId && (
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[50px] rounded-full pointer-events-none" />
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-20 flex flex-col items-center justify-center text-center opacity-40 text-text-muted">
+                  <div className="w-20 h-20 rounded-full bg-panel-elevated dark:bg-white/5 border border-dashed border-line dark:border-white/20 flex items-center justify-center mb-6">
+                    <Database className="w-10 h-10" />
+                  </div>
+                  <h4 className="text-xl font-black uppercase tracking-[0.4em] mb-2">Registry Standby</h4>
+                  <p className="text-sm font-medium max-w-md mx-auto">The fleet is currently waiting for new community donations. Diagnostic streams will activate upon safe deposition.</p>
+                </div>
+              )}
             </div>
-          </SurfaceCard>
+          </div>
         </ScrollReveal>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ScrollReveal direction="left" distance={40} delay={0.6}>
-            <SurfaceCard className="environmental-card-luxe !p-5 relative overflow-hidden group border-accent/10">
-              {/* Technical Overlays */}
+          <ScrollReveal type="zoom" direction="left" distance={40} delay={0.6} parallax={0.1}>
+            <div className="obsidian-card premium-noise !p-6 rounded-[2.25rem] group border-emerald-500/20">
               <Scanline />
               <BotanicalDecoration />
               
-              {/* Animated Heartbeat Background */}
-              <div className="absolute top-10 right-10 p-4 opacity-[0.03] pointer-events-none group-hover:opacity-[0.05] transition-opacity duration-1000">
-                <Activity className="w-24 h-24 animate-[pulse_3s_cubic-bezier(0.4,0,0.6,1)_infinite]" />
-              </div>
-              
-              <div className="luxe-card-header flex justify-between items-start mb-4 relative z-10">
+              <div className="luxe-card-header flex justify-between items-start mb-10 relative z-10">
                 <div className="luxe-card-title-stack">
-                  <TextReveal direction="left" distance={10} delay={0.1}>
-                    <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent/80 mb-0.5 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                      {t("currentKiosk") || "CURRENT KIOSK"}
-                      <span className="opacity-40 ml-1.5 font-mono text-[8px] font-medium tracking-normal">REF: KSK-9902</span>
-                    </p>
-                  </TextReveal>
-                  <TextReveal direction="left" distance={15} delay={0.2}>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-xl md:text-2xl font-black tracking-tight text-text leading-none">
-                        {t("terminalDiagnostics") || "Terminal Diagnostics"}
-                      </h3>
-                      <span className="px-1.5 py-0.5 rounded-full bg-accent/10 text-accent text-[8px] font-black uppercase tracking-widest border border-accent/20">Active</span>
-                    </div>
-                  </TextReveal>
+                <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
+                  <p className="text-[11px] font-black tracking-[0.4em] uppercase text-emerald-600 dark:text-emerald-500/60 mb-2 flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                    {t("currentKiosk")}
+                  </p>
+                </TextReveal>
+                <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
+                  <h3 className="text-3xl font-black tracking-tight text-text leading-none">
+                    Terminal Diagnostics
+                  </h3>
+                </TextReveal>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-accent/5 border border-accent/20 flex items-center justify-center shadow-sm group-hover:shadow-lg transition-all group-hover:scale-110">
-                  <ShieldCheck className="w-5 h-5 text-accent" />
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-emerald-500/20 shadow-lg">
+                  <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                 </div>
               </div>
               
-              <div className="luxe-metric-grid grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 relative z-10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 relative z-10">
                 <MetricItem 
                   label="TinyML AI Engine" 
-                  value="Edge Active"
+                  value="Neural Active"
                   progress={100}
-                  color="var(--accent)"
-                  icon={<Settings2 className="w-3.5 h-3.5" />}
+                  color="var(--accent-bright)"
+                  icon={<Settings2 className="w-4 h-4" />}
                 />
                 <MetricItem 
-                  label="BME688 VOC Nose" 
+                  label="VOC Sensor Profile" 
                   value={`${currentLocker.telemetry.gasResistanceOhms} Ω`}
-                  progress={currentLocker.telemetry.gasResistanceOhms > 15000 ? 100 : 40}
-                  color={currentLocker.telemetry.gasResistanceOhms > 15000 ? "var(--accent)" : "var(--warning)"}
-                  icon={<Activity className="w-3.5 h-3.5" />}
+                  progress={currentLocker.telemetry.gasResistanceOhms > 15000 ? 92 : 40}
+                  color={currentLocker.telemetry.gasResistanceOhms > 15000 ? "var(--accent-bright)" : "var(--warning)"}
+                  icon={<Activity className="w-4 h-4" />}
                 />
                 <MetricItem 
-                  label="DS18B20 Core Temp" 
+                  label="Atmospheric Temp" 
                   value={`${currentLocker.telemetry.internalTempC}°C`}
-                  progress={currentLocker.telemetry.internalTempC <= 5 ? 100 : 70}
-                  color={currentLocker.telemetry.internalTempC <= 5 ? "var(--accent)" : "var(--warning)"}
-                  icon={<Activity className="w-3.5 h-3.5" />}
+                  progress={currentLocker.telemetry.internalTempC <= 5 ? 98 : 70}
+                  color={currentLocker.telemetry.internalTempC <= 5 ? "var(--accent-bright)" : "var(--warning)"}
+                  icon={<Activity className="w-4 h-4" />}
                 />
-                <MetricItem 
-                  label="UV-C Quarantine" 
-                  value={currentLocker.sanitizationState === 'idle' ? "Standby" : "Active"}
-                  progress={currentLocker.sanitizationState === 'idle' ? 100 : 40}
-                  color={currentLocker.sanitizationState === 'idle' ? "var(--accent)" : "var(--danger)"}
-                  icon={<RefreshCcw className={`w-3.5 h-3.5 ${currentLocker.sanitizationState !== 'idle' ? 'animate-spin' : ''}`} />}
-                />
+
               </div>
               
-              <div className="mt-6 pt-4 border-t border-line/20 flex items-center justify-between relative z-10">
-                <div className="flex flex-col gap-0">
-                  <span className="text-[7px] font-black uppercase tracking-[0.2em] text-text-muted/60 leading-none mb-1">{t("lastSync")}</span>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-2.5 h-2.5 text-accent/60" />
-                    <span className="text-[9px] font-mono font-bold text-text tracking-tighter opacity-70">{formatDateTime(currentLocker.lastSyncedAt)}</span>
+              <div className="mt-10 pt-6 border-t border-line dark:border-white/5 flex items-center justify-between relative z-10">
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted opacity-40 mb-1">SYSTEM SYNC</span>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3 h-3 text-emerald-500/50" />
+                    <span className="text-[11px] font-mono font-bold text-text-muted">{formatDateTime(currentLocker.lastSyncedAt)}</span>
                   </div>
                 </div>
-                
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map((i) => (
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4].map(i => (
                     <motion.div 
                       key={i}
-                      animate={{ 
-                        height: [6, 12, 6],
-                        opacity: [0.3, 1, 0.3]
-                      }}
-                      transition={{ 
-                        duration: 1.2, 
-                        repeat: Infinity, 
-                        delay: i * 0.15,
-                        ease: "easeInOut"
-                      }}
-                      className="w-0.5 rounded-full bg-accent/40"
+                      animate={{ height: [8, 16, 8], opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                      className="w-1 bg-emerald-500/40 rounded-full"
                     />
                   ))}
                 </div>
               </div>
-            </SurfaceCard>
+            </div>
           </ScrollReveal>
 
-          <ScrollReveal direction="right" distance={40} delay={0.7}>
-            <SurfaceCard className="environmental-card-luxe !p-5 relative overflow-hidden group border-accent/10">
+          <ScrollReveal type="zoom" direction="right" distance={40} delay={0.8} parallax={0.1}>
+            <div className="obsidian-card premium-noise !p-6 rounded-[2.25rem] group border-emerald-500/20">
               <Scanline />
               <BotanicalDecoration />
               
-              {/* Background technical decoration */}
-              <div className="absolute top-10 right-10 p-4 opacity-[0.03] pointer-events-none group-hover:opacity-[0.05] transition-opacity duration-1000">
-                <Settings className="w-24 h-24 rotate-12" />
-              </div>
-              
-              <div className="luxe-card-header flex justify-between items-start mb-4 relative z-10">
+              <div className="luxe-card-header flex justify-between items-start mb-10 relative z-10">
                 <div className="luxe-card-title-stack">
-                  <TextReveal direction="left" distance={10} delay={0.1}>
-                    <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent/80 mb-0.5">{t("systemActions") || "ACTIONS"}</p>
+                  <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
+                    <p className="text-[11px] font-black tracking-[0.4em] uppercase text-emerald-600 dark:text-emerald-500/60 mb-2">{t("systemActions")}</p>
                   </TextReveal>
-                  <TextReveal direction="left" distance={15} delay={0.2}>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2 leading-none">
-                        {t("systemCommandCenter") || "System Command Center"}
-                      </h3>
-                      <span className="px-1.5 py-0.5 rounded bg-panel-elevated border border-line text-[7px] font-mono font-bold text-text-muted">ID: CMD-0x1</span>
-                    </div>
+                  <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
+                    <h3 className="text-3xl font-black tracking-tight text-text leading-none">
+                      Command Center
+                    </h3>
                   </TextReveal>
                 </div>
                 <motion.button 
                   whileHover={{ rotate: 90, scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
-                  className="w-10 h-10 rounded-full bg-panel-elevated border border-line flex items-center justify-center shadow-sm transition-all group/settings hover:bg-white dark:hover:bg-accent"
+                  className="w-12 h-12 rounded-full bg-panel-elevated/40 dark:bg-white/5 border border-line dark:border-white/10 flex items-center justify-center shadow-lg hover:bg-emerald-500 hover:text-white transition-all text-text-muted"
                 >
-                  <Settings className="w-4 h-4 text-text-muted group-hover/settings:text-white transition-colors" />
+                  <Settings className="w-5 h-5" />
                 </motion.button>
               </div>
               
-              <div className="luxe-action-grid grid grid-cols-1 sm:grid-cols-2 gap-3 relative z-10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                 <ActionButton 
                   onClick={syncNow}
-                  icon={<RefreshCcw className="w-4 h-4" />}
-                  label={t("forceCloudSync") || "Force Sync"}
-                  sublabel="UPDATE RECORDS"
+                  icon={<RefreshCcw className="w-5 h-5" />}
+                  label="Force Sync"
+                  sublabel="Update Records"
                   index={0}
                 />
                 <ActionButton 
                   onClick={reconnectLocker}
-                  icon={<Wifi className="w-4 h-4" />}
-                  label={t("bleReconnect") || "BLE Reset"}
-                  sublabel="RESET BRIDGE"
+                  icon={<Wifi className="w-5 h-5" />}
+                  label="BLE Reset"
+                  sublabel="Reset Bridge"
                   index={1}
                 />
                 <ActionButton 
                   onClick={clearFault}
                   variant="warning"
-                  icon={<AlertTriangle className="w-4 h-4" />}
-                  label={t("clearFault") || "Clear Fault"}
-                  sublabel="ACKNOWLEDGE"
+                  icon={<AlertTriangle className="w-5 h-5" />}
+                  label="Clear Fault"
+                  sublabel="Acknowledge"
                   index={2}
                 />
                 <ActionButton 
-                  onClick={resetDonations}
-                  variant="danger"
-                  icon={<RefreshCcw className="w-4 h-4" />}
-                  label="Emergency Wipe"
-                  sublabel="FULL PURGE"
+                  onClick={handleGeneratePDF}
+                  icon={<FileText className="w-5 h-5" />}
+                  label="Export PDF"
+                  sublabel="Telemetry Report"
                   index={3}
                 />
+                <div className="sm:col-span-2 mt-2">
+                  <motion.button
+                    onClick={resetDonations}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    className="w-full py-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-500 font-black text-xs uppercase tracking-[0.3em] hover:bg-rose-500 hover:text-white transition-all duration-500"
+                  >
+                    Emergency System Wipe
+                  </motion.button>
+                </div>
               </div>
-              
-              <div className="mt-6 flex items-center justify-center gap-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-text" />
-                <span className="text-[7px] font-mono font-black uppercase tracking-[0.4em]">Encrypted</span>
-                <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-text" />
-              </div>
-            </SurfaceCard>
+            </div>
           </ScrollReveal>
         </div>
       </div>
+
+      <ScrollReveal direction="up" distance={40} delay={0.8}>
+        <div className="mt-6">
+          <FleetMap />
+        </div>
+      </ScrollReveal>
+
+      <ScrollReveal direction="up" distance={40} delay={0.9}>
+        <div className="obsidian-card premium-noise !p-6 rounded-[2.25rem] botanical-mesh group border-emerald-500/20">
+          {/* Technical Overlays */}
+          <Scanline />
+          <BotanicalDecoration />
+          
+          <div className="luxe-card-header flex justify-between items-end mb-10 relative z-10">
+            <div className="luxe-card-title-stack">
+              <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
+                <p className="text-[11px] font-black tracking-[0.4em] uppercase text-emerald-500/60 mb-2 flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_8px_theme(colors.emerald.500)]" />
+                  {t("lockerSummaries")}
+                </p>
+              </TextReveal>
+              <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
+                <h3 className="text-3xl md:text-4xl font-black tracking-tight text-text">Strategic Asset Registry</h3>
+              </TextReveal>
+            </div>
+            <div className="hidden md:flex flex-col items-end gap-1 opacity-60">
+              <span className="text-[9px] font-mono font-bold tracking-widest text-emerald-600 dark:text-emerald-400">FLEET STATUS: OPTIMAL</span>
+              <div className="flex gap-1">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className={`w-1 h-3 rounded-full ${i < 6 ? 'bg-emerald-500/40' : 'bg-muted'}`} />
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <div className="locker-summary-list grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {fleet.map((locker, idx) => (
+              <ScrollReveal key={locker.lockerId} direction="up" distance={20} delay={idx * 0.05}>
+                <article className="group/locker relative p-4 rounded-[1.5rem] bg-panel-elevated/40 dark:bg-panel-elevated/20 border border-line dark:border-white/5 hover:border-emerald-500/30 transition-all duration-700 shadow-xl overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent opacity-0 group-hover/locker:opacity-100 transition-opacity duration-1000" />
+                  
+                  <div className="flex items-center gap-5 relative z-10">
+                    <div className="relative">
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black text-base border transition-all duration-700
+                        ${locker.occupancyState === 'occupied' 
+                          ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.1)]' 
+                          : 'bg-muted/10 border-line text-text-muted'}`}
+                      >
+                        {locker.lockerLabel.split(' ')[1] || '01'}
+                      </div>
+                      <motion.div 
+                        animate={{ opacity: [0.3, 1, 0.3] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-panel-elevated
+                        ${locker.faultState !== "none" ? 'bg-rose-500' : locker.occupancyState === "occupied" ? 'bg-emerald-500' : 'bg-emerald-400'}`}
+                      />
+                    </div>
+
+                    <div className="flex-grow">
+                      <h4 className="font-black text-sm text-text group-hover/locker:text-emerald-600 dark:group-hover/locker:text-emerald-400 transition-colors mb-0.5">{locker.lockerLabel}</h4>
+                      <div className="flex items-center gap-2 opacity-50">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500/80">{locker.zoneLabel}</span>
+                        <span className="w-1 h-1 rounded-full bg-muted" />
+                        <span className="text-[8px] font-mono font-bold text-text-muted">{locker.lockerId}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 pt-3 border-t border-line dark:border-white/5 flex items-center justify-between relative z-10">
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-1">Utilization</span>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex gap-0.5">
+                          {[1, 2, 3, 4].map(i => (
+                            <div key={i} className={`w-1 h-2 rounded-full ${i <= (locker.occupiedUnits / locker.totalUnits) * 4 ? 'bg-emerald-500' : 'bg-muted'}`} />
+                          ))}
+                        </div>
+                        <span className="text-[10px] font-mono font-black text-text-muted">{Math.round((locker.occupiedUnits / locker.totalUnits) * 100)}%</span>
+                      </div>
+                    </div>
+                    <StatusPill
+                      value={locker.occupancyState}
+                      tone={locker.faultState !== "none" || locker.foodQualityScore === "spoilt" ? "danger" : locker.occupancyState === "occupied" ? "warning" : "success"}
+                    />
+                  </div>
+                </article>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </ScrollReveal>
+
+      <AnimatePresence>
+        {showSafeSelector && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+              onClick={() => setShowSafeSelector(false)}
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl bg-panel border border-line rounded-[3rem] p-8 shadow-2xl overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-accent/10 rounded-full blur-[100px] pointer-events-none" />
+              
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-accent" />
+                    <p className="text-[10px] font-black tracking-widest uppercase text-accent">DIAGNOSTIC EXPORT</p>
+                  </div>
+                  <h3 className="text-3xl font-black">Select Safe for Report</h3>
+                  <p className="text-text-muted mt-2 text-sm font-medium">Select a mission-safe to generate a localized telemetry PDF.</p>
+                </div>
+                <button 
+                  onClick={() => setShowSafeSelector(false)}
+                  className="w-12 h-12 rounded-2xl bg-panel-elevated border border-line flex items-center justify-center text-text-muted hover:text-accent transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {state.lockers.slice(0, 8).map((locker, idx) => (
+                  <motion.button
+                    key={locker.lockerId}
+                    whileHover={{ y: -5, scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleGeneratePDF(locker)}
+                    className="group relative flex flex-col items-center justify-center gap-4 p-6 rounded-[2rem] bg-panel-elevated/40 border border-line hover:border-accent/40 hover:bg-panel-elevated/80 transition-all duration-300"
+                  >
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl border-2 transition-all
+                      ${locker.occupancyState === 'occupied' ? 'bg-accent/10 border-accent/30 text-accent' : 'bg-panel/50 border-line text-text-muted'}`}>
+                      {(idx + 1).toString().padStart(2, '0')}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] font-black tracking-widest text-text-muted uppercase">SAFE</p>
+                      <p className="text-xs font-black text-text group-hover:text-accent transition-colors">UNIT_{locker.lockerId.split('-')[1]}</p>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+              
+              <div className="mt-8 pt-6 border-t border-line/20 flex justify-center">
+                <div className="flex items-center gap-2 opacity-30">
+                  <ShieldCheck className="w-4 h-4 text-accent" />
+                  <span className="text-[9px] font-black tracking-widest uppercase text-text">Security Verified Telemetry</span>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function HeroActionButton({ onClick, to, icon, label, accent = "teal", featured = false, index = 0 }: any) {
+  const isRose = accent === "rose";
+  
+  const content = (
+    <div className="relative flex flex-col items-center justify-center gap-3">
+      <div className={`icon-container relative z-10 rounded-2xl flex items-center justify-center transition-all duration-700 border
+        bg-white dark:bg-panel border-line group-hover:border-transparent group-hover:scale-110 shadow-inner
+        ${featured ? 'w-16 h-16 text-accent' : 'w-12 h-12'}
+        ${isRose ? 'group-hover:bg-danger group-hover:text-white' : 'group-hover:bg-accent group-hover:text-white'}`}>
+        <div className={`transition-transform duration-700 group-hover:rotate-[8deg] ${featured ? 'scale-125' : ''}`}>
+          {icon}
+        </div>
+        
+        {/* Glow behind icon */}
+        <div className={`absolute inset-0 rounded-2xl blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-500
+          ${isRose ? 'bg-danger' : 'bg-accent'}`} />
+      </div>
+      
+      <div className="flex flex-col items-center text-center">
+        <span className={`text-[11px] font-black tracking-[0.25em] uppercase leading-tight transition-colors duration-300 max-w-[100px]
+          ${isRose ? 'text-danger/60 group-hover:text-danger' : 'text-text-muted group-hover:text-accent'}`}>
+          {label.split(' ').map((word: string, i: number) => (
+            <span key={i} className="block">{word}</span>
+          ))}
+        </span>
+        {featured && (
+          <motion.div 
+            animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="w-1.5 h-1.5 rounded-full bg-accent mt-2 shadow-[0_0_8px_rgba(20,184,166,0.6)]" 
+          />
+        )}
+      </div>
+    </div>
+  );
+
+  const wrapperProps = {
+    initial: { opacity: 0, scale: 0.9, y: 15 },
+    animate: { opacity: 1, scale: 1, y: 0 },
+    transition: { delay: 0.1 * index, duration: 0.8, ease: [0.16, 1, 0.3, 1] as const },
+    whileHover: { y: -6 },
+    whileTap: { scale: 0.95 },
+    className: `group relative flex items-center justify-center rounded-[2.8rem] transition-all duration-700 overflow-hidden
+      bg-panel-elevated/30 backdrop-blur-3xl border border-line/40
+      hover:bg-panel-elevated/60 hover:border-accent/40 hover:shadow-[0_25px_60px_rgba(0,0,0,0.4)]
+      ${featured ? 'px-12 py-8 min-w-[180px]' : 'px-8 py-6 min-w-[150px]'}
+      ${isRose ? 'hover:border-danger/40 hover:shadow-danger/10' : 'hover:shadow-accent/10'}`
+  };
+
+  if (to) {
+    return (
+      <motion.div {...wrapperProps}>
+        <Link to={to} className="w-full h-full flex items-center justify-center z-10">
+          {content}
+        </Link>
+        {/* Background Technical Decoration */}
+        <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-accent/5 rounded-full blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.button type="button" onClick={onClick} {...wrapperProps}>
+      <div className="relative z-10">
+        {content}
+      </div>
+      {/* Decorative scanline */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[1.5s] ease-in-out pointer-events-none" />
+      {/* Background Technical Decoration */}
+      <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-accent/5 rounded-full blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+    </motion.button>
   );
 }
 
@@ -544,45 +836,40 @@ function MetricItem({ label, value, progress, color, icon, wide = false }: any) 
   const isCritical = progress < 30;
   
   return (
-    <div className={`luxe-metric-card group/metric relative flex flex-col gap-2 ${wide ? 'w-full' : ''}`}>
-      <div className="flex items-center gap-3">
-        <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-700 border
-          bg-white dark:bg-panel-elevated border-line group-hover/metric:border-accent group-hover/metric:shadow-[0_0_15px_rgba(20,184,166,0.1)]`}>
-          <span className="text-text-muted group-hover/metric:text-accent transition-all duration-500 transform group-hover/metric:scale-105">{icon}</span>
+    <div className={`group/metric relative flex flex-col gap-3 ${wide ? 'w-full' : ''}`}>
+      <div className="flex items-center gap-4">
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-700 border
+          bg-panel-elevated/40 dark:bg-white/5 border-line dark:border-white/5 group-hover/metric:border-emerald-500/40 group-hover/metric:shadow-[0_0_20px_rgba(16,184,129,0.1)]`}>
+          <span className="text-text-muted group-hover/metric:text-emerald-600 dark:group-hover/metric:text-emerald-400 transition-all duration-500 transform group-hover/metric:scale-110">{icon}</span>
         </div>
         
-        <div className="flex flex-col gap-0 flex-grow">
+        <div className="flex flex-col gap-0.5 flex-grow">
           <div className="flex justify-between items-baseline">
-            <span className="text-[9px] font-black uppercase tracking-[0.12em] text-text-muted opacity-60 leading-none">{label}</span>
-            <span className="text-[10px] font-mono font-black text-text/30 group-hover/metric:text-accent transition-colors">{progress}%</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted group-hover/metric:text-emerald-600/60 dark:group-hover/metric:text-emerald-500/60 transition-colors leading-none">{label}</span>
+            <span className="text-[10px] font-mono font-bold text-text-muted/40 group-hover/metric:text-emerald-600/40 dark:group-hover/metric:text-emerald-500/40">{progress}%</span>
           </div>
-          <strong className={`text-[15px] font-black uppercase tracking-tight transition-colors duration-300
-            ${isHealthy ? 'text-text' : isCritical ? 'text-danger' : 'text-accent-warm'}`}>
+          <strong className={`text-lg font-black tracking-tight transition-colors duration-300
+            ${isHealthy ? 'text-text' : isCritical ? 'text-rose-500' : 'text-amber-500'}`}>
             {value}
           </strong>
         </div>
       </div>
       
-      <div className="relative h-1 w-full bg-line/15 rounded-full overflow-hidden backdrop-blur-sm border border-line/5 group-hover/metric:border-accent/5 transition-colors">
+      <div className="relative h-1.5 w-full bg-muted/10 dark:bg-white/5 rounded-full overflow-hidden border border-line dark:border-white/[0.02]">
         <motion.div 
           initial={{ width: 0 }}
           animate={{ width: `${progress}%` }}
-          transition={{ duration: 2, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 2, ease: [0.16, 1, 0.3, 1] as const }}
           className="h-full rounded-full relative" 
           style={{ 
-            background: color.startsWith('var') ? color : `linear-gradient(90deg, ${color}CC, ${color})`,
-            width: `${progress}%`,
-            boxShadow: `0 0 10px ${color.startsWith('var') ? 'rgba(var(--accent-rgb), 0.2)' : color + '30'}`
+            background: `linear-gradient(90deg, ${color}44, ${color})`,
+            boxShadow: `0 0 15px ${color}44`
           }}
         >
-          {/* Glowing point at the end */}
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full blur-[5px] opacity-50" />
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_#fff]" />
-
           <motion.div 
             animate={{ x: ['-100%', '200%'] }}
-            transition={{ duration: 3.5, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
           />
         </motion.div>
       </div>
@@ -594,55 +881,44 @@ function ActionButton({ onClick, icon, label, sublabel, variant = "default", ind
   const isDanger = variant === "danger";
   const isWarning = variant === "warning";
   
-  const textColors = {
-    danger: "text-danger",
-    warning: "text-accent-warm",
-    default: "text-accent"
+  const accents = {
+    danger: "rose-500",
+    warning: "amber-500",
+    default: "emerald-500"
   };
 
-  const textColor = textColors[variant as keyof typeof textColors] || textColors.default;
+  const accentColor = accents[variant as keyof typeof accents] || accents.default;
 
   return (
     <motion.button 
       onClick={onClick}
-      initial={{ opacity: 0, y: 5 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 * index, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -2, scale: 1.01 }}
+      transition={{ delay: 0.1 * index, duration: 0.8, ease: [0.16, 1, 0.3, 1] as const }}
+      whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
-      className={`relative flex items-center gap-3 w-full p-3 rounded-[1.5rem] border transition-all duration-500 group overflow-hidden
-        bg-white dark:bg-panel-elevated/30 backdrop-blur-xl border-line
-        hover:shadow-xl hover:bg-white dark:hover:bg-panel-elevated/60
-        ${isDanger ? 'hover:border-danger/30 hover:shadow-danger/5' : 
-          isWarning ? 'hover:border-accent-warm/30 hover:shadow-accent-warm/5' : 
-          'hover:border-accent/30 hover:shadow-accent/5'}`}
+      className="relative flex items-center gap-4 w-full p-4 rounded-3xl border transition-all duration-500 group overflow-hidden
+        bg-panel-elevated/40 dark:bg-white/5 border-line dark:border-white/[0.03] hover:border-emerald-500/20 hover:bg-panel-elevated dark:hover:bg-white/[0.08] shadow-2xl"
     >
-      {/* Decorative scanline on hover */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-accent/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out pointer-events-none" />
-      
-      <div className={`relative flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 border
-        bg-white dark:bg-panel border-line group-hover:border-transparent group-hover:shadow-[0_0_15px_rgba(var(--accent-rgb),0.1)]
-        ${isDanger ? 'group-hover:bg-danger group-hover:text-white' : 
-          isWarning ? 'group-hover:bg-accent-warm group-hover:text-white' : 
-          'group-hover:bg-accent group-hover:text-white'}`}
+      <div className={`relative flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 border
+        bg-muted/5 dark:bg-white/5 border-line dark:border-white/10 group-hover:border-${accentColor}/50 group-hover:bg-${accentColor}/10`}
       >
-        <div className={`transition-transform duration-500 group-hover:scale-105 ${textColor} group-hover:text-white transform`}>
+        <div className={`transition-transform duration-500 group-hover:scale-110 text-text-muted group-hover:text-${accentColor}`}>
           {icon}
         </div>
       </div>
 
-      <div className="flex flex-col gap-0 relative z-10 leading-tight text-left flex-grow">
-        <strong className="text-[13px] font-black tracking-tight text-text group-hover:text-accent transition-colors leading-none">
+      <div className="flex flex-col gap-0.5 relative z-10 leading-tight text-left flex-grow">
+        <strong className="text-[14px] font-black tracking-tight text-text group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
           {label}
         </strong>
-        <span className="text-[8px] font-black text-text-muted uppercase tracking-[0.12em] opacity-50 group-hover:opacity-100 transition-all flex items-center gap-1.5">
-          <span className={`w-1 h-px bg-current opacity-20 group-hover:w-2 transition-all`} />
+        <span className="text-[9px] font-black text-text-muted uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-all flex items-center gap-2">
           {sublabel}
         </span>
       </div>
 
-      {/* Decorative pulse point */}
-      <div className="absolute top-3 right-5 w-1 h-1 rounded-full bg-current opacity-0 group-hover:opacity-15 transition-opacity animate-pulse" />
+      {/* Decorative hover glow */}
+      <div className={`absolute -right-4 -bottom-4 w-12 h-12 bg-${accentColor}/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
     </motion.button>
   );
 }

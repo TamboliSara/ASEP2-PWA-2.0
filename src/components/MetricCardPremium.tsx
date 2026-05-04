@@ -34,7 +34,7 @@ export function MetricCardPremium({
       transition={{ 
         duration: 0.8, 
         delay: index * 0.1, 
-        ease: [0.16, 1, 0.3, 1] 
+        ease: [0.16, 1, 0.3, 1] as const
       }}
       whileHover={{ y: -5, scale: 1.01 }}
       className="relative overflow-hidden group rounded-[2rem] border border-line/40 bg-panel/40 backdrop-blur-3xl shadow-2xl p-7 flex flex-col justify-between min-h-[220px]"

@@ -265,7 +265,7 @@ export function KioskPage() {
         </div>
       )}
 
-      <ScrollReveal direction="up" distance={30}>
+      <ScrollReveal type="blur" direction="up" distance={30} parallax={0.05} threshold={0.01}>
         <section className="hero-panel receiver-hero nature-card-redesign">
           {/* Nature Background Elements */}
           <div className="nature-waves" style={{ opacity: 0.3 }}>
@@ -284,13 +284,13 @@ export function KioskPage() {
 
             {/* ── Top identity row ── */}
             <div className="hrd-identity-row" style={{ position: 'relative', zIndex: 10 }}>
-              <TextReveal direction="left" distance={10} delay={0.1}>
-                <div className="hrd-eyebrow-stack">
-                  <span className="hrd-system-label">RECEIVER DASHBOARD</span>
-                  <div className="hrd-live-chip"><span className="hrd-live-dot" />LIVE</div>
-                </div>
+              <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
+                  <div className="hrd-eyebrow-stack">
+                    <span className="hrd-system-label">RECEIVER DASHBOARD</span>
+                    <div className="hrd-live-chip"><span className="hrd-live-dot" />LIVE</div>
+                  </div>
               </TextReveal>
-              <TextReveal direction="right" distance={10} delay={0.2}>
+              <TextReveal mode="words" direction="right" distance={10} delay={0.2}>
                 <div className="hrd-pill-row">
                   <StatusPill value={currentLocker.occupancyState} tone={donation ? "warning" : "success"} />
                   <StatusPill value={telemetry.sensorHealth} tone={telemetry.sensorHealth === "healthy" ? "success" : "warning"} />
@@ -303,14 +303,14 @@ export function KioskPage() {
 
             {/* ── Food Name ── */}
             <div className="hrd-food-name-row" style={{ position: 'relative', zIndex: 10 }}>
-              <TextReveal direction="up" distance={15} delay={0.3}>
+              <TextReveal mode="words" direction="up" distance={15} delay={0.3}>
                 <h2 className="hrd-food-name">
                   {displayDonation
                     ? displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)
                     : "No Item"}
                 </h2>
               </TextReveal>
-              <TextReveal direction="left" distance={10} delay={0.4}>
+              <TextReveal mode="words" direction="left" distance={10} delay={0.4}>
                 <div className="hrd-safety-chip" style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10B981', color: '#10B981' }}>
                   <span>🛡️</span>SAFETY VERIFIED
                 </div>
@@ -388,7 +388,7 @@ export function KioskPage() {
         </section>
       </ScrollReveal>
 
-      <ScrollReveal direction="up" distance={40} delay={0.2}>
+      <ScrollReveal type="blur" direction="up" distance={40} delay={0.2} staggerChildren={0.02} threshold={0.05}>
         <section className="chamber-selection-grid">
           <motion.div 
             className="selection-header"
@@ -397,100 +397,83 @@ export function KioskPage() {
             viewport={{ once: false }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            <TextReveal direction="left" distance={10} delay={0.1}>
+            <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
               <p className="eyebrow-accent">UNIT COMPARTMENTS</p>
             </TextReveal>
-            <TextReveal direction="left" distance={15} delay={0.2}>
+            <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
               <h3 className="premium-h3">Select Safe to Analyze</h3>
             </TextReveal>
             <div className="header-divider-mini" />
           </motion.div>
 
-          <motion.div 
-            className="chamber-grid-layout"
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: false }}
-            variants={{
-              hidden: { opacity: 0 },
-              show: {
-                opacity: 1,
-                transition: {
-                  staggerChildren: 0.05
-                }
-              }
-            }}
-          >
+          <div className="chamber-grid-layout">
             {state.lockers.map((locker, idx) => {
               const safeNum = (idx + 1).toString().padStart(2, '0');
               const isActive = state.selectedLockerId === locker.lockerId;
               
               return (
-                <motion.button
-                  key={locker.lockerId}
-                  variants={{
-                    hidden: { opacity: 0, y: 20 },
-                    show: { opacity: 1, y: 0 }
-                  }}
-                  whileHover={{ y: -5, scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`chamber-node-luxe ${isActive ? 'active' : ''} is-${locker.occupancyState}`}
-                  onClick={() => selectLocker(locker.lockerId)}
-                >
-                  <div className="chamber-node-inner">
-                    <div className="chamber-node-number">{safeNum}</div>
-                    <div className="chamber-node-info">
-                      <div className="chamber-header-row">
-                        <span className="chamber-label">SAFE</span>
-                        <div className="chamber-node-tag">UNIT_{locker.lockerId.split('-')[1] || '00'}</div>
-                      </div>
-                      <strong className="chamber-id">{safeNum}</strong>
-                      
-                      <div className="chamber-status-stack">
-                        <StatusPill 
-                          value={locker.occupancyState} 
-                          tone={
-                            locker.occupancyState === 'occupied' ? 'warning' : 
-                            locker.occupancyState === 'empty' ? 'success' : 
-                            locker.occupancyState === 'spoiled' ? 'spoiled' : 
-                            'danger'
-                          } 
-                        />
+                <ScrollReveal key={locker.lockerId} type="zoom" direction="up" distance={20} threshold={0.01}>
+                  <motion.button
+                    whileHover={{ y: -5, scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`chamber-node-luxe ${isActive ? 'active' : ''} is-${locker.occupancyState}`}
+                    onClick={() => selectLocker(locker.lockerId)}
+                  >
+                    <div className="chamber-node-inner">
+                      <div className="chamber-node-number">{safeNum}</div>
+                      <div className="chamber-node-info">
+                        <div className="chamber-header-row">
+                          <span className="chamber-label">SAFE</span>
+                          <div className="chamber-node-tag">UNIT_{locker.lockerId.split('-')[1] || '00'}</div>
+                        </div>
+                        <strong className="chamber-id">{safeNum}</strong>
                         
-                        <AnimatePresence>
-                          {locker.occupancyState !== 'empty' && locker.occupancyState !== 'maintenance' && (
-                            <motion.div 
-                              initial={{ opacity: 0, scale: 0.8 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              exit={{ opacity: 0, scale: 0.8 }}
-                              className={`quality-mini-pill ${locker.foodQualityScore}`}
-                            >
-                              <Activity size={8} />
-                              {locker.foodQualityScore}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                        <div className="chamber-status-stack">
+                          <StatusPill 
+                            value={locker.occupancyState} 
+                            tone={
+                              locker.occupancyState === 'occupied' ? 'warning' : 
+                              locker.occupancyState === 'empty' ? 'success' : 
+                              locker.occupancyState === 'spoiled' ? 'spoiled' : 
+                              'danger'
+                            } 
+                          />
+                          
+                          <AnimatePresence>
+                            {locker.occupancyState !== 'empty' && locker.occupancyState !== 'maintenance' && (
+                              <motion.div 
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.8 }}
+                                className={`quality-mini-pill ${locker.foodQualityScore}`}
+                              >
+                                <Activity size={8} />
+                                {locker.foodQualityScore}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  {isActive && (
-                    <motion.div 
-                      layoutId="active-ring"
-                      className="chamber-active-ring"
-                      initial={false}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    />
-                  )}
-                  
-                  <div className="chamber-node-glow" />
-                  <div className="scanline-effect" />
-                  <div className="corner-decor top-right" />
-                  <div className="corner-decor bottom-left" />
-                </motion.button>
+                    
+                    {isActive && (
+                      <motion.div 
+                        layoutId="active-ring"
+                        className="chamber-active-ring"
+                        initial={false}
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                    )}
+                    
+                    <div className="chamber-node-glow" />
+                    <div className="scanline-effect" />
+                    <div className="corner-decor top-right" />
+                    <div className="corner-decor bottom-left" />
+                  </motion.button>
+                </ScrollReveal>
               );
             })}
-          </motion.div>
+          </div>
         </section>
       </ScrollReveal>
 

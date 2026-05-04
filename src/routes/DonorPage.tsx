@@ -8,6 +8,7 @@ import { useLockerController } from "../features/useLockerController";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
 import { ScrollReveal } from "../components/ScrollReveal";
+import { TextReveal } from "../components/TextReveal";
 
 export function DonorPage() {
   const navigate = useNavigate();
@@ -84,7 +85,7 @@ export function DonorPage() {
         </button>
       </div>
 
-      <ScrollReveal direction="up" distance={40}>
+      <ScrollReveal type="blur" direction="up" distance={40} threshold={0.1}>
         <div className="w-full max-w-5xl grid md:grid-cols-5 gap-0 overflow-hidden rounded-[2rem] border border-line bg-panel/20 backdrop-blur-3xl shadow-2xl">
           
           {/* Visual Side (Left) */}
@@ -97,7 +98,7 @@ export function DonorPage() {
             </div>
 
             <div className="relative z-10 space-y-8">
-              <ScrollReveal direction="up" distance={20} delay={0.2}>
+              <ScrollReveal type="zoom" direction="up" distance={20} delay={0.2} parallax={0.1}>
                 <div className="inline-flex flex-col items-center gap-3">
                   <div className="relative">
                     <div className="absolute inset-0 bg-accent/20 blur-2xl rounded-full scale-125 animate-pulse" />
@@ -118,18 +119,22 @@ export function DonorPage() {
                 </div>
               </ScrollReveal>
 
-              <ScrollReveal direction="up" distance={20} delay={0.3}>
+              <ScrollReveal type="slide" direction="up" distance={20} delay={0.3} parallax={0.05}>
                 <div className="space-y-4">
                   <div className="relative">
-                    <h1 className="text-3xl md:text-4xl font-black tracking-tight text-text leading-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
-                      {t("donorTitle") || "Register the meal before the locker unlocks."}
-                    </h1>
+                    <TextReveal mode="words" direction="up" distance={15}>
+                      <h1 className="text-3xl md:text-4xl font-black tracking-tight text-text leading-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+                        {t("donorTitle") || "Register the meal before the locker unlocks."}
+                      </h1>
+                    </TextReveal>
                     <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-16 h-0.5 bg-gradient-to-r from-transparent via-accent/50 to-transparent rounded-full" />
                   </div>
                   
-                  <p className="text-base text-text-muted font-bold tracking-tight opacity-80 max-w-xs mx-auto leading-relaxed">
-                    {t("donorBody") || "The donor record stays private in Firebase while the receiver dashboard shows only safe public food details and live chamber intelligence."}
-                  </p>
+                  <TextReveal mode="block" direction="up" distance={10} delay={0.4}>
+                    <p className="text-base text-text-muted font-bold tracking-tight opacity-80 max-w-xs mx-auto leading-relaxed">
+                      {t("donorBody") || "The donor record stays private in Firebase while the receiver dashboard shows only safe public food details and live chamber intelligence."}
+                    </p>
+                  </TextReveal>
                 </div>
               </ScrollReveal>
 
@@ -150,7 +155,7 @@ export function DonorPage() {
           
           {/* Interaction Side (Right) */}
           <section className="md:col-span-3 p-8 md:p-12 lg:p-14 bg-panel/40 backdrop-blur-md flex flex-col min-h-[640px] relative overflow-hidden">
-            <ScrollReveal direction="right" distance={30} delay={0.5} className="flex-1 flex flex-col">
+            <ScrollReveal type="blur" direction="right" distance={30} delay={0.5} parallax={0.02} className="flex-1 flex flex-col">
               <div className="flex-1 flex flex-col justify-center w-full">
                 <AnimatePresence mode="wait">
                   {currentLocker.activeDonation ? (
@@ -210,12 +215,16 @@ export function DonorPage() {
                       </div>
 
                       <div className="space-y-3">
-                        <h2 className="text-4xl font-black tracking-tight text-text">
-                          {t("lockerReadyHeadline") || "Locker is Ready"}
-                        </h2>
-                        <p className="text-lg text-text-muted font-bold opacity-80">
-                          {t("lockerReadyBody") || "Cleared for collection"}
-                        </p>
+                        <TextReveal mode="words" direction="up" distance={15}>
+                          <h2 className="text-4xl font-black tracking-tight text-text">
+                            {t("lockerReadyHeadline") || "Locker is Ready"}
+                          </h2>
+                        </TextReveal>
+                        <TextReveal mode="words" direction="up" distance={10} delay={0.2}>
+                          <p className="text-lg text-text-muted font-bold opacity-80">
+                            {t("lockerReadyBody") || "Cleared for collection"}
+                          </p>
+                        </TextReveal>
                       </div>
 
                       <div className="flex flex-col w-full max-w-sm gap-4">

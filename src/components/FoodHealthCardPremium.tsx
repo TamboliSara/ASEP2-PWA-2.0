@@ -384,7 +384,7 @@ export function FoodHealthCardPremium({
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${(shelfLifeHours/12)*100}%` }}
-                transition={{ duration: 2, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ duration: 2, ease: [0.16, 1, 0.3, 1] as const }}
                 className="h-full bg-emerald-500"
               />
             </div>
