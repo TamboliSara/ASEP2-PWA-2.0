@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { bleService } from "../services/ble";
 import { cacheAlert, cacheDonation, cacheEvent, cacheLockerSnapshot, cachePredictionSnapshot, cacheSensorSnapshot, clearAllData, enqueueSync } from "../services/db";
 import { initiateDepositFn, initiateRetrievalFn } from "../services/firebase";
+import { registerDevice, unlockLocker, lockLocker, sanitizeLocker } from "../services/rtdb";
 import { processSyncQueue, syncAlert, syncDonation, syncEvent, syncPrediction, syncSensorSnapshot, syncSnapshot, triggerAlertEmail } from "../services/sync";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
@@ -58,18 +59,53 @@ export function useLockerController() {
 
   async function pairLocker() {
     setIsBusy(true);
-    const paired = await bleService.pair();
-    dispatch({
-      type: "patch-locker",
-      id: currentLocker.lockerId,
-      locker: {
-        bleConnected: true,
-        pairedDeviceName: paired.deviceName
+    dispatch({ type: "set-sync-message", message: "Initiating device pairing..." });
+
+    try {
+      // Step 1: BLE discovery (simulated until ESP32 is ready)
+      const paired = await bleService.pair();
+
+      // Step 2: Register device in Firebase RTDB (creates telemetry/commands/status slots)
+      dispatch({ type: "set-sync-message", message: "Registering device in cloud..." });
+      const registered = await registerDevice(
+        currentLocker.lockerId,
+        paired.deviceName,
+        `MAC_${currentLocker.lockerId}`
+      );
+
+      if (registered) {
+        console.log(`[Pair] ✅ Device ${currentLocker.lockerId} registered in RTDB`);
+      } else {
+        console.warn(`[Pair] ⚠️ RTDB registration skipped — operating in offline mode`);
       }
-    });
-    dispatch({ type: "set-pairing-complete", value: true });
-    dispatch({ type: "set-sync-message", message: t("pairSuccess") });
-    setIsBusy(false);
+
+      // Step 3: Sync locker snapshot to Firestore
+      dispatch({ type: "set-sync-message", message: "Syncing locker state..." });
+      await syncSnapshot({
+        ...currentLocker,
+        bleConnected: true,
+        pairedDeviceName: paired.deviceName,
+        lastSyncedAt: new Date().toISOString()
+      });
+
+      // Step 4: Update local state
+      dispatch({
+        type: "patch-locker",
+        id: currentLocker.lockerId,
+        locker: {
+          bleConnected: true,
+          pairedDeviceName: paired.deviceName,
+          lastSyncedAt: new Date().toISOString()
+        }
+      });
+      dispatch({ type: "set-pairing-complete", value: true });
+      dispatch({ type: "set-sync-message", message: registered ? t("pairSuccess") + " — Cloud connected." : t("pairSuccess") + " — Offline mode." });
+    } catch (error) {
+      console.error("[Pair] Pairing failed:", error);
+      dispatch({ type: "set-sync-message", message: "Pairing failed. Check connection and try again." });
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   async function reconnectLocker() {
@@ -148,11 +184,20 @@ export function useLockerController() {
         allergensNotes: donation.allergensNotes,
         dietTag: donation.dietTag
       });
+      // Send UNLOCK command via RTDB for ESP32 to pick up
+      await unlockLocker(currentLocker.lockerId);
       const unlockEvent = await bleService.unlock();
+
+      // After door closes, send LOCK command
+      await lockLocker(currentLocker.lockerId);
       const lockEvent = await bleService.lock();
+
+      // Start sanitization cycle
+      await sanitizeLocker(currentLocker.lockerId);
       const cycleEvent = await bleService.startSanitization();
       const events: LockerEvent[] = [unlockEvent, lockEvent, cycleEvent];
 
+      // Call Cloud Function if deployed
       if (initiateDepositFn) {
         try {
           await initiateDepositFn({
@@ -162,7 +207,7 @@ export function useLockerController() {
             quantity: 1
           });
         } catch (e) {
-          console.error("Cloud function initiateDeposit failed:", e);
+          console.error("Cloud function initiateDeposit failed (non-blocking):", e);
         }
       }
 
@@ -199,8 +244,15 @@ export function useLockerController() {
 
   async function retrieveFood(skipSanitization = false) {
     setIsBusy(true);
+
+    // Send UNLOCK command via RTDB
+    await unlockLocker(currentLocker.lockerId);
     const unlockEvent = await bleService.unlock();
+
+    // After retrieval, send LOCK command
+    await lockLocker(currentLocker.lockerId);
     const lockEvent = await bleService.lock();
+
     const sensorSnapshot: SensorSnapshot = {
       id: crypto.randomUUID(),
       lockerId: currentLocker.lockerId,
@@ -221,12 +273,18 @@ export function useLockerController() {
       source: "retrieve"
     };
 
+    // Call Cloud Function if deployed
     if (initiateRetrievalFn) {
       try {
         await initiateRetrievalFn({ mac_address: currentLocker.lockerId });
       } catch (e) {
-        console.error("Cloud function initiateRetrieval failed:", e);
+        console.error("Cloud function initiateRetrieval failed (non-blocking):", e);
       }
+    }
+
+    // Start sanitization if needed
+    if (!skipSanitization) {
+      await sanitizeLocker(currentLocker.lockerId);
     }
 
     await cacheEvent(unlockEvent);

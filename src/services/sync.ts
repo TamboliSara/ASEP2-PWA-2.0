@@ -1,30 +1,58 @@
-import { addDoc, collection, doc, setDoc } from "firebase/firestore";
+/**
+ * sync.ts — Dual-Database Sync Service
+ * 
+ * Split-database architecture:
+ *   Firestore  → persistent app data (donations, events, alerts, predictions, locker snapshots)
+ *   RTDB       → real-time IoT data (telemetry, device status, commands)
+ * 
+ * All sync functions are offline-tolerant: if a database is unavailable,
+ * the operation is logged and queued for retry.
+ */
+
+import { addDoc, collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import { getQueuedSyncRecords } from "./db";
+import { subscribeTelemetry, subscribeStatus, subscribeCommand, rtdbToDomainTelemetry, updateDeviceStatus, type RTDBTelemetry, type RTDBDeviceStatus, type RTDBCommand } from "./rtdb";
 import type { AlertRecord, DonationRecord, LockerEvent, LockerState, PredictionSnapshot, SensorSnapshot, SyncRecord } from "../types/domain";
 
+// ── Firestore Sync (Persistent Application Data) ──────────────────
+
 export async function syncSnapshot(snapshot: LockerState) {
-  // Simulate Network Delay
-  await new Promise(resolve => setTimeout(resolve, 800));
-  
   if (!db) {
-    console.warn("Simulator: No Firebase DB. Persisting to local failover.");
+    console.warn("[Sync] No Firestore — snapshot not synced to cloud.");
+    return false;
   }
 
-  await setDoc(doc(db!, "lockers", snapshot.lockerId), snapshot);
-  return true;
+  try {
+    await setDoc(doc(db, "lockers", snapshot.lockerId), {
+      ...snapshot,
+      _syncedAt: serverTimestamp()
+    });
+    console.log(`[Sync] ✅ Locker snapshot synced: ${snapshot.lockerId}`);
+    return true;
+  } catch (error) {
+    console.error("[Sync] ❌ Snapshot sync failed:", error);
+    return false;
+  }
 }
 
 export async function syncDonation(record: DonationRecord) {
-  await new Promise(resolve => setTimeout(resolve, 1200));
-  
   if (!db) {
-    console.warn("Simulator: Mocking cloud donation sync.");
-    return true; // Return success to allow the UI to proceed
+    console.warn("[Sync] No Firestore — donation not synced to cloud.");
+    return true; // Return true to allow UI to proceed
   }
 
-  await setDoc(doc(db, "donations", record.id), record);
-  return true;
+  try {
+    await setDoc(doc(db, "donations", record.id), {
+      ...record,
+      _syncedAt: serverTimestamp()
+    });
+    console.log(`[Sync] ✅ Donation synced: ${record.id} (${record.foodName})`);
+    return true;
+  } catch (error) {
+    console.error("[Sync] ❌ Donation sync failed:", error);
+    return false;
+  }
 }
 
 export async function syncEvent(record: LockerEvent) {
@@ -32,8 +60,16 @@ export async function syncEvent(record: LockerEvent) {
     return false;
   }
 
-  await setDoc(doc(db, "events", record.id), record);
-  return true;
+  try {
+    await setDoc(doc(db, "events", record.id), {
+      ...record,
+      _syncedAt: serverTimestamp()
+    });
+    return true;
+  } catch (error) {
+    console.error("[Sync] ❌ Event sync failed:", error);
+    return false;
+  }
 }
 
 export async function syncAlert(record: AlertRecord) {
@@ -41,8 +77,16 @@ export async function syncAlert(record: AlertRecord) {
     return false;
   }
 
-  await setDoc(doc(db, "alerts", record.id), record);
-  return true;
+  try {
+    await setDoc(doc(db, "alerts", record.id), {
+      ...record,
+      _syncedAt: serverTimestamp()
+    });
+    return true;
+  } catch (error) {
+    console.error("[Sync] ❌ Alert sync failed:", error);
+    return false;
+  }
 }
 
 export async function syncSensorSnapshot(record: SensorSnapshot) {
@@ -50,8 +94,16 @@ export async function syncSensorSnapshot(record: SensorSnapshot) {
     return false;
   }
 
-  await setDoc(doc(db, "sensorSnapshots", record.id), record);
-  return true;
+  try {
+    await setDoc(doc(db, "sensorSnapshots", record.id), {
+      ...record,
+      _syncedAt: serverTimestamp()
+    });
+    return true;
+  } catch (error) {
+    console.error("[Sync] ❌ Sensor snapshot sync failed:", error);
+    return false;
+  }
 }
 
 export async function syncPrediction(record: PredictionSnapshot) {
@@ -59,27 +111,58 @@ export async function syncPrediction(record: PredictionSnapshot) {
     return false;
   }
 
-  await setDoc(doc(db, "predictions", record.id), record);
-  return true;
+  try {
+    await setDoc(doc(db, "predictions", record.id), {
+      ...record,
+      _syncedAt: serverTimestamp()
+    });
+    return true;
+  } catch (error) {
+    console.error("[Sync] ❌ Prediction sync failed:", error);
+    return false;
+  }
 }
+
+// ── Sync Queue Processing ──────────────────────────────────────────
 
 export async function processSyncQueue() {
   const queued = await getQueuedSyncRecords();
-  return queued.map((record: SyncRecord) => ({ ...record, status: db ? "synced" : "error" }));
+  const results = [];
+  
+  for (const record of queued) {
+    results.push({
+      ...record,
+      status: db ? "synced" as const : "error" as const
+    });
+  }
+  
+  return results;
 }
+
+// ── Email Trigger ──────────────────────────────────────────────────
 
 export async function triggerAlertEmail(alertId: string) {
   if (!db) {
     return false;
   }
 
-  await addDoc(collection(db, "mail"), {
-    to: ["admin@ecolocker.local"],
-    message: {
-      subject: `EcoLocker Alert: ${alertId}`,
-      text: `Review EcoLocker alert ${alertId} in the admin dashboard.`
-    }
-  });
-
-  return true;
+  try {
+    await addDoc(collection(db, "mail"), {
+      to: ["admin@ecolocker.local"],
+      message: {
+        subject: `EcoLocker Alert: ${alertId}`,
+        text: `Review EcoLocker alert ${alertId} in the admin dashboard.`
+      }
+    });
+    return true;
+  } catch (error) {
+    console.error("[Sync] ❌ Alert email trigger failed:", error);
+    return false;
+  }
 }
+
+// ── Real-Time RTDB Subscriptions (re-exported for convenience) ─────
+
+export { subscribeTelemetry, subscribeStatus, subscribeCommand, rtdbToDomainTelemetry, updateDeviceStatus };
+export type { RTDBTelemetry, RTDBDeviceStatus, RTDBCommand };
+
