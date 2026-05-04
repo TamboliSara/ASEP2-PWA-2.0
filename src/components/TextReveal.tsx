@@ -58,7 +58,7 @@ export function TextReveal({
       scale: 1,
       transition: {
         duration,
-        ease: [0.16, 1, 0.3, 1], // Power4.out
+        ease: [0.16, 1, 0.3, 1] as const, // Power4.out
       },
     },
   };

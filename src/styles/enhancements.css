@@ -502,7 +502,7 @@ textarea:focus {
 
 .chamber-grid-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
   margin-top: 1.5rem;
 }
@@ -2100,7 +2100,7 @@ input:focus::placeholder {
 /* Responsive adjustments for chamber grid */
 @media (max-width: 1024px) {
   .chamber-grid-layout {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
@@ -2110,7 +2110,7 @@ input:focus::placeholder {
   }
   
   .chamber-grid-layout {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
   }
 }
