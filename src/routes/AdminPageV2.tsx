@@ -131,18 +131,18 @@ export function AdminPageV2() {
           
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="hero-copy max-w-2xl">
-              <TextReveal direction="up" distance={15} delay={0.1}>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-accent" />
-                  <p className="text-[11px] font-black tracking-widest uppercase text-accent m-0 leading-none">FLEET OVERVIEW</p>
-                </div>
+              <TextReveal mode="words" direction="up" distance={15} delay={0.1}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2 h-2 rounded-full bg-accent" />
+                    <p className="text-[11px] font-black tracking-widest uppercase text-accent m-0 leading-none">FLEET OVERVIEW</p>
+                  </div>
               </TextReveal>
-              <TextReveal direction="up" distance={20} delay={0.2}>
+              <TextReveal mode="words" direction="up" distance={20} delay={0.2}>
                 <h2 className="text-3xl md:text-4xl leading-[1.05] font-black tracking-tight mb-3 text-text drop-shadow-sm dark:drop-shadow-none">
                   Maintenance and<br />safety dashboard
                 </h2>
               </TextReveal>
-              <TextReveal direction="up" distance={20} delay={0.3}>
+              <TextReveal mode="block" direction="up" distance={20} delay={0.3} threshold={0.1}>
                 <p className="text-text-muted font-medium text-base md:text-[17px] leading-relaxed max-w-[500px]">
                   Monitor every locker, inspect active donations, and open the current kiosk for deeper cleaning or safety actions.
                 </p>
@@ -225,10 +225,10 @@ export function AdminPageV2() {
           <SurfaceCard className="!p-5">
             <div className="luxe-card-header flex justify-between items-start mb-5">
               <div className="luxe-card-title-stack">
-                <TextReveal direction="left" distance={10} delay={0.1}>
+                <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
                   <p className="text-[10px] font-black tracking-widest uppercase text-accent/80 mb-1">{t("lockerSummaries")}</p>
                 </TextReveal>
-                <TextReveal direction="left" distance={15} delay={0.2}>
+                <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
                   <h3 className="text-2xl font-black">{t("systemInventory")}</h3>
                 </TextReveal>
               </div>
@@ -342,7 +342,7 @@ export function AdminPageV2() {
         </ScrollReveal>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ScrollReveal direction="left" distance={40} delay={0.6}>
+          <ScrollReveal type="zoom" direction="left" distance={40} delay={0.6} parallax={0.1}>
             <SurfaceCard className="environmental-card-luxe !p-5 relative overflow-hidden group border-accent/10">
               {/* Technical Overlays */}
               <Scanline />
@@ -355,14 +355,14 @@ export function AdminPageV2() {
               
               <div className="luxe-card-header flex justify-between items-start mb-4 relative z-10">
                 <div className="luxe-card-title-stack">
-                  <TextReveal direction="left" distance={10} delay={0.1}>
+                  <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
                     <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent/80 mb-0.5 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
                       {t("currentKiosk") || "CURRENT KIOSK"}
                       <span className="opacity-40 ml-1.5 font-mono text-[8px] font-medium tracking-normal">REF: KSK-9902</span>
                     </p>
                   </TextReveal>
-                  <TextReveal direction="left" distance={15} delay={0.2}>
+                  <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
                     <div className="flex items-center gap-2">
                       <h3 className="text-xl md:text-2xl font-black tracking-tight text-text leading-none">
                         {t("terminalDiagnostics") || "Terminal Diagnostics"}
@@ -438,7 +438,7 @@ export function AdminPageV2() {
             </SurfaceCard>
           </ScrollReveal>
 
-          <ScrollReveal direction="right" distance={40} delay={0.7}>
+          <ScrollReveal type="zoom" direction="right" distance={40} delay={0.7} parallax={0.1}>
             <SurfaceCard className="environmental-card-luxe !p-5 relative overflow-hidden group border-accent/10">
               <Scanline />
               <BotanicalDecoration />
@@ -450,10 +450,10 @@ export function AdminPageV2() {
               
               <div className="luxe-card-header flex justify-between items-start mb-4 relative z-10">
                 <div className="luxe-card-title-stack">
-                  <TextReveal direction="left" distance={10} delay={0.1}>
+                  <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
                     <p className="text-[10px] font-black tracking-[0.2em] uppercase text-accent/80 mb-0.5">{t("systemActions") || "ACTIONS"}</p>
                   </TextReveal>
-                  <TextReveal direction="left" distance={15} delay={0.2}>
+                  <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
                     <div className="flex items-center gap-2">
                       <h3 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2 leading-none">
                         {t("systemCommandCenter") || "System Command Center"}
