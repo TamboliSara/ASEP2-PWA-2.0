@@ -25,13 +25,15 @@ export function ConnectPage() {
 
   const handlePair = useCallback(async () => {
     setPairingStep("ble_discovery");
-    await pairLocker();
+    const success = await pairLocker();
 
-    if (state.hasCompletedPairing || !isBusy) {
+    if (success) {
       setPairingStep("complete");
-      setTimeout(() => navigate("/"), 1500);
+      setTimeout(() => navigate("/", { replace: true }), 1500);
+    } else {
+      setPairingStep("error");
     }
-  }, [pairLocker, navigate, state.hasCompletedPairing, isBusy]);
+  }, [pairLocker, navigate]);
 
   const getCurrentStepIndex = (): number => {
     const msg = state.syncMessage.toLowerCase();

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoveRight, ShieldCheck, Zap, Globe, Heart } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 function Hero() {
+  const navigate = useNavigate();
   const [titleNumber, setTitleNumber] = useState(0);
   const titles = useMemo(
     () => ["Sustainable", "Verified", "Secure", "Smart", "Impactful"],
@@ -99,7 +101,7 @@ function Hero() {
               <Zap className="w-4 h-4 text-accent-warm" />
               How It Works
             </Button>
-            <Button size="lg" className="rounded-full px-8 py-6 text-base bg-accent hover:bg-accent-hover text-white dark:text-black font-black shadow-[0_10px_40px_rgba(20,184,166,0.3)] transition-all gap-3 group" onClick={() => window.location.href = "/donate"}>
+            <Button size="lg" className="rounded-full px-8 py-6 text-base bg-accent hover:bg-accent-hover text-white dark:text-black font-black shadow-[0_10px_40px_rgba(20,184,166,0.3)] transition-all gap-3 group" onClick={() => navigate("/donate")}>
               Start Donating
               <MoveRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Button>

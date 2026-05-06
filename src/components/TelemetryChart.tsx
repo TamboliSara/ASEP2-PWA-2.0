@@ -22,6 +22,23 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
   const chartRef = useRef<any>(null);
   const [selectedMetrics, setSelectedMetrics] = useState<MetricType[]>(["risk", "quality", "temp"]);
 
+  // Get actual locker telemetry
+  const currentLocker = appState.lockers.find(l => l.lockerId === appState.selectedLockerId) || appState.lockers[0];
+  const telemetry = currentLocker.telemetry;
+  const qualityScore = currentLocker.foodQualityScore;
+
+  // Derive real current values from telemetry
+  const realTemp = telemetry.internalTempC ?? 4;
+  const realHumidity = telemetry.humidityPct ?? 50;
+  const realGasResistance = telemetry.gasResistanceOhms ?? 25000;
+
+  // Map gas resistance to a 0-100 VOC level (lower resistance = higher VOC = worse)
+  const vocLevel = Math.min(100, Math.max(0, Math.round(100 - (realGasResistance / 350))));
+  // Quality as a percentage based on the quality tag and deadline
+  const qualityPct = qualityScore === "spoilt" ? 4 : qualityScore === "aging" ? 35 : Math.min(98, Math.max(60, Math.round((Math.max(0, deadlineHours) / 48) * 100)));
+  // Risk is inverse of quality
+  const riskPct = Math.min(96, 100 - qualityPct);
+
   const toggleMetric = (metric: MetricType) => {
     setSelectedMetrics(prev => 
       prev.includes(metric) 
@@ -48,37 +65,45 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
     const validDeadline = typeof deadlineHours === 'number' && !isNaN(deadlineHours) ? deadlineHours : 12;
     const maxHour = Math.max(12, Math.ceil(validDeadline / 2) * 2);
     const labels = Array.from({ length: maxHour / 2 + 1 }, (_, index) => `${index * 2}h`);
-    const threshold = 70;
     
     const datasets: any[] = [];
 
+    // Risk curve: starts at current risk, accelerates toward deadline
     const getRiskData = () => labels.map((_, index) => {
       const hour = index * 2;
       const normalized = Math.min(hour / Math.max(maxHour, 1), 1);
-      const curve = Math.pow(normalized, 2.15);
-      return Math.min(96, 14 + curve * 84);
+      const startRisk = riskPct;
+      const curve = Math.pow(normalized, 1.8);
+      return Math.min(96, startRisk + curve * (96 - startRisk));
     });
 
+    // Quality curve: starts at current quality, decays over time
     const getQualityData = () => labels.map((_, index) => {
       const hour = index * 2;
       const normalized = Math.min(hour / Math.max(maxHour, 1), 1);
-      const curve = Math.pow(normalized, 1.8);
-      return Math.max(4, 98 - curve * 94);
+      const startQuality = qualityPct;
+      const curve = Math.pow(normalized, 1.5);
+      return Math.max(4, startQuality - curve * (startQuality - 4));
     });
 
+    // Gas/VOC curve: starts at current level, rises over time
     const getGasData = () => labels.map((_, index) => {
       const hour = index * 2;
-      return Math.min(100, 20 + Math.sin(hour / 3) * 10 + (hour * 4.5));
+      const normalized = Math.min(hour / Math.max(maxHour, 1), 1);
+      const startVoc = vocLevel;
+      return Math.min(100, startVoc + normalized * (85 - startVoc) + Math.sin(hour / 3) * 5);
     });
 
+    // Temperature curve: starts at current temp, rises over time
     const getTempData = () => labels.map((_, index) => {
       const hour = index * 2;
-      return 4 + Math.sin(hour / 2.5) * 1.5;
+      const normalized = Math.min(hour / Math.max(maxHour, 1), 1);
+      return realTemp + normalized * (realTemp * 0.8) + Math.sin(hour / 2.5) * 0.5;
     });
 
     if (selectedMetrics.includes("risk")) {
       datasets.push({
-        label: "Spoilage Risk (%)",
+        label: `Spoilage Risk (%)`,
         data: getRiskData(),
         borderColor: theme.danger,
         borderWidth: 3,
@@ -94,7 +119,7 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
 
     if (selectedMetrics.includes("quality")) {
       datasets.push({
-        label: "Quality Index (%)",
+        label: `Quality Index (%)`,
         data: getQualityData(),
         borderColor: "#A78BFA",
         borderWidth: 3,
@@ -125,7 +150,7 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
 
     if (selectedMetrics.includes("temp")) {
       datasets.push({
-        label: "Temp (°C)",
+        label: `Temp (°C): ${realTemp.toFixed(1)}°C`,
         data: getTempData(),
         borderColor: "#3B82F6",
         borderWidth: 2,
@@ -139,7 +164,7 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
       });
     }
 
-    // Add a vertical timeline line at "Now" (0h) to connect all real-time points
+    // "NOW" marker at hour 0
     datasets.push({
       label: "Timeline",
       data: labels.map((_, i) => i === 0 ? 100 : null),
@@ -153,7 +178,7 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
     });
 
     return { labels, datasets };
-  }, [deadlineHours, theme, selectedMetrics]);
+  }, [deadlineHours, theme, selectedMetrics, riskPct, qualityPct, vocLevel, realTemp]);
 
   const options = useMemo(
     () => ({
@@ -260,37 +285,28 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
 
   const { spoilHour, riskLevel, healthStatus, aiInsight } = useMemo(() => {
     const validDeadline = typeof deadlineHours === 'number' && !isNaN(deadlineHours) ? deadlineHours : 12;
-    const maxHour = Math.max(12, Math.ceil(validDeadline / 2) * 2);
-    const labels = Array.from({ length: maxHour / 2 + 1 }, (_, index) => index * 2);
-    const threshold = 70;
-    const riskData = labels.map((hour) => {
-      const normalized = Math.min(hour / Math.max(maxHour, 1), 1);
-      const curve = Math.pow(normalized, 2.15);
-      return Math.min(96, 14 + curve * 84);
-    });
-    const index = riskData.findIndex((value) => value >= threshold);
-    const hour = index >= 0 ? labels[index] : maxHour;
+    const hour = Math.max(0, Math.round(validDeadline));
     
-    const level = hour < 4 ? "Critical" : hour < 8 ? "Warning" : "Safe";
-    const status = hour < 4 ? "Danger" : hour < 8 ? "Unstable" : "Optimal";
-    const insight = hour < 4 
-      ? "Critical Risk: Immediate intervention required to prevent spoilage."
-      : hour < 8 
-        ? "Warning: Quality degradation detected. Reduce storage temperature."
-        : "Conditions Optimal: Food quality is stable for the next 8h+.";
+    const level = qualityScore === "spoilt" ? "Critical" : qualityScore === "aging" ? "Warning" : "Safe";
+    const status = qualityScore === "spoilt" ? "Danger" : qualityScore === "aging" ? "Unstable" : "Optimal";
+    const insight = qualityScore === "spoilt"
+      ? "Critical Alert: Spoilage risk exceeds safety thresholds. Retrieval restricted."
+      : qualityScore === "aging"
+        ? "Warning: Quality degradation detected. Consumption recommended soon."
+        : "Conditions Optimal: Food quality is stable within safe storage parameters.";
 
     return { spoilHour: hour, riskLevel: level, healthStatus: status, aiInsight: insight };
-  }, [deadlineHours]);
+  }, [deadlineHours, qualityScore]);
 
-  // Calculate current values for tabs
+  // Current values derived from REAL telemetry
   const currentValues = useMemo(() => {
     return {
-      risk: Math.round(14),
-      quality: Math.round(98),
-      gas: Math.round(22),
-      temp: Math.round(4)
+      risk: riskPct,
+      quality: qualityPct,
+      gas: vocLevel,
+      temp: Math.round(realTemp)
     };
-  }, []);
+  }, [riskPct, qualityPct, vocLevel, realTemp]);
 
   return (
     <div className="analytics-card-bento animate-reveal">

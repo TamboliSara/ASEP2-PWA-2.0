@@ -55,30 +55,36 @@ export function KioskPage() {
 
   const displayDonation = selectedDonation ?? donation;
   const selectedQualityScore = displayDonation?.latestQualityScore ?? currentLocker.foodQualityScore;
-  const selectedDeadline = displayDonation?.deadlineEstimate ?? currentLocker.deadlineEstimate;
+  // Only use deadline from donation — empty lockers should not show phantom telemetry
+  const selectedDeadline = displayDonation?.deadlineEstimate ?? (donation ? currentLocker.deadlineEstimate : undefined);
   const dashboardLocker = {
     ...currentLocker,
     foodQualityScore: selectedQualityScore,
-    deadlineEstimate: selectedDeadline
+    deadlineEstimate: selectedDeadline ?? currentLocker.deadlineEstimate
   };
   const recommendedActions = getRecommendedActions(dashboardLocker);
 
   const dynamicHoursRemaining = useMemo(() => {
     void now;
-    if (!selectedDeadline) return 0;
+    if (!donation || !selectedDeadline) return 0;
     const hrs = getHoursRemaining(selectedDeadline.absoluteIso);
     return isNaN(hrs) ? (selectedDeadline.hoursRemaining || 0) : hrs;
-  }, [now, selectedDeadline?.absoluteIso, selectedDeadline?.hoursRemaining]);
+  }, [now, donation, selectedDeadline?.absoluteIso, selectedDeadline?.hoursRemaining]);
 
   const MAX_SHELF_LIFE = 48; // Standard normalization hours
 
-  const displayHoursRemaining = dynamicHoursRemaining > 0 ? dynamicHoursRemaining : (selectedDeadline?.hoursRemaining ?? 0);
-  const calculatedQualityScore = Math.min(100, Math.round((Math.max(0, displayHoursRemaining) / MAX_SHELF_LIFE) * 100));
-  const qualityStage = displayHoursRemaining <= 0 ? "spoiled" : displayHoursRemaining <= 4 ? "warning" : "fresh";
+  // Empty lockers: show zero values instead of phantom mock data
+  const displayHoursRemaining = donation ? (dynamicHoursRemaining > 0 ? dynamicHoursRemaining : (selectedDeadline?.hoursRemaining ?? 0)) : 0;
+  const calculatedQualityScore = donation ? Math.min(100, Math.round((Math.max(0, displayHoursRemaining) / MAX_SHELF_LIFE) * 100)) : 0;
+  const qualityStage = !donation ? "empty" : displayHoursRemaining <= 0 ? "spoiled" : displayHoursRemaining <= 4 ? "warning" : "fresh";
+
+  // Spoiled = retrieve locked, admin override enabled
+  // Fresh   = retrieve enabled, admin override locked
+  const isSpoiled = calculatedQualityScore < 30;
 
   async function handleAdminRetrieve() {
     if (state.isAdminAuthenticated) {
-      await retrieveFood(true); // Skip sanitization for admin
+      await retrieveFood(true, true); // Skip sanitization, mark as admin override
     } else {
       setShowAdminAuth(true);
     }
@@ -90,7 +96,7 @@ export function KioskPage() {
       dispatch({ type: "set-admin-auth", value: true });
       setShowAdminAuth(false);
       setAuthError("");
-      await retrieveFood(true);
+      await retrieveFood(true, true); // Skip sanitization, mark as admin override
     } else {
       setAuthError("Invalid credentials");
     }
@@ -310,11 +316,7 @@ export function KioskPage() {
                     : "No Item"}
                 </h2>
               </TextReveal>
-              <TextReveal mode="words" direction="left" distance={10} delay={0.4}>
-                <div className="hrd-safety-chip" style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10B981', color: '#10B981' }}>
-                  <span>🛡️</span>SAFETY VERIFIED
-                </div>
-              </TextReveal>
+
             </div>
 
             {/* ── QUALITY INDEX — Prominent Hero Block ── */}
@@ -3910,25 +3912,26 @@ export function KioskPage() {
               </div>
             )}
 
+            {/* Retrieve Item — ENABLED when fresh & healthy, DISABLED when spoiled or faulted */}
             <div className="retrieve-action-area-luxe" style={{ position: 'relative', zIndex: 1, marginTop: '0' }}>
               <SlideConfirm 
-                label={calculatedQualityScore < 30 ? "Restricted" : (t("slideToRetrieve") || "Slide to Retrieve")}
-                onConfirm={retrieveFood}
-                disabled={!donation || isFaulted || isBusy || isSanitizing || calculatedQualityScore < 30}
+                label={isSpoiled ? "⚠ Restricted — Food Spoiled" : isFaulted ? "⚠ Locker Faulted — Use Override" : (t("slideToRetrieve") || "Slide to Retrieve")}
+                onConfirm={() => retrieveFood(false, false)}
+                disabled={!donation || isFaulted || isBusy || isSanitizing || isSpoiled}
                 className="luxe-slide-container"
               />
             </div>
 
-            {/* Admin Override - Always available for force-entry/maintenance */}
+            {/* Admin Override — ENABLED when spoiled OR faulted (ensures there's always a way to get food out) */}
             <div className="admin-override-area" style={{ marginTop: '2rem', position: 'relative', zIndex: 1 }}>
               <div className="admin-divider">
                 <span className="divider-text">ADMINISTRATIVE OVERRIDE</span>
               </div>
               <SlideConfirm 
-                label="Force Open Vault"
+                label={!donation ? "No Item in Vault" : (isSpoiled ? "Force Open Vault" : isFaulted ? "Force Open — Fault Override" : "Override Not Required")}
                 onConfirm={handleAdminRetrieve}
                 className="luxe-slide-container admin-slide"
-                disabled={isBusy || isSanitizing}
+                disabled={!donation || isBusy || isSanitizing || (!isSpoiled && !isFaulted)}
               />
             </div>
           </SurfaceCard>
@@ -3936,19 +3939,29 @@ export function KioskPage() {
 
         <ScrollReveal direction="up" distance={40} delay={0.3} className="receiver-card-chart">
           <div className="bento-chart-container">
-            <FoodHealthCardPremium 
-              variant="compact"
-              risk={100 - calculatedQualityScore}
-              quality={calculatedQualityScore}
-              temp={telemetry.internalTempC}
-              shelfLifeHours={Math.round(displayHoursRemaining)}
-              insight={calculatedQualityScore > 70 
-                ? "System Stable: Food freshness is currently peak. No biological hazards detected." 
-                : calculatedQualityScore > 30 
-                ? "Warning: Quality degradation detected. Consumption recommended within next 12 hours."
-                : "Critical Alert: Spoilage risk exceeds safety thresholds. Retrieval restricted."
-              }
-            />
+            {donation ? (
+              <FoodHealthCardPremium 
+                variant="compact"
+                risk={100 - calculatedQualityScore}
+                quality={calculatedQualityScore}
+                temp={telemetry.internalTempC}
+                shelfLifeHours={Math.round(displayHoursRemaining)}
+                insight={calculatedQualityScore > 70 
+                  ? "System Stable: Food freshness is currently peak. No biological hazards detected." 
+                  : calculatedQualityScore > 30 
+                  ? "Warning: Quality degradation detected. Consumption recommended within next 12 hours."
+                  : "Critical Alert: Spoilage risk exceeds safety thresholds. Retrieval restricted."
+                }
+              />
+            ) : (
+              <div className="empty-chart-placeholder-luxe" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '350px', background: 'rgba(255,255,255,0.02)', borderRadius: '2rem', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: '48px', height: '48px', marginBottom: '1rem', color: 'var(--accent)', opacity: 0.5 }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <p style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--text)', opacity: 0.8, margin: 0 }}>Awaiting Deposit</p>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', opacity: 0.7, marginTop: '0.5rem' }}>Analytics will appear once food is stored.</p>
+              </div>
+            )}
           </div>
         </ScrollReveal>
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../store/useTranslation";
 import { useAppContext } from "../store/AppContext";
 import type { DonationRecord } from "../types/domain";
@@ -77,6 +78,7 @@ export function FoodHeroV2({
   onPrevLocker?: () => void;
   onNextLocker?: () => void;
 }) {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const { state } = useAppContext();
   const heroItems = useMemo(() => {
@@ -127,7 +129,7 @@ export function FoodHeroV2({
             <h3>{t("lockerReadyHeadline") || "Locker is Ready"}</h3>
             <p>{t("lockerReadyBody") || "Cleared for collection"}</p>
           </div>
-          <button className="premium-action-button" type="button" onClick={() => window.location.href = "/donate"}>
+          <button className="premium-action-button" type="button" onClick={() => navigate("/donate")}>
             <span className="btn-label">{t("donateNow") || "Start Donation"}</span>
             <span className="btn-icon">→</span>
           </button>
@@ -166,6 +168,8 @@ export function FoodHeroV2({
             max-width: 360px;
             padding: 2.5rem 2rem;
             animation: fadeIn 0.8s ease-out;
+            position: relative;
+            z-index: 10;
           }
           .empty-locker-illustration-premium {
             position: relative;
@@ -261,6 +265,7 @@ export function FoodHeroV2({
             border-radius: 99px;
             backdrop-filter: blur(20px);
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            position: relative !important;
             z-index: 100;
             margin: 2rem auto;
             min-width: 240px;
@@ -526,12 +531,6 @@ export function FoodHeroV2({
           -webkit-mask-composite: xor;
           mask-composite: exclude;
           pointer-events: none;
-          animation: borderRotate 6s linear infinite;
-        }
-        @keyframes borderRotate {
-          0%   { background-position: 0% 50%; }
-          50%  { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
         }
         .food-hero-luxe::before {
           content: "";
@@ -631,6 +630,7 @@ export function FoodHeroV2({
           border-radius: 99px;
           backdrop-filter: blur(20px);
           box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+          position: relative !important;
           z-index: 100;
           margin: 2rem auto;
           min-width: 240px;
@@ -681,6 +681,7 @@ export function FoodHeroV2({
           border-radius: 99px;
           backdrop-filter: blur(20px);
           box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+          position: relative !important;
           z-index: 100;
           margin-top: 1rem;
         }
@@ -823,7 +824,6 @@ export function FoodHeroV2({
         }
         .visual-orbit-ring.ring-1 {
           inset: -14px;
-          animation: orbit 16s linear infinite;
         }
         .visual-orbit-ring.ring-1::after {
           content: "";
@@ -838,7 +838,6 @@ export function FoodHeroV2({
           inset: -26px;
           border-style: dashed;
           border-color: rgba(var(--accent-rgb), 0.12);
-          animation: orbit 32s linear infinite reverse;
         }
         .visual-orbit-ring.ring-2::before {
           content: "";
@@ -848,7 +847,6 @@ export function FoodHeroV2({
           background: rgba(var(--accent-rgb), 0.6);
           border-radius: 50%;
         }
-        @keyframes orbit { from { transform: rotate(0); } to { transform: rotate(360deg); } }
         /* Live avatar dot */
         .avatar-live-dot {
           position: absolute;

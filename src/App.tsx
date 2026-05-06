@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { AdminPageV2 } from "./routes/AdminPageV2";
@@ -12,10 +12,12 @@ import { DemoOne } from "./components/demo";
 import AlertDemo from "./components/ui/alert-demo";
 
 import { useAppContext } from "./store/AppContext";
+import { syncNavigationEvent } from "./services/initialSync";
 
 export default function App() {
   const { state } = useAppContext();
   const location = useLocation();
+  const prevPath = useRef(location.pathname);
 
   useEffect(() => {
     const titles: Record<string, string> = {
@@ -27,6 +29,12 @@ export default function App() {
       "/connect": "SAFE — Connect"
     };
     document.title = titles[location.pathname] || "SAFE";
+
+    // Track every navigation in Firestore events/
+    if (prevPath.current !== location.pathname) {
+      syncNavigationEvent(prevPath.current, location.pathname);
+      prevPath.current = location.pathname;
+    }
   }, [location.pathname]);
 
   return (

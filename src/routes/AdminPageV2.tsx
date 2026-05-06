@@ -22,7 +22,8 @@ import {
   Mail,
   Heart,
   Info,
-  Package
+  Package,
+  Droplets
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatusPill } from "../components/StatusPill";
@@ -33,17 +34,112 @@ import { FleetMap } from "../components/FleetMap";
 import { useLockerController } from "../features/useLockerController";
 import { useTranslation } from "../store/useTranslation";
 import { formatDateTime, getHoursRemaining } from "../utils/format";
-import { sampleFleetLockers } from "../utils/mockData";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ScrollReveal } from "../components/ScrollReveal";
 import { TextReveal } from "../components/TextReveal";
 import { generateTelemetryPDF } from "../utils/pdfGenerator";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../services/firebase";
+import { subscribeTelemetry, rtdbToDomainTelemetry } from "../services/rtdb";
+import type { FleetLockerSummary, DonationRecord } from "../types/domain";
+
+// Derive fleet data from real state for PDF generation
+function deriveFleetForPDF(lockers: any[]): FleetLockerSummary[] {
+  const totalUnits = lockers.length;
+  const occupiedLockers = lockers.filter((l: any) => l.occupancyState === 'occupied' || l.occupancyState === 'spoiled');
+  return [{
+    lockerId: "kiosk-delta",
+    lockerLabel: "Kiosk Delta (THIS DEVICE)",
+    zoneLabel: "Campus Gate — Active Kiosk",
+    coordinates: { x: 75, y: 52 },
+    occupancyState: occupiedLockers.length > 0 ? "occupied" : "empty",
+    foodQualityScore: "fresh",
+    faultState: "none",
+    lastSyncedAt: new Date().toISOString(),
+    sensorHealth: "healthy",
+    heuristicGasProfile: ["Active monitoring"],
+    totalUnits,
+    occupiedUnits: occupiedLockers.length,
+    freeUnits: totalUnits - occupiedLockers.length,
+  }];
+}
 
 export function AdminPageV2() {
   const { t } = useTranslation();
-  const { state, selectLocker, currentLocker, clearFault, syncNow, reconnectLocker, resetDonations, signOut } = useLockerController();
-  const fleet = sampleFleetLockers;
+  const { state, dispatch, selectLocker, currentLocker, clearFault, syncNow, reconnectLocker, resetDonations, signOut } = useLockerController();
+  const fleet = deriveFleetForPDF(state.lockers);
   const [showSafeSelector, setShowSafeSelector] = useState(false);
+
+  // ── Firestore: Live donation counts ──
+  const [firestoreDonationCount, setFirestoreDonationCount] = useState<number | null>(null);
+  const [firestoreRetrievalCount, setFirestoreRetrievalCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!db || !state.isAdminAuthenticated) return;
+
+    // Listen to donations collection
+    const donationsUnsub = onSnapshot(
+      collection(db, "donations"),
+      (snapshot) => {
+        setFirestoreDonationCount(snapshot.size);
+        console.log(`[Admin] Firestore donations count: ${snapshot.size}`);
+      },
+      (error) => {
+        console.warn("[Admin] Firestore donations listener error:", error);
+      }
+    );
+
+    // Listen to retrievals collection
+    const retrievalsUnsub = onSnapshot(
+      collection(db, "retrievals"),
+      (snapshot) => {
+        setFirestoreRetrievalCount(snapshot.size);
+        console.log(`[Admin] Firestore retrievals count: ${snapshot.size}`);
+      },
+      (error) => {
+        console.warn("[Admin] Firestore retrievals listener error:", error);
+      }
+    );
+
+    return () => {
+      donationsUnsub();
+      retrievalsUnsub();
+    };
+  }, [state.isAdminAuthenticated]);
+
+  // ── RTDB: Live telemetry subscription for selected locker ──
+  useEffect(() => {
+    if (!state.isAdminAuthenticated || !currentLocker) return;
+
+    const unsub = subscribeTelemetry(currentLocker.lockerId, (rtdbData) => {
+      if (rtdbData && rtdbData.timestamp > 0) {
+        const domainTelemetry = rtdbToDomainTelemetry(rtdbData);
+        dispatch({
+          type: "patch-locker",
+          id: currentLocker.lockerId,
+          locker: {
+            telemetry: domainTelemetry,
+            lastSyncedAt: new Date().toISOString()
+          }
+        });
+      }
+    });
+
+    return unsub;
+  }, [state.isAdminAuthenticated, currentLocker?.lockerId, dispatch]);
+
+  // ── Computed stats with Firestore primary, local fallback ──
+  const totalDonations = useMemo(() => {
+    if (firestoreDonationCount !== null) return firestoreDonationCount;
+    // Fallback: count active donations + donation history
+    return state.donationHistory.length + state.lockers.filter(l => l.activeDonation).length;
+  }, [firestoreDonationCount, state.donationHistory.length, state.lockers]);
+
+  const mealsServed = useMemo(() => {
+    if (firestoreRetrievalCount !== null) return firestoreRetrievalCount;
+    // Fallback: donation history count (completed donations)
+    return state.donationHistory.length;
+  }, [firestoreRetrievalCount, state.donationHistory.length]);
 
   const handleGeneratePDF = (targetLocker = currentLocker) => {
     // Calculate Receiver Telemetry (Freshness Analysis)
@@ -69,9 +165,9 @@ export function AdminPageV2() {
       fleet: fleet,
       currentLocker: targetLocker,
       stats: {
-        totalDonations: "142",
-        activeLockers: "8/12",
-        mealsServed: "24"
+        totalDonations: String(totalDonations),
+        activeLockers: `${state.lockers.filter(l => l.occupancyState !== 'empty').length}/${state.lockers.length}`,
+        mealsServed: String(mealsServed)
       },
       foodItem: targetLocker.activeDonation ? {
         name: targetLocker.activeDonation.foodName,
@@ -253,9 +349,9 @@ export function AdminPageV2() {
         <ScrollReveal direction="up" distance={30} delay={0.1}>
           <MetricCardPremium 
             title={t("totalDonations") || "Total Donations"}
-            subtitle="Accumulated Volume"
-            value="142"
-            trend={`+12.4% ${t("increase") || "Trend"}`}
+            subtitle={firestoreDonationCount !== null ? "Live from Firebase" : "Local Count"}
+            value={String(totalDonations)}
+            trend={firestoreDonationCount !== null ? "● LIVE SYNC" : "○ LOCAL"}
             trendDirection="up"
             icon={<BarChart3 className="w-6 h-6" />}
             bgIcon={<BarChart3 className="w-40 h-40" />}
@@ -267,16 +363,15 @@ export function AdminPageV2() {
         <ScrollReveal direction="up" distance={30} delay={0.2}>
           {(() => {
             const total = state.lockers.length;
-            const empty = state.lockers.filter(l => l.occupancyState === 'empty').length;
-            const utilized = state.lockers.filter(l => l.occupancyState !== 'empty').length;
-            const utilPercent = Math.round((utilized / total) * 100);
+            const occupied = state.lockers.filter(l => l.occupancyState !== 'empty').length;
+            const available = total - occupied;
             return (
               <MetricCardPremium 
                 title="SAFE Readiness"
                 subtitle="Mission Availability"
-                value={`${empty}/${total}`}
-                trend={`${utilPercent}% DEPLOYMENT LOAD`}
-                trendDirection="neutral"
+                value={`${available}/${total}`}
+                trend={`${occupied} OCCUPIED · ${available} AVAILABLE`}
+                trendDirection={occupied > 0 ? "neutral" : "up"}
                 icon={<Layers className="w-6 h-6" />}
                 bgIcon={<Layers className="w-40 h-40" />}
                 accentColor="var(--accent-warm)"
@@ -288,10 +383,10 @@ export function AdminPageV2() {
 
         <ScrollReveal direction="up" distance={30} delay={0.3}>
           <MetricCardPremium 
-            title={t("mealsServed") || "Meals Served Today"}
-            subtitle="Daily Impact"
-            value="24"
-            trend={`+8.2% ${t("increase") || "Trend"}`}
+            title="Meals Served Today"
+            subtitle={`Daily Impact — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+            value={String(mealsServed)}
+            trend={firestoreRetrievalCount !== null ? "● LIVE SYNC" : "○ LOCAL"}
             trendDirection="up"
             icon={<Database className="w-6 h-6" />}
             bgIcon={<Database className="w-40 h-40" />}
@@ -453,29 +548,43 @@ export function AdminPageV2() {
                 </div>
               </div>
               
+              {/* Selected locker label */}
+              <div className="mb-6 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 inline-flex items-center gap-2 relative z-10">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                  Inspecting: {currentLocker.lockerId.replace('chamber-', 'SAFE ')} {currentLocker.activeDonation ? `— ${currentLocker.activeDonation.foodName}` : '— Empty'}
+                </span>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 relative z-10">
                 <MetricItem 
                   label="TinyML AI Engine" 
-                  value="Neural Active"
-                  progress={100}
-                  color="var(--accent-bright)"
+                  value={currentLocker.activeDonation ? "Neural Active" : "Standby"}
+                  progress={currentLocker.activeDonation ? 100 : 20}
+                  color={currentLocker.activeDonation ? "var(--accent-bright)" : "var(--text-muted)"}
                   icon={<Settings2 className="w-4 h-4" />}
                 />
                 <MetricItem 
                   label="VOC Sensor Profile" 
-                  value={`${currentLocker.telemetry.gasResistanceOhms} Ω`}
-                  progress={currentLocker.telemetry.gasResistanceOhms > 15000 ? 92 : 40}
-                  color={currentLocker.telemetry.gasResistanceOhms > 15000 ? "var(--accent-bright)" : "var(--warning)"}
+                  value={`${currentLocker.telemetry.gasResistanceOhms.toLocaleString()} Ω`}
+                  progress={currentLocker.telemetry.gasResistanceOhms > 15000 ? 92 : currentLocker.telemetry.gasResistanceOhms > 5000 ? 60 : 25}
+                  color={currentLocker.telemetry.gasResistanceOhms > 15000 ? "var(--accent-bright)" : currentLocker.telemetry.gasResistanceOhms > 5000 ? "var(--warning)" : "var(--danger)"}
                   icon={<Activity className="w-4 h-4" />}
                 />
                 <MetricItem 
                   label="Atmospheric Temp" 
-                  value={`${currentLocker.telemetry.internalTempC}°C`}
-                  progress={currentLocker.telemetry.internalTempC <= 5 ? 98 : 70}
-                  color={currentLocker.telemetry.internalTempC <= 5 ? "var(--accent-bright)" : "var(--warning)"}
+                  value={`${currentLocker.telemetry.internalTempC.toFixed(1)}°C`}
+                  progress={currentLocker.telemetry.internalTempC <= 5 ? 98 : currentLocker.telemetry.internalTempC <= 10 ? 70 : 30}
+                  color={currentLocker.telemetry.internalTempC <= 5 ? "var(--accent-bright)" : currentLocker.telemetry.internalTempC <= 10 ? "var(--warning)" : "var(--danger)"}
                   icon={<Activity className="w-4 h-4" />}
                 />
-
+                <MetricItem 
+                  label="Chamber Humidity" 
+                  value={`${currentLocker.telemetry.humidityPct.toFixed(0)}%`}
+                  progress={currentLocker.telemetry.humidityPct <= 70 ? 90 : currentLocker.telemetry.humidityPct <= 85 ? 60 : 25}
+                  color={currentLocker.telemetry.humidityPct <= 70 ? "var(--accent-bright)" : currentLocker.telemetry.humidityPct <= 85 ? "var(--warning)" : "var(--danger)"}
+                  icon={<Droplets className="w-4 h-4" />}
+                />
               </div>
               
               <div className="mt-10 pt-6 border-t border-line dark:border-white/5 flex items-center justify-between relative z-10">
@@ -577,90 +686,7 @@ export function AdminPageV2() {
         </div>
       </ScrollReveal>
 
-      <ScrollReveal direction="up" distance={40} delay={0.9}>
-        <div className="obsidian-card premium-noise !p-6 rounded-[2.25rem] botanical-mesh group border-emerald-500/20">
-          {/* Technical Overlays */}
-          <Scanline />
-          <BotanicalDecoration />
-          
-          <div className="luxe-card-header flex justify-between items-end mb-10 relative z-10">
-            <div className="luxe-card-title-stack">
-              <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
-                <p className="text-[11px] font-black tracking-[0.4em] uppercase text-emerald-500/60 mb-2 flex items-center gap-2">
-                  <span className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_8px_theme(colors.emerald.500)]" />
-                  {t("lockerSummaries")}
-                </p>
-              </TextReveal>
-              <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
-                <h3 className="text-3xl md:text-4xl font-black tracking-tight text-text">Strategic Asset Registry</h3>
-              </TextReveal>
-            </div>
-            <div className="hidden md:flex flex-col items-end gap-1 opacity-60">
-              <span className="text-[9px] font-mono font-bold tracking-widest text-emerald-600 dark:text-emerald-400">FLEET STATUS: OPTIMAL</span>
-              <div className="flex gap-1">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className={`w-1 h-3 rounded-full ${i < 6 ? 'bg-emerald-500/40' : 'bg-muted'}`} />
-                ))}
-              </div>
-            </div>
-          </div>
-          
-          <div className="locker-summary-list grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {fleet.map((locker, idx) => (
-              <ScrollReveal key={locker.lockerId} direction="up" distance={20} delay={idx * 0.05}>
-                <article className="group/locker relative p-4 rounded-[1.5rem] bg-panel-elevated/40 dark:bg-panel-elevated/20 border border-line dark:border-white/5 hover:border-emerald-500/30 transition-all duration-700 shadow-xl overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent opacity-0 group-hover/locker:opacity-100 transition-opacity duration-1000" />
-                  
-                  <div className="flex items-center gap-5 relative z-10">
-                    <div className="relative">
-                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black text-base border transition-all duration-700
-                        ${locker.occupancyState === 'occupied' 
-                          ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.1)]' 
-                          : 'bg-muted/10 border-line text-text-muted'}`}
-                      >
-                        {locker.lockerLabel.split(' ')[1] || '01'}
-                      </div>
-                      <motion.div 
-                        animate={{ opacity: [0.3, 1, 0.3] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-panel-elevated
-                        ${locker.faultState !== "none" ? 'bg-rose-500' : locker.occupancyState === "occupied" ? 'bg-emerald-500' : 'bg-emerald-400'}`}
-                      />
-                    </div>
-
-                    <div className="flex-grow">
-                      <h4 className="font-black text-sm text-text group-hover/locker:text-emerald-600 dark:group-hover/locker:text-emerald-400 transition-colors mb-0.5">{locker.lockerLabel}</h4>
-                      <div className="flex items-center gap-2 opacity-50">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500/80">{locker.zoneLabel}</span>
-                        <span className="w-1 h-1 rounded-full bg-muted" />
-                        <span className="text-[8px] font-mono font-bold text-text-muted">{locker.lockerId}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 pt-3 border-t border-line dark:border-white/5 flex items-center justify-between relative z-10">
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-1">Utilization</span>
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex gap-0.5">
-                          {[1, 2, 3, 4].map(i => (
-                            <div key={i} className={`w-1 h-2 rounded-full ${i <= (locker.occupiedUnits / locker.totalUnits) * 4 ? 'bg-emerald-500' : 'bg-muted'}`} />
-                          ))}
-                        </div>
-                        <span className="text-[10px] font-mono font-black text-text-muted">{Math.round((locker.occupiedUnits / locker.totalUnits) * 100)}%</span>
-                      </div>
-                    </div>
-                    <StatusPill
-                      value={locker.occupancyState}
-                      tone={locker.faultState !== "none" || locker.foodQualityScore === "spoilt" ? "danger" : locker.occupancyState === "occupied" ? "warning" : "success"}
-                    />
-                  </div>
-                </article>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
-      </ScrollReveal>
+      {/* Strategic Asset Registry removed — chamber data is visible via Fleet Map and Community Contributions */}
 
       <AnimatePresence>
         {showSafeSelector && (

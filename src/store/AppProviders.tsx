@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useReducer } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import type { PropsWithChildren } from "react";
 import { AppContextProvider } from "./AppContext";
 import { appReducer, initialAppState } from "./appState";
+import { syncInitialState } from "../services/initialSync";
 
 const STORAGE_KEY = "ecolocker-preferences";
 
@@ -14,11 +15,16 @@ export function AppProviders({ children }: PropsWithChildren) {
       const parsed = JSON.parse(saved) as Partial<typeof defaultState>;
       return {
         ...defaultState,
-        ...parsed,
-        lockers: parsed.lockers ?? defaultState.lockers,
+        // Only restore user preferences — NOT locker data (which has time-sensitive dates)
+        locale: parsed.locale ?? defaultState.locale,
+        themeMode: parsed.themeMode ?? defaultState.themeMode,
+        themePalette: parsed.themePalette ?? defaultState.themePalette,
         selectedLockerId: parsed.selectedLockerId ?? defaultState.selectedLockerId,
-        // Force connection and login on refresh by resetting states
-        hasCompletedPairing: false,
+        // Always use fresh locker data from initialAppState (current timestamps)
+        lockers: defaultState.lockers,
+        donationHistory: defaultState.donationHistory,
+        // Force login on refresh by resetting auth state
+        hasCompletedPairing: parsed.hasCompletedPairing ?? false,
         isAdminAuthenticated: false
       };
     } catch {
@@ -34,6 +40,15 @@ export function AppProviders({ children }: PropsWithChildren) {
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  // Push all initial chamber/fleet/donation data to Firestore on first load
+  const hasSynced = useRef(false);
+  useEffect(() => {
+    if (!hasSynced.current) {
+      hasSynced.current = true;
+      syncInitialState(state).catch(console.error);
+    }
   }, []);
 
   useEffect(() => {

@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "telemetry": {
+      "$lockerId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "commands": {
+      "$lockerId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "status": {
+      "$lockerId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "devices": {
+      "$lockerId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "test_connection": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

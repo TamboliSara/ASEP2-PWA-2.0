@@ -15,6 +15,14 @@ import { getQueuedSyncRecords } from "./db";
 import { subscribeTelemetry, subscribeStatus, subscribeCommand, rtdbToDomainTelemetry, updateDeviceStatus, type RTDBTelemetry, type RTDBDeviceStatus, type RTDBCommand } from "./rtdb";
 import type { AlertRecord, DonationRecord, LockerEvent, LockerState, PredictionSnapshot, SensorSnapshot, SyncRecord } from "../types/domain";
 
+// ── Timeout Helper ──────────────────────────────────────────────────
+const withTimeout = <T>(promise: Promise<T>, ms: number = 3000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms))
+  ]);
+};
+
 // ── Firestore Sync (Persistent Application Data) ──────────────────
 
 export async function syncSnapshot(snapshot: LockerState) {
@@ -24,10 +32,10 @@ export async function syncSnapshot(snapshot: LockerState) {
   }
 
   try {
-    await setDoc(doc(db, "lockers", snapshot.lockerId), {
+    await withTimeout(setDoc(doc(db, "lockers", snapshot.lockerId), {
       ...snapshot,
       _syncedAt: serverTimestamp()
-    });
+    }));
     console.log(`[Sync] ✅ Locker snapshot synced: ${snapshot.lockerId}`);
     return true;
   } catch (error) {
@@ -43,10 +51,35 @@ export async function syncDonation(record: DonationRecord) {
   }
 
   try {
-    await setDoc(doc(db, "donations", record.id), {
+    // 1. Write to flat donations/ collection
+    await withTimeout(setDoc(doc(db, "donations", record.id), {
       ...record,
       _syncedAt: serverTimestamp()
-    });
+    }));
+
+    // 2. Update the lockers/ chamber doc with embedded donation + item details
+    await withTimeout(setDoc(doc(db, "lockers", record.lockerId), {
+      occupancyState: "occupied",
+      donation: {
+        id: record.id,
+        status: "deposited",
+        donorName: record.donorName,
+        donorContact: record.donorContact,
+        createdAt: record.createdAt,
+        lockerNumber: record.lockerNumber ?? null
+      },
+      item: {
+        foodName: record.foodName,
+        category: record.categoryLabel,
+        dietTag: record.dietTag,
+        allergensNotes: record.allergensNotes || null,
+        servingCount: 1,
+        latestQualityScore: record.latestQualityScore ?? null
+      },
+      retrieval: null,
+      _syncedAt: serverTimestamp()
+    }, { merge: true }));
+
     console.log(`[Sync] ✅ Donation synced: ${record.id} (${record.foodName})`);
     return true;
   } catch (error) {
@@ -61,10 +94,10 @@ export async function syncEvent(record: LockerEvent) {
   }
 
   try {
-    await setDoc(doc(db, "events", record.id), {
+    await withTimeout(setDoc(doc(db, "events", record.id), {
       ...record,
       _syncedAt: serverTimestamp()
-    });
+    }));
     return true;
   } catch (error) {
     console.error("[Sync] ❌ Event sync failed:", error);
@@ -78,10 +111,10 @@ export async function syncAlert(record: AlertRecord) {
   }
 
   try {
-    await setDoc(doc(db, "alerts", record.id), {
+    await withTimeout(setDoc(doc(db, "alerts", record.id), {
       ...record,
       _syncedAt: serverTimestamp()
-    });
+    }));
     return true;
   } catch (error) {
     console.error("[Sync] ❌ Alert sync failed:", error);
@@ -95,10 +128,10 @@ export async function syncSensorSnapshot(record: SensorSnapshot) {
   }
 
   try {
-    await setDoc(doc(db, "sensorSnapshots", record.id), {
+    await withTimeout(setDoc(doc(db, "sensorSnapshots", record.id), {
       ...record,
       _syncedAt: serverTimestamp()
-    });
+    }));
     return true;
   } catch (error) {
     console.error("[Sync] ❌ Sensor snapshot sync failed:", error);
@@ -112,13 +145,74 @@ export async function syncPrediction(record: PredictionSnapshot) {
   }
 
   try {
-    await setDoc(doc(db, "predictions", record.id), {
+    await withTimeout(setDoc(doc(db, "predictions", record.id), {
       ...record,
       _syncedAt: serverTimestamp()
-    });
+    }));
     return true;
   } catch (error) {
     console.error("[Sync] ❌ Prediction sync failed:", error);
+    return false;
+  }
+}
+
+// ── Retrieval Sync (updates donation + creates retrieval record) ───
+
+export interface RetrievalRecord {
+  id: string;
+  donationId: string;
+  lockerId: string;
+  lockerNumber: number;
+  foodName: string;
+  qualityScoreAtRetrieval: string;
+  retrievedAt: string;
+  retrievedBy: "receiver" | "admin_override";
+  skipSanitization: boolean;
+}
+
+export async function syncRetrieval(record: RetrievalRecord) {
+  if (!db) {
+    console.warn("[Sync] No Firestore — retrieval not synced to cloud.");
+    return false;
+  }
+
+  try {
+    // 1. Update the donation document with retrieval status
+    await withTimeout(setDoc(doc(db, "donations", record.donationId), {
+      status: "retrieved",
+      retrievedAt: record.retrievedAt,
+      retrievedBy: record.retrievedBy,
+      qualityScoreAtRetrieval: record.qualityScoreAtRetrieval,
+      _updatedAt: serverTimestamp()
+    }, { merge: true }));
+
+    // 2. Create a separate retrieval record for audit trail
+    await withTimeout(setDoc(doc(db, "retrievals", record.id), {
+      ...record,
+      _syncedAt: serverTimestamp()
+    }));
+
+    // 3. Update the lockers/ chamber document — clear donation + item, mark as empty
+    await withTimeout(setDoc(doc(db, "lockers", record.lockerId), {
+      occupancyState: "empty",
+      donation: null,
+      item: null,
+      retrieval: {
+        id: record.id,
+        donationId: record.donationId,
+        foodName: record.foodName,
+        retrievedAt: record.retrievedAt,
+        retrievedBy: record.retrievedBy,
+        qualityScoreAtRetrieval: record.qualityScoreAtRetrieval,
+        skipSanitization: record.skipSanitization
+      },
+      _syncedAt: serverTimestamp()
+    }, { merge: true }));
+
+    console.log(`[Sync] ✅ Retrieval synced: ${record.id} (donation: ${record.donationId})`);
+    return true;
+  } catch (error) {
+    console.error("[Sync] ❌ Retrieval sync failed:", error);
     return false;
   }
 }
@@ -147,13 +241,13 @@ export async function triggerAlertEmail(alertId: string) {
   }
 
   try {
-    await addDoc(collection(db, "mail"), {
+    await withTimeout(addDoc(collection(db, "mail"), {
       to: ["admin@ecolocker.local"],
       message: {
         subject: `EcoLocker Alert: ${alertId}`,
         text: `Review EcoLocker alert ${alertId} in the admin dashboard.`
       }
-    });
+    }));
     return true;
   } catch (error) {
     console.error("[Sync] ❌ Alert email trigger failed:", error);

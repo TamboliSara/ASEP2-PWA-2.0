@@ -38,6 +38,7 @@ export interface SensorTelemetry {
 export interface DonationRecord {
   id: string;
   lockerId: string;
+  lockerNumber: number;
   foodName: string;
   categoryId: number;
   categoryLabel: string;
@@ -60,12 +61,16 @@ export interface LockerEvent {
     | "lock_confirmed"
     | "timeout"
     | "fault"
+    | "fault_cleared"
     | "cycle_complete"
     | "reconnect_needed"
     | "deposit_started"
     | "deposit_completed"
     | "retrieve_started"
-    | "retrieve_completed";
+    | "retrieve_completed"
+    | "system_wipe"
+    | "force_sync"
+    | "ble_reset";
   createdAt: string;
   detail: string;
   syncState: SyncState;

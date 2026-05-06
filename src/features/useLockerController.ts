@@ -3,11 +3,21 @@ import { bleService } from "../services/ble";
 import { cacheAlert, cacheDonation, cacheEvent, cacheLockerSnapshot, cachePredictionSnapshot, cacheSensorSnapshot, clearAllData, enqueueSync } from "../services/db";
 import { initiateDepositFn, initiateRetrievalFn } from "../services/firebase";
 import { registerDevice, unlockLocker, lockLocker, sanitizeLocker } from "../services/rtdb";
-import { processSyncQueue, syncAlert, syncDonation, syncEvent, syncPrediction, syncSensorSnapshot, syncSnapshot, triggerAlertEmail } from "../services/sync";
+import { processSyncQueue, syncAlert, syncDonation, syncEvent, syncPrediction, syncRetrieval, syncSensorSnapshot, syncSnapshot, triggerAlertEmail } from "../services/sync";
+import { db } from "../services/firebase";
+import { collection, getDocs, deleteDoc, doc as firestoreDoc } from "firebase/firestore";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
 import { sampleAlert, sampleDonation } from "../utils/mockData";
+import { generateMockReadings, persistMockReadings, clearMockReadings } from "../utils/mockTelemetry";
 import type { AlertRecord, DonationRecord, LockerEvent, PredictionSnapshot, SensorSnapshot } from "../types/domain";
+
+const withTimeout = <T>(promise: Promise<T>, ms: number = 3000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms))
+  ]);
+};
 
 function createSyncRecord(entityType: "donation" | "event" | "alert" | "snapshot" | "sensorSnapshot" | "prediction", entityId: string) {
   return {
@@ -57,7 +67,7 @@ export function useLockerController() {
     dispatch({ type: "select-locker", id });
   }
 
-  async function pairLocker() {
+  async function pairLocker(): Promise<boolean> {
     setIsBusy(true);
     dispatch({ type: "set-sync-message", message: "Initiating device pairing..." });
 
@@ -67,6 +77,8 @@ export function useLockerController() {
 
       // Step 2: Register device in Firebase RTDB (creates telemetry/commands/status slots)
       dispatch({ type: "set-sync-message", message: "Registering device in cloud..." });
+      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate cloud latency
+      
       const registered = await registerDevice(
         currentLocker.lockerId,
         paired.deviceName,
@@ -100,9 +112,11 @@ export function useLockerController() {
       });
       dispatch({ type: "set-pairing-complete", value: true });
       dispatch({ type: "set-sync-message", message: registered ? t("pairSuccess") + " — Cloud connected." : t("pairSuccess") + " — Offline mode." });
+      return true;
     } catch (error) {
       console.error("[Pair] Pairing failed:", error);
       dispatch({ type: "set-sync-message", message: "Pairing failed. Check connection and try again." });
+      return false;
     } finally {
       setIsBusy(false);
     }
@@ -113,6 +127,18 @@ export function useLockerController() {
     const connected = await bleService.reconnect();
     dispatch({ type: "patch-locker", id: currentLocker.lockerId, locker: { bleConnected: connected } });
     dispatch({ type: "set-sync-message", message: connected ? t("bleReconnectSuccess") : t("bleReconnectFailure") });
+    
+    // Log BLE Reset to activity
+    const bleEvent: LockerEvent = {
+      id: crypto.randomUUID(),
+      lockerId: currentLocker.lockerId,
+      type: "ble_reset",
+      createdAt: new Date().toISOString(),
+      detail: connected ? "BLE bridge reset successfully. Device reconnected." : "BLE bridge reset attempted. Reconnection failed.",
+      syncState: "synced"
+    };
+    dispatch({ type: "append-log", event: bleEvent });
+    try { await syncEvent(bleEvent); } catch {}
     setIsBusy(false);
   }
 
@@ -123,10 +149,15 @@ export function useLockerController() {
     }
     setIsBusy(true);
 
+    // Derive locker number from its position in the kiosk (1-indexed)
+    const lockerIndex = state.lockers.findIndex(l => l.lockerId === currentLocker.lockerId);
+    const lockerNumber = lockerIndex >= 0 ? lockerIndex + 1 : 1;
+
     const donation: DonationRecord = {
       ...sampleDonation,
       id: crypto.randomUUID(),
       lockerId: currentLocker.lockerId,
+      lockerNumber,
       foodName: state.donationDraft.foodName || sampleDonation.foodName,
       categoryId: state.donationDraft.categoryId ?? sampleDonation.categoryId,
       categoryLabel: state.donationDraft.categoryLabel || sampleDonation.categoryLabel,
@@ -138,12 +169,18 @@ export function useLockerController() {
       syncState: "queued"
     };
 
+    // Generate unique mock telemetry for this deposit and persist it
+    const mockReadings = generateMockReadings(donation.id, "fresh");
+    persistMockReadings(donation.id, mockReadings);
+    donation.deadlineEstimate = mockReadings.deadlineEstimate;
+    donation.latestQualityScore = mockReadings.qualityScore;
+
     const sensorSnapshot: SensorSnapshot = {
       id: crypto.randomUUID(),
       lockerId: currentLocker.lockerId,
       donationId: donation.id,
       capturedAt: new Date().toISOString(),
-      telemetry: currentLocker.telemetry,
+      telemetry: mockReadings.telemetry,
       source: "deposit"
     };
     const predictionSnapshot: PredictionSnapshot = {
@@ -151,9 +188,9 @@ export function useLockerController() {
       lockerId: currentLocker.lockerId,
       donationId: donation.id,
       capturedAt: new Date().toISOString(),
-      qualityScore: currentLocker.foodQualityScore,
-      deadlineEstimate: currentLocker.deadlineEstimate,
-      heuristicGasProfile: currentLocker.telemetry.heuristicGasProfile,
+      qualityScore: mockReadings.qualityScore,
+      deadlineEstimate: mockReadings.deadlineEstimate,
+      heuristicGasProfile: mockReadings.telemetry.heuristicGasProfile,
       recommendedActions: buildRecommendedActions(),
       source: "deposit"
     };
@@ -167,12 +204,23 @@ export function useLockerController() {
         lockState: "locked",
         doorState: "closed",
         sanitizationState: "complete",
+        foodQualityScore: mockReadings.qualityScore,
+        deadlineEstimate: mockReadings.deadlineEstimate,
+        telemetry: mockReadings.telemetry,
         lastSyncedAt: new Date().toISOString()
       }
     });
     dispatch({ type: "record-donation", donation });
     dispatch({ type: "reset-donation-draft" });
     dispatch({ type: "set-sync-message", message: `${donation.foodName}: ${t("donationConfirmed")}` });
+
+    // ── Immediate Sync to Firestore ──────────────────────────────────
+    // This ensures data goes to the DB immediately without waiting for a background worker.
+    try {
+      await syncDonation(donation);
+    } catch (e) {
+      console.warn("[Deposit] Immediate sync failed, falling back to queue:", e);
+    }
 
     try {
       await bleService.sendCategory({
@@ -200,12 +248,17 @@ export function useLockerController() {
       // Call Cloud Function if deployed
       if (initiateDepositFn) {
         try {
-          await initiateDepositFn({
+          await withTimeout(initiateDepositFn({
             mac_address: currentLocker.lockerId,
             item_name: donation.foodName,
             dietary_tags: donation.dietTag ? [donation.dietTag] : [],
-            quantity: 1
-          });
+            quantity: 1,
+            donor_name: donation.donorName,
+            donor_contact: donation.donorContact,
+            allergens_notes: donation.allergensNotes,
+            category_label: donation.categoryLabel,
+            locker_number: lockerNumber
+          }));
         } catch (e) {
           console.error("Cloud function initiateDeposit failed (non-blocking):", e);
         }
@@ -242,8 +295,10 @@ export function useLockerController() {
     return donation;
   }
 
-  async function retrieveFood(skipSanitization = false) {
+  async function retrieveFood(skipSanitization = false, isAdminOverride = false) {
     setIsBusy(true);
+
+    const activeDonation = currentLocker.activeDonation;
 
     // Send UNLOCK command via RTDB
     await unlockLocker(currentLocker.lockerId);
@@ -256,7 +311,7 @@ export function useLockerController() {
     const sensorSnapshot: SensorSnapshot = {
       id: crypto.randomUUID(),
       lockerId: currentLocker.lockerId,
-      donationId: currentLocker.activeDonation?.id,
+      donationId: activeDonation?.id,
       capturedAt: new Date().toISOString(),
       telemetry: currentLocker.telemetry,
       source: "retrieve"
@@ -264,7 +319,7 @@ export function useLockerController() {
     const predictionSnapshot: PredictionSnapshot = {
       id: crypto.randomUUID(),
       lockerId: currentLocker.lockerId,
-      donationId: currentLocker.activeDonation?.id,
+      donationId: activeDonation?.id,
       capturedAt: new Date().toISOString(),
       qualityScore: currentLocker.foodQualityScore,
       deadlineEstimate: currentLocker.deadlineEstimate,
@@ -276,10 +331,33 @@ export function useLockerController() {
     // Call Cloud Function if deployed
     if (initiateRetrievalFn) {
       try {
-        await initiateRetrievalFn({ mac_address: currentLocker.lockerId });
+        await withTimeout(initiateRetrievalFn({ mac_address: currentLocker.lockerId }));
       } catch (e) {
         console.error("Cloud function initiateRetrieval failed (non-blocking):", e);
       }
+    }
+
+    // ── Sync retrieval to Firestore (donation update + retrievals collection) ──
+    if (activeDonation) {
+      const lockerIndex = state.lockers.findIndex(l => l.lockerId === currentLocker.lockerId);
+      try {
+        await syncRetrieval({
+          id: crypto.randomUUID(),
+          donationId: activeDonation.id,
+          lockerId: currentLocker.lockerId,
+          lockerNumber: lockerIndex >= 0 ? lockerIndex + 1 : 0,
+          foodName: activeDonation.foodName,
+          qualityScoreAtRetrieval: currentLocker.foodQualityScore,
+          retrievedAt: new Date().toISOString(),
+          retrievedBy: isAdminOverride ? "admin_override" : "receiver",
+          skipSanitization
+        });
+      } catch (e) {
+        console.warn("[Retrieve] Retrieval sync failed (non-blocking):", e);
+      }
+
+      // Clear persisted mock readings for this donation
+      clearMockReadings(activeDonation.id);
     }
 
     // Start sanitization if needed
@@ -303,10 +381,30 @@ export function useLockerController() {
         occupancyState: "empty",
         sanitizationState: skipSanitization ? "complete" : "running",
         doorState: "closed",
-        lockState: "locked"
+        lockState: "locked",
+        foodQualityScore: "fresh",
+        faultState: "none"
       }
     });
     dispatch({ type: "set-sync-message", message: `SAFE ${currentLocker.lockerId.split('-')[1].toUpperCase()} CLEARED: Access cycle complete.` });
+
+    // Sync the now-empty locker state to Firestore
+    try {
+      await syncSnapshot({
+        ...currentLocker,
+        activeDonation: undefined,
+        occupancyState: "empty",
+        sanitizationState: skipSanitization ? "complete" : "running",
+        doorState: "closed",
+        lockState: "locked",
+        foodQualityScore: "fresh",
+        faultState: "none",
+        lastSyncedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn("[Retrieve] Post-retrieval locker snapshot sync failed:", e);
+    }
+
     setIsBusy(false);
   }
 
@@ -344,13 +442,57 @@ export function useLockerController() {
         occupancyState: currentLocker.activeDonation ? "occupied" : "empty"
       }
     });
+    // Also log a separate clear-fault event with a human-readable description
+    const clearEvent: LockerEvent = {
+      id: crypto.randomUUID(),
+      lockerId: currentLocker.lockerId,
+      type: "fault_cleared",
+      createdAt: new Date().toISOString(),
+      detail: `Fault cleared on ${currentLocker.lockerId.replace('chamber-', 'SAFE ')}. System restored to normal.`,
+      syncState: "synced"
+    };
+    dispatch({ type: "append-log", event: clearEvent });
+    try { await syncEvent(clearEvent); } catch {}
   }
 
   async function resetDonations() {
     setIsBusy(true);
+    // Clear local IndexedDB
     await clearAllData();
+    
+    // Clear Firestore collections (donations, retrievals, events, alerts, lockers, sensorSnapshots, predictions)
+    if (db) {
+      const collectionsToWipe = ["donations", "retrievals", "events", "alerts", "lockers", "sensorSnapshots", "predictions", "fleet"];
+      for (const col of collectionsToWipe) {
+        try {
+          const snapshot = await getDocs(collection(db, col));
+          for (const docSnap of snapshot.docs) {
+            await deleteDoc(firestoreDoc(db, col, docSnap.id));
+          }
+          console.log(`[Wipe] ✅ Cleared Firestore collection: ${col}`);
+        } catch (e) {
+          console.warn(`[Wipe] ⚠️ Failed to clear ${col}:`, e);
+        }
+      }
+    }
+    
+    // Clear mock telemetry readings from localStorage
+    localStorage.removeItem("safelocker_mock_readings");
+    
     dispatch({ type: "reset-donations" });
-    dispatch({ type: "set-sync-message", message: "SYSTEM RESET: All compartments cleared across fleet." });
+    dispatch({ type: "set-sync-message", message: "SYSTEM RESET: All data wiped — lockers, DB, and telemetry. Refresh to reinitialize." });
+
+    // Log the wipe action
+    const wipeEvent: LockerEvent = {
+      id: crypto.randomUUID(),
+      lockerId: "system",
+      type: "system_wipe",
+      createdAt: new Date().toISOString(),
+      detail: "EMERGENCY SYSTEM WIPE executed. All donations, events, alerts, and telemetry cleared from local and cloud databases.",
+      syncState: "synced"
+    };
+    dispatch({ type: "append-log", event: wipeEvent });
+    
     setIsBusy(false);
   }
 
@@ -389,6 +531,18 @@ export function useLockerController() {
     const syncedCount = result.filter((entry) => entry.status === "synced").length;
     dispatch({ type: "set-sync-message", message: `${t("syncWorkerProcessed")} ${syncedCount}.` });
     dispatch({ type: "patch-locker", id: currentLocker.lockerId, locker: { lastSyncedAt: new Date().toISOString() } });
+
+    // Log the force sync action to activity log
+    const syncEvent_: LockerEvent = {
+      id: crypto.randomUUID(),
+      lockerId: currentLocker.lockerId,
+      type: "force_sync",
+      createdAt: new Date().toISOString(),
+      detail: `Force sync completed. ${syncedCount} queued records processed. Telemetry and predictions updated.`,
+      syncState: "synced"
+    };
+    dispatch({ type: "append-log", event: syncEvent_ });
+    try { await syncEvent(syncEvent_); } catch {}
     setIsBusy(false);
   }
 
@@ -398,6 +552,7 @@ export function useLockerController() {
   return useMemo(
     () => ({
       state,
+      dispatch,
       currentLocker,
       isBusy,
       selectLocker,
@@ -412,6 +567,6 @@ export function useLockerController() {
       clearSyncMessage,
       signOut
     }),
-    [isBusy, state, currentLocker]
+    [isBusy, state, currentLocker, dispatch]
   );
 }
