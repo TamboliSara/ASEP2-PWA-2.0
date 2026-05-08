@@ -30,8 +30,8 @@ export function DonorPage() {
     }
   }, [isFlowStarted, depositConfirmed]);
 
-  async function handleSubmit() {
-    const donation = await submitDeposit();
+  async function handleSubmit(imageData?: string) {
+    const donation = await submitDeposit(imageData);
     setDepositConfirmed(true);
     if (donation) {
       window.setTimeout(() => navigate("/receive", { replace: true }), 900);

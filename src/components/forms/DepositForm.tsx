@@ -11,7 +11,7 @@ export function DepositForm({
   isNaked = false,
   onShowSafety
 }: { 
-  onSubmit: () => Promise<void>; 
+  onSubmit: (imageData?: string) => Promise<void>; 
   isBusy?: boolean;
   isNaked?: boolean;
   onShowSafety?: () => void;
@@ -64,15 +64,13 @@ export function DepositForm({
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 4));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent, imageData?: string) {
     event.preventDefault();
     if (currentStep < 4) {
       nextStep();
     } else {
-      if (!isVerified) {
-        return; // Button is disabled anyway, but safety check
-      }
-      await onSubmit();
+      if (!isVerified) return;
+      await onSubmit(imageData);
     }
   }
 
@@ -237,9 +235,10 @@ export function DepositForm({
         {currentStep === 4 && (
           <div className="form-grid-luxe animate-luxe-entry" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <AppleFaceIDScanner 
-              onVerify={async () => {
+              onVerify={async (imageData) => {
                 setIsVerified(true);
-                await onSubmit();
+                // Call the actual parent onSubmit directly since we can't easily pass it through event
+                await onSubmit(imageData);
               }} 
             />
           </div>

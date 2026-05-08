@@ -154,7 +154,7 @@ export function useLockerController() {
     setIsBusy(false);
   }
 
-  async function submitDeposit() {
+  async function submitDeposit(imageData?: string) {
     if (currentLocker.activeDonation) {
       dispatch({ type: "set-sync-message", message: "Unit already occupied. Only 1 item allowed." });
       return null;
@@ -178,6 +178,7 @@ export function useLockerController() {
       allergensNotes: state.donationDraft.allergensNotes,
       dietTag: state.donationDraft.dietTag,
       createdAt: new Date().toISOString(),
+      donorImageBase64: imageData,
       syncState: "queued"
     };
 
@@ -318,7 +319,7 @@ export function useLockerController() {
     return donation;
   }
 
-  async function retrieveFood(skipSanitization = false, isAdminOverride = false, receiverImage?: string) {
+  async function retrieveFood(skipSanitization = false, isAdminOverride = false, imageData?: string) {
     setIsBusy(true);
 
     const activeDonation = currentLocker.activeDonation;
@@ -374,7 +375,7 @@ export function useLockerController() {
           retrievedAt: new Date().toISOString(),
           retrievedBy: isAdminOverride ? "admin_override" : "receiver",
           skipSanitization,
-          receiverImage
+          receiverImageBase64: imageData
         });
       } catch (e) {
         console.warn("[Retrieve] Retrieval sync failed (non-blocking):", e);

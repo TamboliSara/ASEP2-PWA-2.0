@@ -50,6 +50,7 @@ export interface DonationRecord {
   latestQualityScore: FoodQualityScore;
   deadlineEstimate: DeadlineEstimate;
   syncState: SyncState;
+  donorImageBase64?: string;
 }
 
 export interface LockerEvent {

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, User, Camera } from 'lucide-react';
 
 interface AppleFaceIDScannerProps {
-  onVerify: () => void;
+  onVerify: (imageData?: string) => void;
 }
 
 export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
@@ -49,15 +49,38 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
     }
   };
 
+  const captureImage = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 300; // low-res for DB storage
+      canvas.height = 300;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        // Draw centered and mirrored
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        const aspect = videoRef.current.videoWidth / videoRef.current.videoHeight;
+        let sWidth = videoRef.current.videoHeight;
+        let sHeight = videoRef.current.videoHeight;
+        let sx = (videoRef.current.videoWidth - sWidth) / 2;
+        let sy = 0;
+        ctx.drawImage(videoRef.current, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', 0.6);
+      }
+    }
+    return null;
+  };
+
   useEffect(() => {
     if (scanStatus === "scanning") {
       const interval = setInterval(() => {
         setProgress(p => {
           if (p >= 100) {
             clearInterval(interval);
+            const capturedData = captureImage();
             setScanStatus("success");
             setTimeout(() => {
-              onVerify();
+              onVerify(capturedData || undefined);
             }, 1500);
             return 100;
           }
