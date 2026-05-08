@@ -19,6 +19,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
   const [scanStatus, setScanStatus] = useState<string | null>(null);
   const [liveWarning, setLiveWarning] = useState<string | null>(null);
   const [autoCaptureCountdown, setAutoCaptureCountdown] = useState<number | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [showInstructions, setShowInstructions] = useState(true);
 
   useEffect(() => {
@@ -191,10 +192,12 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
               return;
             }
             
-            setScanStatus("Verifying identity...");
+            setScanStatus("Verification Successful!");
+            setCapturedImage(dataUrl);
+            
             setTimeout(() => {
               onVerify(dataUrl);
-            }, 1000);
+            }, 2000);
             
           }, 1500);
         }, 1000);
@@ -502,7 +505,23 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
               </div>
 
               <div className="camera-container">
-                {error && !isCapturing ? (
+                {capturedImage ? (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    style={{ height: '100%', position: 'relative' }}
+                  >
+                    <img src={capturedImage} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} alt="Captured" />
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(16, 185, 129, 0.2)', display: 'grid', placeItems: 'center' }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ width: 80, height: 80, background: '#10B981', borderRadius: '50%', display: 'grid', placeItems: 'center', margin: '0 auto 1rem', boxShadow: '0 0 30px rgba(16, 185, 129, 0.5)' }}>
+                          <ShieldCheck size={48} color="white" />
+                        </div>
+                        <p style={{ color: 'white', fontWeight: 800, fontSize: '1.2rem', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>IMAGE CAPTURED</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : error && !isCapturing ? (
                   <div style={{ height: '100%', display: 'grid', placeItems: 'center', padding: '2rem', textAlign: 'center', color: '#EF4444', background: 'rgba(239, 68, 68, 0.05)' }}>
                     <div>
                       <AlertCircle size={48} style={{ margin: '0 auto 1rem' }} />
