@@ -12,7 +12,7 @@ import { FleetMap } from "../components/FleetMap";
 import { useLockerController } from "../features/useLockerController";
 import { useTranslation } from "../store/useTranslation";
 import { QualityGauge } from "../components/QualityGauge";
-import { FaceVerificationModal } from "../components/FaceVerificationModal";
+import { AppleFaceIDScanner } from "../components/AppleFaceIDScanner";
 import { getRecommendedActions } from "../utils/safety";
 import { formatCountdown, formatDateTime, getHoursRemaining } from "../utils/format";
 import { useAppContext } from "../store/AppContext";
@@ -104,9 +104,13 @@ export function KioskPage() {
     }
   }
 
-  async function handleFaceVerify(imageData: string) {
+  async function handleFaceVerify(imageData?: string) {
     // In a real app, you would send imageData to a server for verification
-    console.log("Face verification image captured:", imageData.substring(0, 50) + "...");
+    if (imageData) {
+      console.log("Face verification image captured:", imageData.substring(0, 50) + "...");
+    } else {
+      console.log("Face verification successful (simulated).");
+    }
     setShowFaceVerification(false);
     await retrieveFood(false, false);
   }
@@ -119,11 +123,26 @@ export function KioskPage() {
 
   return (
     <div className="page-grid receiver-grid">
-      <FaceVerificationModal 
-        isOpen={showFaceVerification}
-        onClose={() => setShowFaceVerification(false)}
-        onVerify={handleFaceVerify}
-      />
+      <AnimatePresence>
+        {showFaceVerification && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md flex flex-col items-center"
+            >
+              <button 
+                onClick={() => setShowFaceVerification(false)}
+                className="absolute -top-12 right-0 md:-right-12 p-2 rounded-full bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-colors z-20"
+              >
+                <X size={18} />
+              </button>
+              <AppleFaceIDScanner onVerify={handleFaceVerify} />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
       {isSanitizing && (
         <motion.div 

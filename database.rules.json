@@ -3,30 +3,30 @@
     "telemetry": {
       "$lockerId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null || root.child('devices/' + $lockerId).exists()"
       }
     },
     "commands": {
       "$lockerId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null || root.child('devices/' + $lockerId).exists()"
       }
     },
     "status": {
       "$lockerId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null || root.child('devices/' + $lockerId).exists()"
       }
     },
     "devices": {
       "$lockerId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "test_connection": {
       ".read": true,
-      ".write": true
+      ".write": "auth != null"
     }
   }
 }

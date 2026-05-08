@@ -24,7 +24,7 @@ export function AppProviders({ children }: PropsWithChildren) {
         lockers: defaultState.lockers,
         donationHistory: defaultState.donationHistory,
         // Force login on refresh by resetting auth state
-        hasCompletedPairing: parsed.hasCompletedPairing ?? false,
+        hasCompletedPairing: false,
         isAdminAuthenticated: false
       };
     } catch {
@@ -71,6 +71,34 @@ export function AppProviders({ children }: PropsWithChildren) {
         return () => clearTimeout(timer);
       }
     });
+  }, [state.lockers]);
+
+  // Continuous mock telemetry jitter for empty lockers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      state.lockers.forEach(locker => {
+        if (!locker.activeDonation) {
+          const jitterTemp = (Math.random() * 0.4) - 0.2;
+          const jitterHum = (Math.random() * 2) - 1;
+          const jitterGas = (Math.random() * 500) - 250;
+          
+          dispatch({
+            type: "patch-locker",
+            id: locker.lockerId,
+            locker: {
+              telemetry: {
+                ...locker.telemetry,
+                internalTempC: Number((locker.telemetry.internalTempC + jitterTemp).toFixed(1)),
+                humidityPct: Number((locker.telemetry.humidityPct + jitterHum).toFixed(1)),
+                gasResistanceOhms: Number((locker.telemetry.gasResistanceOhms + jitterGas).toFixed(0)),
+                timestamp: new Date().toISOString()
+              }
+            }
+          });
+        }
+      });
+    }, 3000);
+    return () => clearInterval(interval);
   }, [state.lockers]);
 
   const value = useMemo(() => ({ state, dispatch }), [state]);

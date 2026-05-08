@@ -13,6 +13,9 @@
   "database": {
     "rules": "database.rules.json"
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "emulators": {
     "auth": {
       "port": 9099,
@@ -28,6 +31,10 @@
     },
     "database": {
       "port": 9000,
+      "host": "127.0.0.1"
+    },
+    "storage": {
+      "port": 9199,
       "host": "127.0.0.1"
     },
     "ui": {

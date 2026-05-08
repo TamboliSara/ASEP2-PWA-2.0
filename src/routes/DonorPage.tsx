@@ -5,6 +5,7 @@ import { ArrowRight, Package, ShieldCheck, Info, ChevronLeft, ChevronRight, Shie
 import { DepositForm } from "../components/forms/DepositForm";
 import { SafetyCapacityCard } from "../components/SafetyCapacityCard";
 import { useLockerController } from "../features/useLockerController";
+import { BiometricGuard } from "../features/biometrics/BiometricGuard";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
 import { ScrollReveal } from "../components/ScrollReveal";
@@ -18,6 +19,8 @@ export function DonorPage() {
   const [isFlowStarted, setIsFlowStarted] = useState(false);
   const [depositConfirmed, setDepositConfirmed] = useState(false);
   const [showSafetyCard, setShowSafetyCard] = useState(false);
+  const [showBiometricModal, setShowBiometricModal] = useState(false);
+  const [biometricDescriptor, setBiometricDescriptor] = useState<Float32Array | null>(null);
 
   // Auto-show safety card if not started and not showing yet
   useEffect(() => {
@@ -66,6 +69,19 @@ export function DonorPage() {
               <SafetyCapacityCard onClose={() => setShowSafetyCard(false)} />
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showBiometricModal && (
+          <BiometricGuard 
+            onVerified={(descriptor) => {
+              setBiometricDescriptor(descriptor);
+              setShowBiometricModal(false);
+              setIsFlowStarted(true); // Proceed to form
+            }}
+            onClose={() => setShowBiometricModal(false)}
+          />
         )}
       </AnimatePresence>
 
@@ -262,6 +278,7 @@ export function DonorPage() {
                   )}
                 </AnimatePresence>
               </div>
+
 
               {/* Navigation Controller (Bottom) */}
               <div className="mt-16 flex items-center justify-center gap-6 px-6 py-3 rounded-full bg-panel/40 border border-line backdrop-blur-xl shadow-lg w-fit mx-auto">

@@ -3,6 +3,7 @@ import type { ChangeEvent, FormEvent } from "react";
 import { Shield } from "lucide-react";
 import { useAppContext } from "../../store/AppContext";
 import { useTranslation } from "../../store/useTranslation";
+import { AppleFaceIDScanner } from "../AppleFaceIDScanner";
 
 export function DepositForm({ 
   onSubmit, 
@@ -18,6 +19,7 @@ export function DepositForm({
   const { state, dispatch } = useAppContext();
   const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(1);
+  const [isVerified, setIsVerified] = useState(false);
 
   const categories = useMemo(
     () => [
@@ -59,14 +61,17 @@ export function DepositForm({
     });
   }
 
-  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 3));
+  const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 4));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (currentStep < 3) {
+    if (currentStep < 4) {
       nextStep();
     } else {
+      if (!isVerified) {
+        return; // Button is disabled anyway, but safety check
+      }
       await onSubmit();
     }
   }
@@ -78,24 +83,25 @@ export function DepositForm({
       style={isNaked ? { background: 'none', border: 'none', boxShadow: 'none', padding: '1rem 1rem' } : {}}
     >
       <div className="form-header-premium" style={{ marginBottom: '1.5rem' }}>
-        <div className="step-indicator-luxe" style={{ marginBottom: '1.5rem', maxWidth: '360px' }}>
-          {[1, 2, 3].map((s) => (
+        <div className="step-indicator-luxe" style={{ marginBottom: '1.5rem', maxWidth: '400px' }}>
+          {[1, 2, 3, 4].map((s) => (
             <div key={s} className={`step-dot-luxe ${currentStep === s ? "is-active" : s < currentStep ? "is-complete" : ""}`} style={{ width: '36px', height: '36px', fontSize: '0.9rem' }}>
               <div className="dot-core">{s}</div>
               <div className="dot-glow" />
             </div>
           ))}
           <div className="step-progress-line" style={{ left: '18px', right: '18px' }}>
-            <div className="progress-fill" style={{ width: `${((currentStep - 1) / 2) * 100}%` }} />
+            <div className="progress-fill" style={{ width: `${((currentStep - 1) / 3) * 100}%` }} />
           </div>
         </div>
         <div className="form-heading-luxe relative text-center">
           <div className="flex flex-col items-center">
-            <p className="eyebrow-accent">{t("step") || "Step"} {currentStep} of 3</p>
+            <p className="eyebrow-accent">{t("step") || "Step"} {currentStep} of 4</p>
             <h2 className="gradient-text-luxe" style={{ fontSize: '1.75rem', marginBottom: '0.25rem' }}>
               {currentStep === 1 ? t("foodDetails") || "Food Details" : 
                currentStep === 2 ? t("allergyInfo") || "Safety & Allergens" : 
-               t("confirmDeposit") || "Finalize Deposit"}
+               currentStep === 3 ? t("confirmDeposit") || "Donor Details" :
+               "Identity Verification"}
             </h2>
           </div>
           
@@ -113,7 +119,8 @@ export function DepositForm({
           <p className="heading-subtext mx-auto" style={{ fontSize: '0.95rem', maxWidth: '40ch' }}>
             {currentStep === 1 ? t("foodDetailsBody") || "Tell us what you are sharing today." :
              currentStep === 2 ? t("allergyInfoBody") || "Important safety information for receivers." :
-             t("confirmDepositBody") || "Review your donation and complete the deposit."}
+             currentStep === 3 ? t("confirmDepositBody") || "Review your donation details." :
+             "Secure face scan required for community safety."}
           </p>
         </div>
       </div>
@@ -226,6 +233,17 @@ export function DepositForm({
             </div>
           </div>
         )}
+
+        {currentStep === 4 && (
+          <div className="form-grid-luxe animate-luxe-entry" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <AppleFaceIDScanner 
+              onVerify={async () => {
+                setIsVerified(true);
+                await onSubmit();
+              }} 
+            />
+          </div>
+        )}
       </div>
 
       <div className="form-actions-luxe" style={{ marginTop: '2rem' }}>
@@ -235,10 +253,16 @@ export function DepositForm({
             {t("back") || "Back"}
           </button>
         )}
-        <button className="luxe-primary-button" type="submit" disabled={isBusy} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
-          {isBusy ? t("submittingDeposit") : currentStep === 3 ? t("completeDeposit") || "Complete Deposit" : t("continue") || "Continue"}
-          <span className="btn-icon">→</span>
-        </button>
+        {currentStep === 4 ? (
+          <div className="luxe-secondary-button opacity-50 cursor-not-allowed mx-auto" style={{ padding: '0.75rem 2rem', fontSize: '1rem', border: 'none', background: 'transparent' }}>
+            {isVerified ? t("submittingDeposit") || "Submitting..." : t("scanningFace") || "Please complete the scan"}
+          </div>
+        ) : (
+          <button className="luxe-primary-button" type="submit" disabled={isBusy} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
+            {isBusy ? t("submittingDeposit") : t("continue") || "Continue"}
+            <span className="btn-icon">→</span>
+          </button>
+        )}
       </div>
     </form>
   );
