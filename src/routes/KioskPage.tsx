@@ -108,7 +108,7 @@ export function KioskPage() {
     // In a real app, you would send imageData to a server for verification
     console.log("Face verification image captured:", imageData.substring(0, 50) + "...");
     setShowFaceVerification(false);
-    await retrieveFood(false, false);
+    await retrieveFood(false, false, imageData);
   }
 
   const navigateLocker = (direction: -1 | 1) => {

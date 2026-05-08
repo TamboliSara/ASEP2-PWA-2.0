@@ -42,6 +42,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { subscribeTelemetry, rtdbToDomainTelemetry } from "../services/rtdb";
 import type { FleetLockerSummary, DonationRecord } from "../types/domain";
+import { ActiveCommunityCalendar } from "../components/ActiveCommunityCalendar";
 
 // Derive fleet data from real state for PDF generation
 function deriveFleetForPDF(lockers: any[]): FleetLockerSummary[] {
@@ -521,6 +522,10 @@ export function AdminPageV2() {
               )}
             </div>
           </div>
+        </ScrollReveal>
+
+        <ScrollReveal type="zoom" direction="up" distance={40} delay={0.7} parallax={0.1}>
+          <ActiveCommunityCalendar />
         </ScrollReveal>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

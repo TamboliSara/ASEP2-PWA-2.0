@@ -295,7 +295,7 @@ export function useLockerController() {
     return donation;
   }
 
-  async function retrieveFood(skipSanitization = false, isAdminOverride = false) {
+  async function retrieveFood(skipSanitization = false, isAdminOverride = false, receiverImage?: string) {
     setIsBusy(true);
 
     const activeDonation = currentLocker.activeDonation;
@@ -350,7 +350,8 @@ export function useLockerController() {
           qualityScoreAtRetrieval: currentLocker.foodQualityScore,
           retrievedAt: new Date().toISOString(),
           retrievedBy: isAdminOverride ? "admin_override" : "receiver",
-          skipSanitization
+          skipSanitization,
+          receiverImage
         });
       } catch (e) {
         console.warn("[Retrieve] Retrieval sync failed (non-blocking):", e);

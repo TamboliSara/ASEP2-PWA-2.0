@@ -168,6 +168,7 @@ export interface RetrievalRecord {
   retrievedAt: string;
   retrievedBy: "receiver" | "admin_override";
   skipSanitization: boolean;
+  receiverImage?: string;
 }
 
 export async function syncRetrieval(record: RetrievalRecord) {
@@ -183,6 +184,7 @@ export async function syncRetrieval(record: RetrievalRecord) {
       retrievedAt: record.retrievedAt,
       retrievedBy: record.retrievedBy,
       qualityScoreAtRetrieval: record.qualityScoreAtRetrieval,
+      receiverImage: record.receiverImage || null,
       _updatedAt: serverTimestamp()
     }, { merge: true }));
 
@@ -204,7 +206,8 @@ export async function syncRetrieval(record: RetrievalRecord) {
         retrievedAt: record.retrievedAt,
         retrievedBy: record.retrievedBy,
         qualityScoreAtRetrieval: record.qualityScoreAtRetrieval,
-        skipSanitization: record.skipSanitization
+        skipSanitization: record.skipSanitization,
+        receiverImage: record.receiverImage || null
       },
       _syncedAt: serverTimestamp()
     }, { merge: true }));

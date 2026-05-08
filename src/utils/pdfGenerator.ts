@@ -323,3 +323,219 @@ export const generateTelemetryPDF = (data: TelemetryReportData) => {
   const filename = `SAFE_Intelligence_Audit_${unitLabel}_${dateStr}_${timeStr}.pdf`;
   doc.save(filename);
 };
+
+export interface CalendarDonationEntry {
+  id: string;
+  donorName: string;
+  donorContact: string;
+  foodName: string;
+  categoryLabel: string;
+  dietTag: string;
+  createdAt: string;
+  latestQualityScore: string;
+  lockerId: string;
+  status?: string;
+  retrievedAt?: string;
+  retrievedBy?: string;
+  qualityScoreAtRetrieval?: string;
+}
+
+export interface CalendarReportData {
+  generatedBy: string;
+  timestamp: string;
+  events: CalendarDonationEntry[];
+  weekRange: string;
+}
+
+export const generateCalendarPDF = (data: CalendarReportData) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  const colors: Record<string, [number, number, number]> = {
+    primary: [15, 23, 42],      // Slate 900
+    accent: [20, 184, 166],     // Teal 500
+    emerald: [16, 185, 129],    // Emerald 500
+    rose: [244, 63, 94],       // Rose 500
+    warning: [245, 158, 11],    // Amber 500
+    textMuted: [148, 163, 184], // Slate 400
+  };
+
+  const drawSectionHeader = (d: jsPDF, title: string, y: number, color: [number, number, number]) => {
+    const r = Math.round(255 - (255 - color[0]) * 0.1);
+    const g = Math.round(255 - (255 - color[1]) * 0.1);
+    const b = Math.round(255 - (255 - color[2]) * 0.1);
+    d.setFillColor(r, g, b);
+    d.rect(15, y - 6, pageWidth - 30, 9, 'F');
+    d.setFillColor(color[0], color[1], color[2]);
+    d.rect(15, y - 6, 2, 9, 'F');
+    d.setFontSize(9);
+    d.setFont('helvetica', 'bold');
+    d.setTextColor(color[0], color[1], color[2]);
+    d.text(title.toUpperCase(), 22, y);
+  };
+
+  const addHeaderDecoration = (d: jsPDF) => {
+    d.setDrawColor(20, 184, 166);
+    d.setLineWidth(0.5);
+    d.line(5, 5, 15, 5);
+    d.line(5, 5, 5, 15);
+    d.line(pageWidth - 5, 5, pageWidth - 15, 5);
+    d.line(pageWidth - 5, 5, pageWidth - 5, 15);
+  };
+
+  // --- Header ---
+  doc.setFillColor(15, 23, 42); 
+  doc.rect(0, 0, pageWidth, 55, 'F');
+  
+  // Header Gradient Effect
+  for (let i = 0; i < 10; i++) {
+    const opacity = 0.05 * (10 - i);
+    const r = Math.round(255 - (255 - 20) * opacity);
+    const g = Math.round(255 - (255 - 184) * opacity);
+    const b = Math.round(255 - (255 - 166) * opacity);
+    doc.setFillColor(r, g, b);
+    doc.rect(0, 55 - (i * 2), pageWidth, 2, 'F');
+  }
+
+  addHeaderDecoration(doc);
+  
+  doc.setFillColor(20, 184, 166);
+  doc.circle(25, 25, 12, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('S', 22, 27.5);
+  
+  doc.setFontSize(24);
+  doc.text('SAFE INTELLIGENCE', 42, 26);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(20, 184, 166);
+  doc.text('COMMUNITY CONTRIBUTION TIMELINE REPORT', 42, 33);
+  
+  doc.setTextColor(148, 163, 184);
+  doc.setFontSize(8);
+  doc.text(`REPORT_TYPE: FLEET_CALENDAR_AUDIT`, pageWidth - 15, 20, { align: 'right' });
+  doc.text(`RANGE: ${data.weekRange}`, pageWidth - 15, 25, { align: 'right' });
+  doc.text(`GENERATED: ${formatDateTime(data.timestamp).toUpperCase()}`, pageWidth - 15, 30, { align: 'right' });
+
+  let currentY = 70;
+
+  // --- Summary Cards ---
+  drawSectionHeader(doc, 'Weekly Contribution Summary', currentY, colors.primary);
+  currentY += 10;
+
+  const totalEvents = data.events.length;
+  const completed = data.events.filter(e => e.status === 'retrieved').length;
+  const active = totalEvents - completed;
+  const efficiency = totalEvents > 0 ? Math.round((completed / totalEvents) * 100) : 0;
+
+  autoTable(doc, {
+    startY: currentY,
+    head: [['TOTAL LOGGED', 'DISTRIBUTED', 'ACTIVE IN FLEET', 'EFFICIENCY RATING']],
+    body: [[
+      String(totalEvents),
+      String(completed),
+      String(active),
+      `${efficiency}%`
+    ]],
+    theme: 'plain',
+    headStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 8 },
+    styles: { fontSize: 14, fontStyle: 'bold', cellPadding: 8, halign: 'center' },
+    margin: { left: 15, right: 15 },
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 15;
+
+  // --- Analytics & Dietary Breakdown ---
+  drawSectionHeader(doc, 'Fleet Analytics & Dietary Breakdown', currentY, colors.emerald);
+  
+  const vegCount = data.events.filter(e => e.dietTag.toLowerCase().includes('veg')).length;
+  const standardCount = totalEvents - vegCount;
+  const freshCount = data.events.filter(e => e.latestQualityScore === 'fresh').length;
+  const warningCount = totalEvents - freshCount;
+
+  autoTable(doc, {
+    startY: currentY + 5,
+    head: [['DIETARY: VEG/VEGAN', 'DIETARY: STANDARD', 'QUALITY: OPTIMAL', 'QUALITY: WARNINGS']],
+    body: [[
+      String(vegCount),
+      String(standardCount),
+      String(freshCount),
+      String(warningCount)
+    ]],
+    theme: 'grid',
+    headStyles: { fillColor: colors.emerald, textColor: [255, 255, 255], fontSize: 8 },
+    styles: { fontSize: 11, fontStyle: 'bold', cellPadding: 6, halign: 'center' },
+    margin: { left: 15, right: 15 },
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 15;
+  if (currentY > 230) { doc.addPage(); currentY = 25; }
+
+  // --- Detailed Event Log ---
+  drawSectionHeader(doc, 'Detailed Distribution Matrix', currentY, colors.accent);
+  
+  autoTable(doc, {
+    startY: currentY + 5,
+    head: [['TIMESTAMP', 'UNIT', 'ASSET / DONOR', 'QUALITY', 'STATUS', 'COLLECTION']],
+    body: data.events.map(e => [
+      formatDateTime(e.createdAt),
+      e.lockerId.replace('chamber-', 'SAFE-'),
+      `${e.foodName}\nby ${e.donorName}`,
+      e.latestQualityScore.toUpperCase(),
+      e.status === 'retrieved' ? 'COMPLETED' : 'PENDING',
+      e.retrievedAt ? formatDateTime(e.retrievedAt) : '---'
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: colors.accent, textColor: [255, 255, 255], fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 4, overflow: 'linebreak' },
+    columnStyles: {
+      0: { cellWidth: 32 },
+      1: { cellWidth: 15, fontStyle: 'bold' },
+      3: { fontStyle: 'bold' },
+      4: { fontStyle: 'bold' },
+      5: { cellWidth: 32 }
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body') {
+        if (data.column.index === 3) {
+           const text = data.cell.text[0];
+           if (text === 'FRESH') data.cell.styles.textColor = colors.emerald;
+           if (text === 'AGING') data.cell.styles.textColor = colors.warning;
+           if (text === 'SPOILT') data.cell.styles.textColor = colors.rose;
+        }
+        if (data.column.index === 4) {
+          const text = data.cell.text[0];
+          if (text === 'COMPLETED') data.cell.styles.textColor = colors.emerald;
+          if (text === 'PENDING') data.cell.styles.textColor = colors.warning;
+        }
+      }
+    },
+    margin: { left: 15, right: 15, bottom: 20 },
+  });
+
+  // --- Footer ---
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, pageHeight - 15, pageWidth, 15, 'F');
+    doc.setFontSize(7);
+    doc.setTextColor(255, 255, 255);
+    doc.text(
+      `SAFE INTELLIGENCE SYSTEM // COMMUNITY TIMELINE AUDIT // PAGE ${i} OF ${pageCount}`,
+      pageWidth / 2,
+      pageHeight - 7,
+      { align: 'center' }
+    );
+    doc.setFillColor(20, 184, 166);
+    doc.rect(0, pageHeight - 15, pageWidth, 1, 'F');
+  }
+
+  const timestamp = new Date();
+  const dateStr = timestamp.toISOString().split('T')[0];
+  const filename = `SAFE_Timeline_Audit_${dateStr}.pdf`;
+  doc.save(filename);
+};

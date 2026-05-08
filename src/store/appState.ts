@@ -34,22 +34,6 @@ export type AppAction =
   | { type: "set-admin-auth"; value: boolean }
   | { type: "set-sync-message"; message: string };
 
-// ── Load persisted or generate fresh mock readings for each pre-loaded chamber ─
-// Use stored readings if available (preserves spoilage countdown across reloads).
-// Only generate new readings on first-ever load.
-function getOrCreateReadings(donationId: string, quality: "fresh" | "aging" | "spoilt") {
-  const existing = loadMockReadings(donationId);
-  if (existing) return existing;
-  const fresh = generateMockReadings(donationId, quality);
-  persistMockReadings(donationId, fresh);
-  return fresh;
-}
-
-const c2Readings = getOrCreateReadings("donation-c2", "aging");
-const c4Readings = getOrCreateReadings("donation-c4", "spoilt");
-const c5Readings = getOrCreateReadings("donation-c5", "fresh");
-const c8Readings = getOrCreateReadings("donation-c8", "fresh");
-
 export const initialAppState: AppState = {
   locale: "en",
   themeMode: "light",
@@ -57,62 +41,18 @@ export const initialAppState: AppState = {
   hasCompletedPairing: false,
   lockers: [
     { ...sampleLockerState, lockerId: "chamber-1", occupancyState: "empty" },
-    {
-      ...sampleLockerState, lockerId: "chamber-2", occupancyState: "occupied",
-      telemetry: c2Readings.telemetry, deadlineEstimate: c2Readings.deadlineEstimate,
-      foodQualityScore: "aging",
-      activeDonation: {
-        ...sampleDonation, id: "donation-c2", lockerId: "chamber-2", lockerNumber: 2,
-        donorName: "Aarav Sharma", donorContact: "aarav.s@ecolocker.local",
-        foodName: "Milk", categoryLabel: "Dairy", dietTag: "veg",
-        latestQualityScore: "aging", allergensNotes: "Contains lactose",
-        deadlineEstimate: c2Readings.deadlineEstimate
-      }
-    },
+    { ...sampleLockerState, lockerId: "chamber-2", occupancyState: "empty" },
     { ...sampleLockerState, lockerId: "chamber-3", occupancyState: "empty" },
-    {
-      ...sampleLockerState, lockerId: "chamber-4", occupancyState: "spoiled",
-      telemetry: c4Readings.telemetry, deadlineEstimate: c4Readings.deadlineEstimate,
-      foodQualityScore: "spoilt",
-      activeDonation: {
-        ...sampleDonation, id: "donation-c4", lockerId: "chamber-4", lockerNumber: 4,
-        donorName: "Priya Das", donorContact: "p.das@ecolocker.local",
-        foodName: "Chicken Biryani", categoryLabel: "Cooked Meal", dietTag: "non_veg",
-        latestQualityScore: "spoilt", allergensNotes: "Contains spices and nuts. Packed at 8:00 PM.",
-        deadlineEstimate: c4Readings.deadlineEstimate
-      }
-    },
-    {
-      ...sampleLockerState, lockerId: "chamber-5", occupancyState: "occupied",
-      telemetry: c5Readings.telemetry, deadlineEstimate: c5Readings.deadlineEstimate,
-      foodQualityScore: "fresh",
-      activeDonation: {
-        ...sampleDonation, id: "donation-c5", lockerId: "chamber-5", lockerNumber: 5,
-        donorName: "Vikram Singh", donorContact: "v.singh@ecolocker.local",
-        foodName: "Bread", categoryLabel: "Baked Goods", dietTag: "veg",
-        latestQualityScore: "fresh", allergensNotes: "Contains gluten",
-        deadlineEstimate: c5Readings.deadlineEstimate
-      }
-    },
+    { ...sampleLockerState, lockerId: "chamber-4", occupancyState: "empty" },
+    { ...sampleLockerState, lockerId: "chamber-5", occupancyState: "empty" },
     { ...sampleLockerState, lockerId: "chamber-6", occupancyState: "empty" },
     { ...sampleLockerState, lockerId: "chamber-7", occupancyState: "empty" },
-    {
-      ...sampleLockerState, lockerId: "chamber-8", occupancyState: "occupied",
-      telemetry: c8Readings.telemetry, deadlineEstimate: c8Readings.deadlineEstimate,
-      foodQualityScore: "fresh",
-      activeDonation: {
-        ...sampleDonation, id: "donation-c8", lockerId: "chamber-8", lockerNumber: 8,
-        donorName: "Ananya Iyer", donorContact: "ananya.i@ecolocker.local",
-        foodName: "Vegetables", categoryLabel: "Raw Produce", dietTag: "vegan",
-        latestQualityScore: "fresh", allergensNotes: "None",
-        deadlineEstimate: c8Readings.deadlineEstimate
-      }
-    },
+    { ...sampleLockerState, lockerId: "chamber-8", occupancyState: "empty" },
   ],
   selectedLockerId: "chamber-1",
   donationDraft: defaultDonationDraft,
   donationHistory: [],
-  logs: [...sampleEvents],
+  logs: [],
   alerts: [],
   isAdminAuthenticated: false,
   syncMessage: ""
