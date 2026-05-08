@@ -110,6 +110,18 @@ export function useLockerController() {
           lastSyncedAt: new Date().toISOString()
         }
       });
+      
+      const pairEvent: LockerEvent = {
+        id: crypto.randomUUID(),
+        lockerId: currentLocker.lockerId,
+        type: "pairing",
+        createdAt: new Date().toISOString(),
+        detail: `Hardware connection established with ${paired.deviceName}. ${registered ? "Cloud DB armed." : "Offline mode."}`,
+        syncState: "synced"
+      };
+      dispatch({ type: "append-log", event: pairEvent });
+      try { await syncEvent(pairEvent); } catch {}
+
       dispatch({ type: "set-pairing-complete", value: true });
       dispatch({ type: "set-sync-message", message: registered ? t("pairSuccess") + " — Cloud connected." : t("pairSuccess") + " — Offline mode." });
       return true;
@@ -277,6 +289,17 @@ export function useLockerController() {
         dispatch({ type: "append-log", event });
       }
 
+      const depositEvent: LockerEvent = {
+        id: crypto.randomUUID(),
+        lockerId: currentLocker.lockerId,
+        type: "lock",
+        createdAt: new Date().toISOString(),
+        detail: `Deposit registered: ${donation.foodName}. Safe sealed and secured.`,
+        syncState: "synced"
+      };
+      dispatch({ type: "append-log", event: depositEvent });
+      try { await syncEvent(depositEvent); } catch {}
+
       await cacheLockerSnapshot({
         ...currentLocker,
         activeDonation: donation,
@@ -374,6 +397,18 @@ export function useLockerController() {
     await enqueueSync(createSyncRecord("prediction", predictionSnapshot.id));
     dispatch({ type: "append-log", event: unlockEvent });
     dispatch({ type: "append-log", event: lockEvent });
+    
+    const retrievalEvent: LockerEvent = {
+      id: crypto.randomUUID(),
+      lockerId: currentLocker.lockerId,
+      type: "unlock",
+      createdAt: new Date().toISOString(),
+      detail: `Item retrieved ${isAdminOverride ? "by Admin Override" : "by Receiver"}. Chamber vacated.`,
+      syncState: "synced"
+    };
+    dispatch({ type: "append-log", event: retrievalEvent });
+    try { await syncEvent(retrievalEvent); } catch {}
+
     dispatch({
       type: "patch-locker",
       id: currentLocker.lockerId,
@@ -387,7 +422,7 @@ export function useLockerController() {
         faultState: "none"
       }
     });
-    dispatch({ type: "set-sync-message", message: `SAFE ${currentLocker.lockerId.split('-')[1].toUpperCase()} CLEARED: Access cycle complete.` });
+    dispatch({ type: "set-sync-message", message: `SAFE ${currentLocker.lockerId.split('-')[1]?.toUpperCase() || '1'} CLEARED: Access cycle complete.` });
 
     // Sync the now-empty locker state to Firestore
     try {
@@ -428,6 +463,18 @@ export function useLockerController() {
         occupancyState: "maintenance"
       }
     });
+    
+    const lockdownEvent: LockerEvent = {
+      id: crypto.randomUUID(),
+      lockerId: currentLocker.lockerId,
+      type: "lock",
+      createdAt: new Date().toISOString(),
+      detail: "Maintenance lockdown triggered. Chamber sealed and alert raised.",
+      syncState: "synced"
+    };
+    dispatch({ type: "append-log", event: lockdownEvent });
+    try { await syncEvent(lockdownEvent); } catch {}
+    
     await triggerAlertEmail(alert.id);
   }
 
