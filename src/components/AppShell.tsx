@@ -11,6 +11,7 @@ import { NotificationButton } from "./NotificationButton";
 import { NotificationPanel, MOCK_NOTIFICATIONS } from "./NotificationPanel";
 import { useTranslation } from "../store/useTranslation";
 import { ScrollProgress } from "./ScrollProgress";
+import { VoiceAssistant } from "./VoiceAssistant";
 
 export function AppShell({ children }: PropsWithChildren) {
   const { t } = useTranslation();
@@ -145,6 +146,7 @@ export function AppShell({ children }: PropsWithChildren) {
       </AnimatePresence>
 
       <HelpWidget />
+      <VoiceAssistant />
     </div>
   );
 }
