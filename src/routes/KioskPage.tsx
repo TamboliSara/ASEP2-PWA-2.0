@@ -12,6 +12,7 @@ import { FleetMap } from "../components/FleetMap";
 import { useLockerController } from "../features/useLockerController";
 import { useTranslation } from "../store/useTranslation";
 import { QualityGauge } from "../components/QualityGauge";
+import { FaceVerificationModal } from "../components/FaceVerificationModal";
 import { getRecommendedActions } from "../utils/safety";
 import { formatCountdown, formatDateTime, getHoursRemaining } from "../utils/format";
 import { useAppContext } from "../store/AppContext";
@@ -30,6 +31,7 @@ export function KioskPage() {
   const isSanitizing = currentLocker.sanitizationState === "running";
   const [now, setNow] = useState(Date.now());
   const [showAdminAuth, setShowAdminAuth] = useState(false);
+  const [showFaceVerification, setShowFaceVerification] = useState(false);
   const [showVolumeAnalysis, setShowVolumeAnalysis] = useState(false);
   const [adminId, setAdminId] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
@@ -102,6 +104,13 @@ export function KioskPage() {
     }
   }
 
+  async function handleFaceVerify(imageData: string) {
+    // In a real app, you would send imageData to a server for verification
+    console.log("Face verification image captured:", imageData.substring(0, 50) + "...");
+    setShowFaceVerification(false);
+    await retrieveFood(false, false);
+  }
+
   const navigateLocker = (direction: -1 | 1) => {
     const currentIndex = state.lockers.findIndex(l => l.lockerId === currentLocker.lockerId);
     const nextIndex = (currentIndex + direction + state.lockers.length) % state.lockers.length;
@@ -110,6 +119,11 @@ export function KioskPage() {
 
   return (
     <div className="page-grid receiver-grid">
+      <FaceVerificationModal 
+        isOpen={showFaceVerification}
+        onClose={() => setShowFaceVerification(false)}
+        onVerify={handleFaceVerify}
+      />
       <AnimatePresence>
       {isSanitizing && (
         <motion.div 
@@ -3916,7 +3930,7 @@ export function KioskPage() {
             <div className="retrieve-action-area-luxe" style={{ position: 'relative', zIndex: 1, marginTop: '0' }}>
               <SlideConfirm 
                 label={isSpoiled ? "⚠ Restricted — Food Spoiled" : isFaulted ? "⚠ Locker Faulted — Use Override" : (t("slideToRetrieve") || "Slide to Retrieve")}
-                onConfirm={() => retrieveFood(false, false)}
+                onConfirm={() => setShowFaceVerification(true)}
                 disabled={!donation || isFaulted || isBusy || isSanitizing || isSpoiled}
                 className="luxe-slide-container"
               />
