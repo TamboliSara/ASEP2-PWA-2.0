@@ -11,18 +11,18 @@ interface NotificationButtonProps {
 
 export function NotificationButton({ className, count = 0, onClick }: NotificationButtonProps) {
   return (
-    <div className={cn("fixed top-6 right-6 z-[1001]", className)}>
+    <div className={cn("fixed top-8 right-8 z-[1001]", className)}>
       <Button
         variant="primary"
         size="icon"
         shape="circle"
-        className="relative shadow-2xl hover:scale-110 transition-transform active:scale-95 bg-accent text-white border-none"
+        className="relative shadow-2xl hover:scale-110 transition-transform active:scale-95 bg-accent text-white border-none h-14 w-14"
         onClick={onClick}
       >
-        <Bell className="size-5" />
+        <Bell className="size-6" />
         {count > 0 && (
-          <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground ring-2 ring-background rotate-0 transform-none">
-            {count}
+          <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-[11px] font-black text-white ring-4 ring-white shadow-lg animate-in zoom-in-50 duration-300">
+            {count > 99 ? '99+' : count}
           </span>
         )}
       </Button>

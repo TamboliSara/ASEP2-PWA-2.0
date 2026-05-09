@@ -333,9 +333,7 @@ export function KioskPage() {
                 <div className="hrd-pill-row">
                   <StatusPill value={currentLocker.occupancyState} tone={donation ? "warning" : "success"} />
                   <StatusPill value={telemetry.sensorHealth} tone={telemetry.sensorHealth === "healthy" ? "success" : "warning"} />
-                  {state.isAdminAuthenticated && (
-                    <button className="hrd-admin-out" onClick={() => dispatch({ type: "set-admin-auth", value: false })}>SIGN OUT</button>
-                  )}
+                  {/* SIGN OUT button removed per request */}
                 </div>
               </TextReveal>
             </div>
@@ -572,19 +570,7 @@ export function KioskPage() {
           overflow: hidden;
           flex-shrink: 1;
         }
-        .hrd-admin-out {
-          font-size: 0.6rem;
-          font-weight: 900;
-          letter-spacing: 0.12em;
-          padding: 0.3rem 0.75rem;
-          border-radius: 99px;
-          border: 1px solid rgba(239,68,68,0.35);
-          background: rgba(239,68,68,0.08);
-          color: #ef4444;
-          cursor: pointer;
-          transition: all 0.25s ease;
-        }
-        .hrd-admin-out:hover { background: rgba(239,68,68,0.18); }
+
 
         /* Food name */
         .hrd-food-name-row {
@@ -1049,8 +1035,12 @@ export function KioskPage() {
           inset: 0;
           background: rgba(0,0,0,0.8);
           backdrop-filter: blur(10px);
-          display: grid;
-          place-items: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          padding: 6rem 1rem 3rem;
+          overflow-y: auto;
           z-index: 10000;
         }
         .auth-modal {
@@ -3200,6 +3190,29 @@ export function KioskPage() {
               transform: translateY(-2px);
             }
 
+            .restriction-badge.highlight-restriction {
+              border-color: #EF4444 !important;
+              border-width: 2px !important;
+              color: #EF4444 !important;
+              font-weight: 950 !important;
+              background: rgba(239, 68, 68, 0.15) !important;
+              position: relative;
+              z-index: 10;
+            }
+            .highlight-dot {
+              position: absolute;
+              top: -4px; right: -4px;
+              width: 10px; height: 10px;
+              background: #EF4444;
+              border-radius: 50%;
+              box-shadow: 0 0 15px #EF4444;
+              animation: pulse-ring 1.5s infinite;
+            }
+            @keyframes pulse-ring {
+              0% { transform: scale(0.8); opacity: 0.5; }
+              100% { transform: scale(1.5); opacity: 0; }
+            }
+
             .telemetry-bento-grid-enhanced {
               display: grid;
               grid-template-columns: repeat(2, 1fr);
@@ -3836,7 +3849,6 @@ export function KioskPage() {
             
             <div className="card-header-mini" style={{ marginBottom: '1.5rem' }}>
               <p className="sector-title"><Shield size={18} className="animate-pulse" />Safety & Capacity</p>
-              <div className="nature-pill"><ShieldCheck size={10} />CERTIFIED SAFE</div>
             </div>
 
             <div className="sg-specs-grid" style={{ marginBottom: '1.5rem', position: 'relative', zIndex: 1 }}>
@@ -3863,18 +3875,41 @@ export function KioskPage() {
 
             <div className="sg-prohibited-section-luxe">
               <p className="sector-title" style={{ color: '#EF4444', marginBottom: '1rem', fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Ban size={14} className="animate-pulse" /> RESTRICTIONS
+                <Ban size={14} className="animate-pulse" /> 
+                <div className="flex flex-col">
+                  <span style={{ lineHeight: '1' }}>RESTRICTIONS</span>
+                  <span style={{ fontSize: '0.5rem', opacity: '0.6', marginTop: '0.2rem', letterSpacing: '0.05em' }}>AVOID AIRTIGHT SEALS FOR SENSOR ACCURACY</span>
+                </div>
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem' }}>
                 {[
                   { label: "Raw Meat", icon: "🥩" },
                   { label: "Liquids", icon: "🥤" },
+                  { label: "Airtight Seals", icon: "🌬️", highlight: true },
                   { label: "Allergens", icon: "🥜" }
                 ].map(item => (
-                  <span key={item.label} className="restriction-badge">
+                  <motion.span 
+                    key={item.label} 
+                    className={`restriction-badge ${item.highlight ? 'highlight-restriction' : ''}`}
+                    animate={item.highlight ? {
+                      scale: [1, 1.1, 1],
+                      backgroundColor: ['rgba(239, 68, 68, 0.1)', 'rgba(239, 68, 68, 0.25)', 'rgba(239, 68, 68, 0.1)'],
+                      boxShadow: [
+                        '0 0 0px rgba(239, 68, 68, 0)',
+                        '0 0 20px rgba(239, 68, 68, 0.4)',
+                        '0 0 0px rgba(239, 68, 68, 0)'
+                      ]
+                    } : {}}
+                    transition={item.highlight ? {
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    } : {}}
+                  >
                     <span>{item.icon}</span>
                     {item.label}
-                  </span>
+                    {item.highlight && <span className="highlight-dot" />}
+                  </motion.span>
                 ))}
               </div>
             </div>

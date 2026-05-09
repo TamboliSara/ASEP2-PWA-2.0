@@ -82,7 +82,7 @@ export interface AlertRecord {
   lockerId: string;
   title: string;
   detail: string;
-  severity: "info" | "warning" | "critical";
+  severity: "info" | "warning" | "critical" | "success";
   createdAt: string;
   acknowledgedAt?: string;
 }

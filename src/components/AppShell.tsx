@@ -8,24 +8,25 @@ import { RouteTransitionV2 } from "./RouteTransitionV2";
 import { ToastCenter } from "./ToastCenter";
 import { HelpWidget } from "./HelpWidget";
 import { NotificationButton } from "./NotificationButton";
-import { NotificationPanel, MOCK_NOTIFICATIONS } from "./NotificationPanel";
+import { NotificationPanel } from "./NotificationPanel";
 import { useTranslation } from "../store/useTranslation";
+import { useAppContext } from "../store/AppContext";
 import { ScrollProgress } from "./ScrollProgress";
 import { VoiceAssistant } from "./VoiceAssistant";
 
 export function AppShell({ children }: PropsWithChildren) {
   const { t } = useTranslation();
   const location = useLocation();
+  const { state, dispatch } = useAppContext();
   const [isScrolled, setIsScrolled] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
 
   const handleClearAll = () => {
-    setNotifications([]);
+    dispatch({ type: "clear-all-alerts" });
   };
 
-  const handleCloseNotif = (id: number) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  const handleCloseNotif = (id: string) => {
+    dispatch({ type: "remove-alert", id });
   };
 
   // Mouse-tracking glow effect on cards
@@ -132,12 +133,12 @@ export function AppShell({ children }: PropsWithChildren) {
         {children}
       </main>
 
-      <NotificationButton count={notifications.length} onClick={() => setShowNotification(!showNotification)} />
+      <NotificationButton count={state.alerts.length} onClick={() => setShowNotification(!showNotification)} />
 
       <AnimatePresence>
         {showNotification && (
           <NotificationPanel 
-            notifications={notifications}
+            notifications={state.alerts}
             onClearAll={handleClearAll}
             onCloseNotif={handleCloseNotif}
             onClose={() => setShowNotification(false)} 

@@ -1929,11 +1929,38 @@ input:focus::placeholder {
   color: #0F172A;
 }
 
+/* General Alert Visibility in Light Mode */
+[data-theme-mode="light"] [data-slot="alert"] {
+  background-color: #FFFFFF !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+[data-theme-mode="light"] [data-slot="alert-title"] {
+  color: #0F172A !important;
+}
+
+[data-theme-mode="light"] [data-slot="alert-description"] {
+  color: #334155 !important;
+}
+
+[data-theme-mode="light"] [data-slot="alert-close"] {
+  color: #64748B !important;
+}
+
 /* Toast in light mode */
-[data-theme-mode="light"] .toast-card {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+[data-theme-mode="light"] .toast-card,
+[data-theme-mode="light"] .toast-alert-premium {
+  background: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme-mode="light"] .toast-alert-premium [data-slot="alert-title"] {
+  color: #0F172A !important;
+}
+
+[data-theme-mode="light"] .toast-alert-premium [data-slot="alert-description"] {
+  color: #334155 !important;
 }
 
 [data-theme-mode="light"] .toast-card strong {
