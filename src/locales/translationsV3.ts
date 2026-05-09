@@ -108,7 +108,13 @@ const sharedEnglishAdditions: TranslationDictionary = {
   dietPreference: "Diet",
   allergens: "Allergens",
   donor: "Donor",
-  adminSlideToRetrieve: "Admin: Remove Item"
+  adminSlideToRetrieve: "Admin: Remove Item",
+  errorFillAllFields: "Please fill in all required fields.",
+  errorNameRequired: "Donor name is required.",
+  errorContactRequired: "Contact information is required.",
+  errorInvalidEmail: "Please enter a valid email address.",
+  errorInvalidPhone: "Phone number must be exactly 10 digits.",
+  errorInvalidContact: "Please enter a valid 10-digit phone number or email."
 };
 
 const hindiOverrides: TranslationDictionary = {
@@ -217,10 +223,6 @@ const hindiOverrides: TranslationDictionary = {
   lockerReadyBody: "संग्रह के लिए तैयार",
   languageLabel: "भाषा परिवर्तक",
   themeToggle: "थीम टॉगल",
-  lightMode: "हल्का",
-  darkMode: "गहरा",
-  shellEyebrow: "स्मार्ट फूड एक्सचेंज लॉकर",
-  backToHome: "मुख्य मेनू",
   modeWaitingDonation: "प्राप्तकर्ता मोड तब तक अक्षम रहता है जब तक दाता नया आइटम दर्ज नहीं करता।",
   modePairingRequired: "कियोस्क संचालन से पहले पेयरिंग आवश्यक है।",
   connectStep1: "ऐक्रेलिक डिस्प्ले शेल संरेखित",
@@ -326,10 +328,6 @@ const marathiOverrides: TranslationDictionary = {
   lockerReadyBody: "संग्रहणीसाठी तयार",
   languageLabel: "भाषा बदलणारा",
   themeToggle: "थीम टॉगल",
-  lightMode: "उजळ",
-  darkMode: "गडद",
-  shellEyebrow: "स्मार्ट फूड एक्सचेंज लॉकर",
-  backToHome: "मुख्य मेनू",
   restrictedRoute: "प्रतिबंधित मार्ग",
   depositWorkflow: "जमा प्रक्रिया",
   depositWorkflowBody: "श्रेणी निवड, दाता ओळख आणि BLE अनलॉक एकाच प्रवाहात.",

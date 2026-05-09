@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, AlertContent, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert-1';
+import { AlertRecord } from '../types/domain';
 import { 
   Bell, 
   CircleCheck, 
@@ -11,60 +12,36 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const MOCK_NOTIFICATIONS = [
-  {
-    id: 1,
-    variant: 'destructive',
-    appearance: 'solid',
-    icon: <ThermometerSnowflake />,
-    title: 'Temperature Anomaly',
-    description: 'Unit 1 temperature rose above 5°C. Immediate check recommended.',
-    time: '2 mins ago'
-  },
-  {
-    id: 2,
-    variant: 'success',
-    appearance: 'light',
-    icon: <Zap />,
-    title: 'Sanitization Complete',
-    description: 'Locker Unit 4 successfully completed UV-C sanitization cycle.',
-    time: '15 mins ago'
-  },
-  {
-    id: 3,
-    variant: 'warning',
-    appearance: 'light',
-    icon: <TriangleAlert />,
-    title: 'Expiration Warning',
-    description: 'Donation in Unit 2 is near its expiration limit (2 hours left).',
-    time: '45 mins ago'
-  },
-  {
-    id: 4,
-    variant: 'primary',
-    appearance: 'solid',
-    icon: <Package />,
-    title: 'New Donation',
-    description: 'A new donation of fresh produce is available for pickup in Unit 7.',
-    time: '1 hour ago'
-  },
-  {
-    id: 5,
-    variant: 'info',
-    appearance: 'outline',
-    icon: <Info />,
-    title: 'System Maintenance',
-    description: 'Scheduled maintenance tonight at 2:00 AM. System will be offline for 30 mins.',
-    time: '3 hours ago'
+const getSeverityConfig = (severity: string) => {
+  switch (severity) {
+    case 'critical':
+      return { variant: 'destructive', icon: <ThermometerSnowflake /> };
+    case 'warning':
+      return { variant: 'warning', icon: <TriangleAlert /> };
+    case 'success':
+      return { variant: 'success', icon: <CircleCheck /> };
+    default:
+      return { variant: 'info', icon: <Info /> };
   }
-];
+};
 
-export { MOCK_NOTIFICATIONS };
+const formatTime = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return date.toLocaleDateString();
+};
 
 interface NotificationPanelProps {
-  notifications: typeof MOCK_NOTIFICATIONS;
+  notifications: AlertRecord[];
   onClearAll: () => void;
-  onCloseNotif: (id: number) => void;
+  onCloseNotif: (id: string) => void;
   onClose: () => void;
 }
 
@@ -74,7 +51,7 @@ export function NotificationPanel({ notifications, onClearAll, onCloseNotif, onC
       initial={{ opacity: 0, scale: 0.95, y: 10, filter: 'blur(10px)' }}
       animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
       exit={{ opacity: 0, scale: 0.95, y: 10, filter: 'blur(10px)' }}
-      className="fixed top-20 right-6 z-[1002] w-[400px] max-h-[600px] overflow-hidden flex flex-col rounded-3xl border border-line bg-panel/95 dark:bg-panel/80 backdrop-blur-2xl shadow-2xl"
+      className="fixed top-24 right-8 z-[1002] w-[400px] max-h-[600px] overflow-hidden flex flex-col rounded-3xl border border-line bg-panel/95 dark:bg-panel/80 backdrop-blur-2xl shadow-2xl"
     >
       <div className="p-4 border-b border-line flex justify-between items-center bg-panel-elevated/50 dark:bg-panel/50">
         <div className="flex items-center gap-2">
@@ -98,29 +75,32 @@ export function NotificationPanel({ notifications, onClearAll, onCloseNotif, onC
             <p className="text-sm font-medium">No new notifications</p>
           </div>
         ) : (
-          notifications.map((notif) => (
-            <Alert 
-              key={notif.id} 
-              variant={notif.variant as any} 
-              appearance="light" 
-              close={true}
-              onClose={() => onCloseNotif(notif.id)}
-              className="shadow-sm border-line/40 dark:border-line/10 bg-white/80 dark:bg-white/5 hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300"
-            >
-              <AlertIcon>
-                {notif.icon}
-              </AlertIcon>
-              <AlertContent>
-                <div className="flex justify-between items-start gap-2">
-                  <AlertTitle className="font-bold text-[15px] leading-tight">{notif.title}</AlertTitle>
-                  <span className="text-[10px] font-medium opacity-50 whitespace-nowrap mt-0.5">{notif.time}</span>
-                </div>
-                <AlertDescription className="text-sm opacity-90 leading-snug">
-                  {notif.description}
-                </AlertDescription>
-              </AlertContent>
-            </Alert>
-          ))
+          notifications.map((notif) => {
+            const config = getSeverityConfig(notif.severity);
+            return (
+              <Alert 
+                key={notif.id} 
+                variant={config.variant as any} 
+                appearance="light" 
+                close={true}
+                onClose={() => onCloseNotif(notif.id)}
+                className="shadow-sm border-line/40 dark:border-line/10 bg-white/80 dark:bg-white/5 hover:bg-white/90 dark:hover:bg-white/10 transition-all duration-300"
+              >
+                <AlertIcon>
+                  {config.icon}
+                </AlertIcon>
+                <AlertContent>
+                  <div className="flex justify-between items-start gap-2">
+                    <AlertTitle className="font-bold text-[15px] leading-tight">{notif.title}</AlertTitle>
+                    <span className="text-[10px] font-medium opacity-50 whitespace-nowrap mt-0.5">{formatTime(notif.createdAt)}</span>
+                  </div>
+                  <AlertDescription className="text-sm opacity-90 leading-snug">
+                    {notif.detail}
+                  </AlertDescription>
+                </AlertContent>
+              </Alert>
+            );
+          })
         )}
       </div>
     </motion.div>

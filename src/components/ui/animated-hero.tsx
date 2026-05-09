@@ -76,13 +76,13 @@ function Hero() {
             </h1>
 
             <motion.p 
-              className="text-base md:text-xl leading-relaxed text-text-muted max-w-xl mx-auto font-medium"
+              className="text-base md:text-xl leading-relaxed text-text-muted max-w-2xl mx-auto font-medium"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.8 }}
             >
-              The world's first <span className="text-accent font-bold">verified food exchange</span> network. 
-              Reducing waste through smart locker technology and community trust.
+              The world's most advanced <span className="text-accent font-bold">autonomous food equity</span> network. 
+              Redefining community trust through bank-grade biometrics, smart telemetry, and hyper-efficient locker technology.
             </motion.p>
           </div>
 

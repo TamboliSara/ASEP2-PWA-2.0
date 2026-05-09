@@ -31,6 +31,8 @@ export type AppAction =
   | { type: "append-log"; event: LockerEvent }
   | { type: "push-alert"; alert: AlertRecord }
   | { type: "clear-alert" }
+  | { type: "remove-alert"; id: string }
+  | { type: "clear-all-alerts" }
   | { type: "set-admin-auth"; value: boolean }
   | { type: "set-sync-message"; message: string };
 
@@ -127,10 +129,44 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         lockers: state.lockers.map((l) => (l.lockerId === state.selectedLockerId ? { ...l, activeAlert: undefined, faultState: "none" } : l))
       };
+    case "remove-alert":
+      return {
+        ...state,
+        alerts: state.alerts.filter(a => a.id !== action.id)
+      };
+    case "clear-all-alerts":
+      return {
+        ...state,
+        alerts: []
+      };
     case "set-admin-auth":
       return { ...state, isAdminAuthenticated: action.value };
-    case "set-sync-message":
+    case "set-sync-message": {
+      if (action.message && action.message !== state.syncMessage) {
+        let title = "System Notification";
+        const msgLow = action.message.toLowerCase();
+        if (msgLow.includes("sync")) title = "Cloud Sync";
+        else if (msgLow.includes("pair")) title = "Device Pairing";
+        else if (msgLow.includes("cloud") || msgLow.includes("network")) title = "Network Status";
+        else if (msgLow.includes("cleared") || msgLow.includes("wipe") || msgLow.includes("reset")) title = "System Maintenance";
+        else if (msgLow.includes("donation") || msgLow.includes("food")) title = "Donation Status";
+
+        const newAlert: AlertRecord = {
+          id: Math.random().toString(36).substring(2, 11),
+          lockerId: state.selectedLockerId,
+          title,
+          detail: action.message,
+          severity: "info",
+          createdAt: new Date().toISOString()
+        };
+        return { 
+          ...state, 
+          syncMessage: action.message,
+          alerts: [newAlert, ...state.alerts].slice(0, 50)
+        };
+      }
       return { ...state, syncMessage: action.message };
+    }
     default:
       return state;
   }

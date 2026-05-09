@@ -20,6 +20,10 @@ export function DepositForm({
   const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(1);
   const [isVerified, setIsVerified] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const validatePhone = (phone: string) => /^\d{10}$/.test(phone.replace(/\D/g, ""));
 
   const categories = useMemo(
     () => [
@@ -53,6 +57,7 @@ export function DepositForm({
       return;
     }
 
+    setValidationError(null);
     dispatch({
       type: "set-donation-draft",
       draft: {
@@ -66,11 +71,51 @@ export function DepositForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    setValidationError(null);
+
+    if (currentStep === 1) {
+      if (!state.donationDraft.foodName?.trim() || !state.donationDraft.categoryId) {
+        setValidationError(t("errorFillAllFields"));
+        return;
+      }
+    }
+
+    if (currentStep === 3) {
+      const { donorName, donorContact } = state.donationDraft;
+      if (!donorName?.trim()) {
+        setValidationError(t("errorNameRequired"));
+        return;
+      }
+      if (!donorContact?.trim()) {
+        setValidationError(t("errorContactRequired"));
+        return;
+      }
+
+      const isMaybeEmail = donorContact.includes("@");
+      const isMaybePhone = /^\d+$/.test(donorContact.replace(/[\s-()]/g, ""));
+
+      if (isMaybeEmail) {
+        if (!validateEmail(donorContact)) {
+          setValidationError(t("errorInvalidEmail"));
+          return;
+        }
+      } else if (isMaybePhone) {
+        const digits = donorContact.replace(/\D/g, "");
+        if (digits.length !== 10) {
+          setValidationError(t("errorInvalidPhone"));
+          return;
+        }
+      } else {
+        setValidationError(t("errorInvalidContact"));
+        return;
+      }
+    }
+
     if (currentStep < 4) {
       nextStep();
     } else {
       if (!isVerified) {
-        return; // Button is disabled anyway, but safety check
+        return;
       }
       await onSubmit();
     }
@@ -244,6 +289,24 @@ export function DepositForm({
             />
           </div>
         )}
+
+        {validationError && (
+          <div className="animate-luxe-entry" style={{ 
+            marginTop: '1rem', 
+            padding: '0.75rem 1rem', 
+            borderRadius: '0.75rem', 
+            background: 'rgba(239, 68, 68, 0.1)', 
+            border: '1px solid rgba(239, 68, 68, 0.2)', 
+            color: '#ef4444',
+            fontSize: '0.875rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+            {validationError}
+          </div>
+        )}
       </div>
 
       <div className="form-actions-luxe" style={{ marginTop: '2rem' }}>
@@ -253,11 +316,7 @@ export function DepositForm({
             {t("back") || "Back"}
           </button>
         )}
-        {currentStep === 4 ? (
-          <div className="luxe-secondary-button opacity-50 cursor-not-allowed mx-auto" style={{ padding: '0.75rem 2rem', fontSize: '1rem', border: 'none', background: 'transparent' }}>
-            {isVerified ? t("submittingDeposit") || "Submitting..." : t("scanningFace") || "Please complete the scan"}
-          </div>
-        ) : (
+        {currentStep < 4 && (
           <button className="luxe-primary-button" type="submit" disabled={isBusy} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
             {isBusy ? t("submittingDeposit") : t("continue") || "Continue"}
             <span className="btn-icon">→</span>

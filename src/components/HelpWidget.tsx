@@ -3,13 +3,14 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   HelpCircle, X, Heart, Package, ArrowDown, ShieldCheck, 
-  QrCode, ClipboardCheck, Box, CheckCircle2, Search, 
-  HandHeart, ShoppingBag, Eye, ThumbsUp, Smartphone, 
-  List, Lock, Unlock, ArrowRight, PackageOpen, Network, User
+  QrCode, Box, CheckCircle2, Search, HandHeart, 
+  Eye, ThumbsUp, Smartphone, List, Lock, Unlock, 
+  ArrowRight, PackageOpen, Network, User, Mic, ScanFace, 
+  Activity, Map, BellRing, Sparkles, Fingerprint, Calendar
 } from "lucide-react";
 import { useTranslation } from "../store/useTranslation";
 
-type HelpTab = "donor" | "receiver" | "diagram";
+type HelpTab = "diagram" | "donor" | "receiver" | "features";
 
 export function HelpWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,62 +34,154 @@ export function HelpWidget() {
   const donorSteps = [
     {
       id: 1,
-      title: "1. Pack & Check Food",
-      desc: "Put fresh, safe food in a clean box or bag. Close it tight to keep it clean.",
+      title: "Pack & Check Food",
+      desc: "Ensure food is fresh and properly sealed in a clean container for maximum safety.",
       icon: <Box className="text-amber-400" size={24} />,
       visuals: [<PackageOpen key="1" className="text-amber-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <ThumbsUp key="3" className="text-emerald-400" size={28} />]
     },
     {
       id: 2,
-      title: "2. Tap Screen",
-      desc: "Look at the screen. Touch the big 'Donate' button and pick your food picture.",
-      icon: <HandHeart className="text-rose-400" size={24} />,
-      visuals: [<Smartphone key="1" className="text-slate-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <List key="3" className="text-indigo-400" size={28} />]
+      title: "Verify & Register",
+      desc: "Use secure Face ID or select manually to register your donation items.",
+      icon: <ScanFace className="text-rose-400" size={24} />,
+      visuals: [<Fingerprint key="1" className="text-rose-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <List key="3" className="text-indigo-400" size={28} />]
     },
     {
       id: 3,
-      title: "3. Put Food Inside",
-      desc: "A locker door will open automatically. Put your food box inside carefully.",
+      title: "Auto-Deposit",
+      desc: "The smart locker door will automatically open. Carefully place your item inside.",
       icon: <Unlock className="text-cyan-400" size={24} />,
-      visuals: [<Unlock key="1" className="text-amber-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <Box key="3" className="text-cyan-400" size={28} />]
+      visuals: [<Unlock key="1" className="text-cyan-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <Box key="3" className="text-cyan-400" size={28} />]
     },
     {
       id: 4,
-      title: "4. Push Door Closed",
-      desc: "Push the door closed until you hear a 'click'. Thank you for sharing!",
+      title: "Secure Closure",
+      desc: "Push the door until you hear it lock. System telemetry confirms an airtight seal.",
       icon: <Lock className="text-emerald-400" size={24} />,
-      visuals: [<Lock key="1" className="text-emerald-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <Heart key="3" className="text-rose-400" size={28} />]
+      visuals: [<Lock key="1" className="text-emerald-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <ShieldCheck key="3" className="text-emerald-400" size={28} />]
     }
   ];
 
   const receiverSteps = [
     {
       id: 1,
-      title: "1. Look at Screen",
-      desc: "Look at the screen to see what food is inside the lockers today.",
-      icon: <Eye className="text-blue-400" size={24} />,
+      title: "Browse Kiosk UI",
+      desc: "Use the interactive Kiosk interface to browse available verified food items.",
+      icon: <Search className="text-blue-400" size={24} />,
       visuals: [<Eye key="1" className="text-blue-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <Search key="3" className="text-indigo-400" size={28} />]
     },
     {
       id: 2,
-      title: "2. Choose Your Food",
-      desc: "Touch the picture of the food you want on the screen.",
+      title: "Select & Authenticate",
+      desc: "Tap your desired item and undergo a rapid biometric check to unlock the unit.",
       icon: <HandHeart className="text-amber-400" size={24} />,
-      visuals: [<Smartphone key="1" className="text-slate-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <CheckCircle2 key="3" className="text-emerald-400" size={28} />]
+      visuals: [<Smartphone key="1" className="text-slate-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <ScanFace key="3" className="text-rose-400" size={28} />]
     },
     {
       id: 3,
-      title: "3. Take Food & Close",
-      desc: "The door will open. Take your food and push the door closed. Enjoy!",
-      icon: <Unlock className="text-emerald-400" size={24} />,
+      title: "Retrieve & Close",
+      desc: "The designated locker opens automatically. Retrieve the food and close securely.",
+      icon: <CheckCircle2 className="text-emerald-400" size={24} />,
       visuals: [<Unlock key="1" className="text-amber-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <Lock key="3" className="text-emerald-400" size={28} />]
     }
   ];
 
+  const renderFeatures = () => (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+      gap: '1rem',
+      padding: '0.5rem'
+    }}>
+      {[
+        {
+          id: "voice",
+          title: "Voice Assistant",
+          desc: "Hands-free control with Web Speech API. Say 'Eco, donate' to start.",
+          icon: Mic,
+          color: "var(--primary)"
+        },
+        {
+          id: "face",
+          title: "Biometric Verification",
+          desc: "Real-time face scanning with liveness checks ensures secure access.",
+          icon: ScanFace,
+          color: "var(--success)"
+        },
+        {
+          id: "health",
+          title: "Smart Safety UI",
+          desc: "Live locker capacity and airtight status monitoring for food hygiene.",
+          icon: Activity,
+          color: "var(--warning)"
+        },
+        {
+          id: "admin",
+          title: "Admin Telemetry",
+          desc: "Advanced fleet mapping and interactive community calendar tracking.",
+          icon: Map,
+          color: "var(--info)"
+        },
+        {
+          id: "alerts",
+          title: "Global Alerts",
+          desc: "Synchronized toast notifications and persistent system alerts hub.",
+          icon: BellRing,
+          color: "var(--accent)"
+        },
+        {
+          id: "gestures",
+          title: "Slide Gestures",
+          desc: "Intuitive slide-to-confirm and slide-to-retrieve interactions.",
+          icon: HandHeart,
+          color: "var(--accent-warm)"
+        }
+      ].map((feature, idx) => (
+        <motion.div
+          key={feature.id}
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: idx * 0.1 }}
+          whileHover={{ y: -4, scale: 1.02 }}
+          style={{
+            background: 'var(--panel-elevated)',
+            border: '1px solid var(--line)',
+            borderRadius: '20px',
+            padding: '1.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            boxShadow: 'var(--shadow-sm)'
+          }}
+        >
+          <div style={{
+            background: 'var(--bg)',
+            width: '48px',
+            height: '48px',
+            borderRadius: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid var(--line)'
+          }}>
+            <feature.icon size={24} style={{ color: feature.color }} />
+          </div>
+          <div>
+            <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.05rem', color: 'var(--text)' }}>
+              {feature.title}
+            </h4>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+              {feature.desc}
+            </p>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+
   const renderDiagram = () => (
     <div className="process-diagram-container" style={{
-      display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1rem',
-      background: 'var(--panel-elevated)', borderRadius: '24px', border: '1px solid var(--line)'
+      display: 'flex', flexDirection: 'column', gap: '2rem', padding: '0.5rem'
     }}>
       <div className="diagram-section">
         <h4 style={{ 
@@ -100,13 +193,13 @@ export function HelpWidget() {
         </h4>
         <div style={{ 
           display: 'flex', alignItems: 'center', flexWrap: 'nowrap', 
-          gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem',
+          gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', paddingTop: '0.5rem',
           scrollbarWidth: 'none'
         }}>
           {[
             { icon: User, label: "Donor", desc: "Initiates", color: "text-amber-500" },
             { icon: PackageOpen, label: "Pack", desc: "Seals Food", color: "text-emerald-500" },
-            { icon: Smartphone, label: "Input", desc: "Registers", color: "text-indigo-500" },
+            { icon: ScanFace, label: "Verify", desc: "Face ID", color: "text-indigo-500" },
             { icon: Box, label: "Deposit", desc: "Locker Locks", color: "text-cyan-500" }
           ].map((node, i, arr) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
@@ -141,7 +234,7 @@ export function HelpWidget() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: (i * 0.15) + 0.1 }}
                 >
-                  <ArrowRight size={20} className="text-muted" style={{ opacity: 0.6 }} />
+                  <ArrowRight size={24} className="text-muted" style={{ opacity: 0.8 }} />
                 </motion.div>
               )}
             </div>
@@ -161,13 +254,13 @@ export function HelpWidget() {
         </h4>
         <div style={{ 
           display: 'flex', alignItems: 'center', flexWrap: 'nowrap', 
-          gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem',
+          gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', paddingTop: '0.5rem',
           scrollbarWidth: 'none'
         }}>
           {[
-            { icon: Box, label: "Ready", desc: "Verified Food", color: "text-emerald-500" },
-            { icon: Search, label: "Browse", desc: "Kiosk UI", color: "text-indigo-500" },
-            { icon: Smartphone, label: "Select", desc: "Unlocks", color: "text-amber-500" },
+            { icon: Activity, label: "Ready", desc: "Verified UI", color: "text-emerald-500" },
+            { icon: Search, label: "Browse", desc: "Kiosk", color: "text-indigo-500" },
+            { icon: ScanFace, label: "Unlock", desc: "Biometrics", color: "text-amber-500" },
             { icon: User, label: "Collect", desc: "Takes Food", color: "text-blue-500" }
           ].map((node, i, arr) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
@@ -202,7 +295,7 @@ export function HelpWidget() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.6 + (i * 0.15) + 0.1 }}
                 >
-                  <ArrowRight size={20} className="text-muted" style={{ opacity: 0.6 }} />
+                  <ArrowRight size={24} className="text-muted" style={{ opacity: 0.8 }} />
                 </motion.div>
               )}
             </div>
@@ -228,13 +321,24 @@ export function HelpWidget() {
 
       <AnimatePresence>
         {isOpen && (
-          <div className="help-widget-modal-overlay">
+          <div 
+            className="help-widget-modal-overlay"
+            style={{
+              position: 'fixed', inset: 0, zIndex: 1000,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '1rem'
+            }}
+          >
             <motion.div
               className="help-widget-modal-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+                backdropFilter: 'blur(8px)', zIndex: 0
+              }}
             />
             <motion.div
               className="help-widget-modal-content surface-card"
@@ -242,103 +346,133 @@ export function HelpWidget() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", bounce: 0.2 }}
+              style={{
+                position: 'relative',
+                zIndex: 1,
+                width: '100%', maxWidth: '650px',
+                maxHeight: 'calc(100vh - 2rem)',
+                overflowY: 'auto',
+                padding: '0',
+                display: 'flex', flexDirection: 'column',
+                background: 'var(--panel)',
+                borderRadius: '32px',
+                border: '1px solid var(--line)',
+                boxShadow: 'var(--shadow-lg)'
+              }}
             >
-              <div className="help-widget-header">
-                <div className="help-widget-title-area">
-                  <div className="help-icon-wrapper">
-                    <HelpCircle className="text-accent" size={24} />
+              <div style={{
+                padding: '1.5rem 2rem', borderBottom: '1px solid var(--line)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                background: 'var(--panel-elevated)'
+              }}>
+                <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+                  <div style={{
+                    background: 'var(--primary-light)', padding: '1rem',
+                    borderRadius: '16px', color: 'var(--primary)'
+                  }}>
+                    <HelpCircle size={28} />
                   </div>
                   <div>
-                    <h2 className="help-widget-title">Process Guide</h2>
-                    <p className="help-widget-subtitle">Smart Food Exchange Flow</p>
+                    <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.75rem', fontWeight: 800, color: 'var(--text)' }}>System Guide</h2>
+                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1rem' }}>Smart Food Exchange & Features</p>
                   </div>
                 </div>
                 <button
-                  className="help-widget-close"
                   onClick={() => setIsOpen(false)}
+                  style={{
+                    background: 'var(--bg)', border: '1px solid var(--line)',
+                    width: '48px', height: '48px', borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', color: 'var(--text)'
+                  }}
                   aria-label="Close Help"
                 >
                   <X size={24} />
                 </button>
               </div>
 
-              <div className="help-widget-tabs">
-                <button 
-                  className={`help-tab-btn ${activeTab === "diagram" ? "active" : ""}`}
-                  onClick={() => setActiveTab("diagram")}
-                >
-                  <Network size={18} />
-                  <span>Block Diagram</span>
-                  {activeTab === "diagram" && (
-                    <motion.div layoutId="activeTab" className="active-tab-indicator" />
-                  )}
-                </button>
-                <button 
-                  className={`help-tab-btn ${activeTab === "donor" ? "active" : ""}`}
-                  onClick={() => setActiveTab("donor")}
-                >
-                  <Heart size={18} />
-                  <span>Donor Flow</span>
-                  {activeTab === "donor" && (
-                    <motion.div layoutId="activeTab" className="active-tab-indicator" />
-                  )}
-                </button>
-                <button 
-                  className={`help-tab-btn ${activeTab === "receiver" ? "active" : ""}`}
-                  onClick={() => setActiveTab("receiver")}
-                >
-                  <Package size={18} />
-                  <span>Receiver Flow</span>
-                  {activeTab === "receiver" && (
-                    <motion.div layoutId="activeTab" className="active-tab-indicator" />
-                  )}
-                </button>
+              <div style={{ padding: '1.25rem 2rem 0 2rem' }}>
+                <div style={{
+                  display: 'flex', gap: '0.5rem', background: 'var(--bg)',
+                  padding: '0.5rem', borderRadius: '20px', border: '1px solid var(--line)',
+                  overflowX: 'auto', scrollbarWidth: 'none'
+                }}>
+                  {[
+                    { id: "diagram", icon: Network, label: "Architecture" },
+                    { id: "donor", icon: Heart, label: "Donate Flow" },
+                    { id: "receiver", icon: Package, label: "Receive Flow" },
+                    { id: "features", icon: Sparkles, label: "Smart Features" }
+                  ].map((tab) => (
+                    <button 
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as HelpTab)}
+                      style={{
+                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        gap: '0.5rem', padding: '0.85rem 1.25rem',
+                        borderRadius: '14px', border: 'none',
+                        background: activeTab === tab.id ? 'var(--text)' : 'transparent',
+                        color: activeTab === tab.id ? 'var(--bg)' : 'var(--text-muted)',
+                        fontWeight: activeTab === tab.id ? 700 : 500,
+                        cursor: 'pointer', transition: 'all 0.2s',
+                        boxShadow: activeTab === tab.id ? 'var(--shadow-sm)' : 'none',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      <tab.icon size={18} />
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="help-widget-body">
+              <div style={{ padding: '1.5rem 2rem 3.5rem 2rem', overflowY: 'auto' }}>
                 <AnimatePresence mode="wait">
                   <motion.div 
                     key={activeTab}
-                    initial={{ opacity: 0, x: activeTab === "donor" ? -20 : 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: activeTab === "donor" ? 20 : -20 }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
-                    className="help-flow-section"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    <div className="help-steps">
-                      {activeTab === "diagram" ? (
-                        renderDiagram()
-                      ) : (
-                        (activeTab === "donor" ? donorSteps : receiverSteps).map((step, idx) => (
-                          <div key={step.id} className="help-step-container">
+                    {activeTab === "features" && renderFeatures()}
+                    {activeTab === "diagram" && renderDiagram()}
+                    {(activeTab === "donor" || activeTab === "receiver") && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        {(activeTab === "donor" ? donorSteps : receiverSteps).map((step, idx, arr) => (
+                          <div key={step.id}>
                             <motion.div 
-                              className="help-step-premium"
-                              whileHover={{ scale: 1.02, backgroundColor: "rgba(255, 255, 255, 0.05)" }}
+                              whileHover={{ scale: 1.01, x: 5 }}
+                              style={{
+                                background: 'var(--panel-elevated)', border: '1px solid var(--line)',
+                                borderRadius: '24px', padding: '1.5rem', display: 'flex', gap: '1.5rem',
+                                alignItems: 'center', boxShadow: 'var(--shadow-sm)'
+                              }}
                             >
-                              <div className="step-number-premium">
+                              <div style={{
+                                width: '60px', height: '60px', borderRadius: '18px',
+                                background: 'var(--bg)', border: '1px solid var(--line)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0, fontSize: '1.25rem', fontWeight: 800,
+                                color: 'var(--text)'
+                              }}>
                                 {step.id}
                               </div>
-                              <div className="step-icon-premium">
-                                {step.icon}
-                              </div>
-                              <div className="step-content-premium">
-                                <h4>{step.title}</h4>
-                                <p>{step.desc}</p>
+                              <div style={{ flex: 1 }}>
+                                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  {step.icon} {step.title}
+                                </h4>
+                                <p style={{ margin: 0, color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                                  {step.desc}
+                                </p>
                                 {step.visuals && (
-                                  <div className="step-visuals" style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    gap: '1rem', 
-                                    marginTop: '1rem', 
-                                    padding: '0.75rem 1rem', 
-                                    background: 'rgba(255, 255, 255, 0.03)', 
-                                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                                    borderRadius: '12px', 
-                                    width: 'fit-content',
-                                    boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.1)'
+                                  <div style={{ 
+                                    display: 'flex', alignItems: 'center', gap: '1rem', 
+                                    marginTop: '1rem', padding: '0.75rem 1rem', 
+                                    background: 'var(--bg)', border: '1px solid var(--line)',
+                                    borderRadius: '12px', width: 'fit-content'
                                   }}>
                                     {step.visuals.map((visual, i) => (
-                                      <span key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <span key={i} style={{ display: 'flex', alignItems: 'center' }}>
                                         {visual}
                                       </span>
                                     ))}
@@ -346,30 +480,38 @@ export function HelpWidget() {
                                 )}
                               </div>
                             </motion.div>
-                            {idx < (activeTab === "donor" ? donorSteps.length - 1 : receiverSteps.length - 1) && (
-                              <div className="step-connector-premium">
-                                <div className="connector-line" />
-                                <ArrowDown className="connector-arrow" size={14} />
+                            {idx < arr.length - 1 && (
+                              <div style={{ display: 'flex', justifyContent: 'center', padding: '0.75rem 0' }}>
+                                <ArrowDown size={24} className="text-muted" style={{ opacity: 0.5 }} />
                               </div>
                             )}
                           </div>
-                        ))
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </motion.div>
                 </AnimatePresence>
+              </div>
 
-                <div className="help-flow-footer-premium">
-                  <div className="footer-glow" />
-                  <div className="help-footer-item">
-                    <ShieldCheck size={18} className="text-accent" />
-                    <span>100% Safe & Clean Locker</span>
-                  </div>
-                  <div className="help-footer-divider" />
-                  <div className="help-footer-item">
-                    <QrCode size={18} className="text-accent-warm" />
-                    <span>24/7 Digital Support</span>
-                  </div>
+              <div style={{
+                background: 'var(--bg)', padding: '1.5rem 2.5rem',
+                borderTop: '1px solid var(--line)',
+                display: 'flex', justifyContent: 'space-around', alignItems: 'center',
+                borderRadius: '0 0 32px 32px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
+                  <ShieldCheck size={20} className="text-emerald-500" />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600 }}>Secure End-to-End</span>
+                </div>
+                <div style={{ width: '1px', height: '24px', background: 'var(--line)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
+                  <Activity size={20} className="text-primary" />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600 }}>Live Telemetry</span>
+                </div>
+                <div style={{ width: '1px', height: '24px', background: 'var(--line)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-muted)' }}>
+                  <Mic size={20} className="text-violet-500" />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600 }}>Voice Enabled</span>
                 </div>
               </div>
             </motion.div>
@@ -380,3 +522,4 @@ export function HelpWidget() {
     document.body
   );
 }
+
