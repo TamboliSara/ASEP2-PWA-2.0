@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppContext } from "../store/AppContext";
+import { calculateQualityScore } from "../utils/safety";
 import {
   CategoryScale,
   Chart as ChartJS,
@@ -35,7 +36,7 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
   // Map gas resistance to a 0-100 VOC level (lower resistance = higher VOC = worse)
   const vocLevel = Math.min(100, Math.max(0, Math.round(100 - (realGasResistance / 350))));
   // Quality as a percentage based on the quality tag and deadline
-  const qualityPct = qualityScore === "spoilt" ? 4 : qualityScore === "aging" ? 35 : Math.min(98, Math.max(60, Math.round((Math.max(0, deadlineHours) / 48) * 100)));
+  const qualityPct = calculateQualityScore(deadlineHours);
   // Risk is inverse of quality
   const riskPct = Math.min(96, 100 - qualityPct);
 

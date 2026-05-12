@@ -92,24 +92,27 @@ function generateDeadline(qualityScore: FoodQualityScore, rng: () => number): De
   const now = Date.now();
   switch (qualityScore) {
     case "fresh": {
-      const hours = randomInRange(rng, 18, 42);
+      // Safe (>= 60% of 48h = 28.8h)
+      const hours = randomInRange(rng, 30, 46);
       return {
         hoursRemaining: hours,
         absoluteIso: new Date(now + hours * 60 * 60 * 1000).toISOString()
       };
     }
     case "aging": {
-      const hours = randomInRange(rng, 1.5, 6);
+      // Aging (30-60% of 48h = 14.4h to 28.8h)
+      const hours = randomInRange(rng, 16, 26);
       return {
         hoursRemaining: hours,
         absoluteIso: new Date(now + hours * 60 * 60 * 1000).toISOString()
       };
     }
     case "spoilt": {
-      const hoursAgo = randomInRange(rng, 0.5, 4);
+      // Spoiled (< 30% of 48h = 14.4h)
+      const hours = randomInRange(rng, 0, 12);
       return {
-        hoursRemaining: 0,
-        absoluteIso: new Date(now - hoursAgo * 60 * 60 * 1000).toISOString()
+        hoursRemaining: hours,
+        absoluteIso: new Date(now + hours * 60 * 60 * 1000).toISOString()
       };
     }
     default:

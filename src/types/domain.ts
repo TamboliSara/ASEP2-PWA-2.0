@@ -51,6 +51,8 @@ export interface DonationRecord {
   deadlineEstimate: DeadlineEstimate;
   syncState: SyncState;
   donorImageBase64?: string;
+  donorImageUrl?: string;
+  faceDescriptor?: number[];
 }
 
 export interface LockerEvent {
@@ -71,7 +73,10 @@ export interface LockerEvent {
     | "retrieve_completed"
     | "system_wipe"
     | "force_sync"
-    | "ble_reset";
+    | "ble_reset"
+    | "lock"
+    | "unlock"
+    | "pairing";
   createdAt: string;
   detail: string;
   syncState: SyncState;

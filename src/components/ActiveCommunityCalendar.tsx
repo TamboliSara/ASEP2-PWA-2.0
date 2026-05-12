@@ -24,6 +24,7 @@ import { formatDateTime } from "../utils/format";
 import { TextReveal } from "./TextReveal";
 import { ScrollReveal } from "./ScrollReveal";
 import { generateCalendarPDF } from "../utils/pdfGenerator";
+import { getQualityLabel } from "../utils/safety";
 import { FileText } from "lucide-react";
 
 interface DonationEntry {
@@ -38,11 +39,24 @@ interface DonationEntry {
   lockerId: string;
   lockerNumber: number;
   allergensNotes?: string;
-  status?: string; // retrieved or deposited
-  retrievedAt?: string;
-  retrievedBy?: string;
-  qualityScoreAtRetrieval?: string;
-  receiverImage?: string;
+  // Top-level status (set to 'retrieved' when item is collected)
+  status?: string;
+  // Donor biometric (set at deposit)
+  donorImageUrl?: string;
+  donorImageBase64?: string;
+  // Nested receiver sub-document (written by syncRetrieval)
+  receiver?: {
+    retrievedAt: string;
+    retrievedBy: string;
+    qualityScoreAtRetrieval: string;
+    receiverImageUrl?: string;
+    receiverImageBase64?: string;
+  };
+  // Nested admin override sub-document (null for community retrieval)
+  adminOverride?: {
+    adminCredentials: string;
+    overrideAt: string;
+  } | null;
 }
 
 const SAFE_COLORS: Record<string, { solid: string, alphaBg: string, alphaBorder: string, text: string, shadow: string, hex: string }> = {
@@ -60,7 +74,6 @@ export function ActiveCommunityCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<DonationEntry | null>(null);
   const [donations, setDonations] = useState<DonationEntry[]>([]);
-  const [retrievals, setRetrievals] = useState<any[]>([]);
   const [selectedLockers, setSelectedLockers] = useState<string[]>(["chamber-1", "chamber-2", "chamber-3", "chamber-4", "chamber-5", "chamber-6", "chamber-7", "chamber-8"]);
   const [view, setView] = useState<"week" | "month">("week");
   const [now, setNow] = useState(new Date());
@@ -82,10 +95,11 @@ export function ActiveCommunityCalendar() {
   }, []);
 
 
-  // ── Firestore Listeners ──────────────────────────────────────────
+  // ── Firestore Listener — donations is the single source of truth ─────────
   useEffect(() => {
     if (!db) return;
 
+    // Only listen to donations/; retrieval + admin override data is embedded there by syncRetrieval
     const donationsUnsub = onSnapshot(
       query(collection(db, "donations"), orderBy("createdAt", "desc"), limit(100)),
       (snapshot) => {
@@ -94,83 +108,42 @@ export function ActiveCommunityCalendar() {
       }
     );
 
-    const retrievalsUnsub = onSnapshot(
-      collection(db, "retrievals"),
-      (snapshot) => {
-        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setRetrievals(docs);
-      }
-    );
-
     return () => {
       donationsUnsub();
-      retrievalsUnsub();
     };
   }, []);
 
-  // ── Combine and Filter Events ─────────────────────────────────────
+  // ── All events come directly from the donations collection ───────────────
   const allEvents = useMemo(() => {
-    return donations.map(d => {
-      const retrieval = retrievals.find(r => r.donationId === d.id);
-      return {
-        ...d,
-        ...(retrieval || {}),
-        status: retrieval ? "retrieved" : "deposited"
-      };
-    }).filter(e => selectedLockers.includes(e.lockerId));
-  }, [donations, retrievals, selectedLockers]);
+    return donations.filter(d => selectedLockers.includes(d.lockerId));
+  }, [donations, selectedLockers]);
 
   // ── Layout Calculation ──────────────────────────────────────────
   const getEventLayouts = (dayEvents: any[]) => {
     if (dayEvents.length === 0) return new Map();
 
-    // 1. Group into stacks (3-hour block window)
-    const sorted = [...dayEvents].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    const stacks: any[][] = [];
-    sorted.forEach(event => {
-      let foundStack = false;
-      const eventHour = new Date(event.createdAt).getHours();
-      const eventBlock = Math.floor(eventHour / 3);
-      
-      for (const stack of stacks) {
-        const stackHour = new Date(stack[0].createdAt).getHours();
-        const stackBlock = Math.floor(stackHour / 3);
-        if (eventBlock === stackBlock) {
-          stack.push(event);
-          foundStack = true;
-          break;
-        }
-      }
-      if (!foundStack) stacks.push([event]);
-    });
-
-    // 2. Convert to layout items with visual bounds
-    const layoutItems = stacks.map(stack => {
-      const first = stack[0];
-      const start = new Date(first.createdAt);
+    const layoutItems = [...dayEvents].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).map(event => {
+      const start = new Date(event.createdAt);
       const top = (start.getHours() * 30) + (start.getMinutes() / 60 * 30);
       
-      let maxDuration = 45; // 1.5h default in pixels (30px/h * 1.5)
-      stack.forEach(e => {
-        if (e.retrievedAt) {
-          const dur = (new Date(e.retrievedAt).getTime() - new Date(e.createdAt).getTime()) / (1000 * 60 * 60) * 30;
-          if (dur > maxDuration) maxDuration = dur;
-        }
-      });
-      const height = Math.max(45, maxDuration);
+      let height = 45; // 1.5h default
+      if (event.retrievedAt) {
+        const dur = (new Date(event.retrievedAt).getTime() - new Date(event.createdAt).getTime()) / (1000 * 60 * 60) * 30;
+        if (dur > 45) height = dur;
+      }
 
       return {
-        id: first.id,
-        stack,
-        isStack: stack.length > 1,
+        id: event.id,
+        event,
+        isStack: false,
         top,
         height,
         bottom: top + height,
         colIdx: 0
       };
-    }).sort((a, b) => a.top - b.top);
+    });
 
-    // 3. Cluster items that overlap visually
+    // 2. Cluster items that overlap visually
     const clusters: any[][] = [];
     layoutItems.forEach(item => {
       let foundCluster = false;
@@ -184,7 +157,7 @@ export function ActiveCommunityCalendar() {
       if (!foundCluster) clusters.push([item]);
     });
 
-    // 4. Assign columns and calculate horizontal layout
+    // 3. Assign columns and calculate horizontal layout
     const layoutMap = new Map();
     clusters.forEach(cluster => {
       const columns: any[][] = [];
@@ -200,16 +173,14 @@ export function ActiveCommunityCalendar() {
 
       const totalCols = columns.length;
       cluster.forEach(item => {
-        item.stack.forEach((event: any) => {
-          layoutMap.set(event.id, {
-            isStack: item.isStack,
-            stackSize: item.stack.length,
-            stackEvents: item.stack,
-            left: item.colIdx * 12,
-            width: Math.max(60, 100 - (item.colIdx * 12)),
-            top: item.top,
-            height: item.height
-          });
+        layoutMap.set(item.id, {
+          isStack: false,
+          stackSize: 1,
+          stackEvents: [item.event],
+          left: (item.colIdx / totalCols) * 100,
+          width: 100 / totalCols,
+          top: item.top,
+          height: item.height
         });
       });
     });
@@ -516,10 +487,10 @@ export function ActiveCommunityCalendar() {
                                             <span className="font-bold">Donor: {event.donorName}</span>
                                             <span>{event.categoryLabel}</span>
                                           </div>
-                                          {isRetrieved && (
+                                          {isRetrieved && event.receiver && (
                                             <div className="flex justify-between items-center text-[9px] text-emerald-300 dark:text-emerald-400 gap-4">
-                                              <span className="font-bold">Exit Score: {event.qualityScoreAtRetrieval?.toUpperCase()}</span>
-                                              <span>{new Date(event.retrievedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                              <span className="font-bold">Exit Score: {event.receiver.qualityScoreAtRetrieval?.toUpperCase()}</span>
+                                              <span>{new Date(event.receiver.retrievedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                             </div>
                                           )}
                                         </>
@@ -618,6 +589,20 @@ export function ActiveCommunityCalendar() {
                   </div>
                   
                   <div className="space-y-4">
+                    {(selectedEvent.donorImageUrl || selectedEvent.donorImageBase64) && (
+                      <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden border border-line/40 relative group shadow-xl bg-black">
+                        <img 
+                          src={selectedEvent.donorImageUrl || selectedEvent.donorImageBase64} 
+                          alt="Donor Biometric" 
+                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 transform scale-x-[-1]"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
+                        <div className="absolute bottom-4 left-4 flex items-center gap-2">
+                          <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                          <span className="text-xs font-black uppercase tracking-widest text-white drop-shadow-md">Verified Scan</span>
+                        </div>
+                      </div>
+                    )}
                     <DetailItem icon={<User className="w-4 h-4" />} label="Verified Donor" value={selectedEvent.donorName} />
                     <DetailItem icon={<Mail className="w-4 h-4" />} label="Contact Stream" value={selectedEvent.donorContact} />
                     <div className="p-4 rounded-2xl bg-panel-elevated/40 border border-line/40">
@@ -644,12 +629,12 @@ export function ActiveCommunityCalendar() {
                   </div>
                   
                   <div className="space-y-4">
-                    {selectedEvent.status === 'retrieved' ? (
+                    {selectedEvent.status === 'retrieved' && selectedEvent.receiver ? (
                       <>
-                        {selectedEvent.receiverImage && (
+                        {(selectedEvent.receiver.receiverImageUrl || selectedEvent.receiver.receiverImageBase64) && (
                           <div className="w-full aspect-[4/3] rounded-2xl overflow-hidden border border-line/40 relative group shadow-xl bg-black">
                             <img 
-                              src={selectedEvent.receiverImage} 
+                              src={selectedEvent.receiver.receiverImageUrl || selectedEvent.receiver.receiverImageBase64} 
                               alt="Receiver Biometric" 
                               className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 transform scale-x-[-1]"
                             />
@@ -660,18 +645,22 @@ export function ActiveCommunityCalendar() {
                             </div>
                           </div>
                         )}
-                        <DetailItem icon={<Clock className="w-4 h-4" />} label="Collection Time" value={formatDateTime(selectedEvent.retrievedAt || "")} />
-                        <DetailItem 
-                          icon={<ShieldCheck className="w-4 h-4" />} 
-                          label="Quality at Retrieval" 
-                          value={selectedEvent.qualityScoreAtRetrieval ? selectedEvent.qualityScoreAtRetrieval.toUpperCase() : "OPTIMAL"} 
-                          color={selectedEvent.qualityScoreAtRetrieval === 'fresh' ? 'emerald' : selectedEvent.qualityScoreAtRetrieval === 'aging' ? 'amber' : 'rose'}
+                        <DetailItem
+                          icon={<Clock className="w-4 h-4" />}
+                          label="Collection Time"
+                          value={formatDateTime(selectedEvent.receiver.retrievedAt)}
                         />
-                        <DetailItem 
-                          icon={<User className="w-4 h-4" />} 
-                          label="Access Mode" 
-                          value={selectedEvent.retrievedBy === 'admin_override' ? "ADMIN OVERRIDE" : "Community Receiver"} 
-                          highlight={selectedEvent.retrievedBy === 'admin_override'}
+                        <DetailItem
+                          icon={<ShieldCheck className="w-4 h-4" />}
+                          label="Freshness at Retrieval"
+                          value={getQualityLabel(selectedEvent.receiver.qualityScoreAtRetrieval as any).toUpperCase()}
+                          color={selectedEvent.receiver.qualityScoreAtRetrieval === 'fresh' ? 'emerald' : selectedEvent.receiver.qualityScoreAtRetrieval === 'aging' ? 'amber' : 'rose'}
+                        />
+                        <DetailItem
+                          icon={<User className="w-4 h-4" />}
+                          label="Access Mode"
+                          value={selectedEvent.receiver.retrievedBy === 'admin_override' ? "ADMIN OVERRIDE" : "Community Receiver"}
+                          highlight={selectedEvent.receiver.retrievedBy === 'admin_override'}
                         />
                       </>
                     ) : (
@@ -684,7 +673,7 @@ export function ActiveCommunityCalendar() {
                   </div>
                 </div>
 
-                {/* System Status Section */}
+                {/* System Status / Fleet Governance Section */}
                 <div className="space-y-6">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
@@ -694,23 +683,36 @@ export function ActiveCommunityCalendar() {
                   </div>
 
                   <div className="space-y-4">
-                    <div className={`p-5 rounded-3xl border ${selectedEvent.retrievedBy === 'admin_override' ? 'bg-rose-500/10 border-rose-500/30' : 'bg-emerald-500/10 border-emerald-500/30'}`}>
-                      <div className="flex items-center gap-3 mb-3">
-                        {selectedEvent.retrievedBy === 'admin_override' ? (
+                    {/* Admin Override panel — shown when override occurred */}
+                    {selectedEvent.adminOverride ? (
+                      <div className="p-5 rounded-3xl bg-rose-500/10 border border-rose-500/30">
+                        <div className="flex items-center gap-3 mb-3">
                           <AlertCircle className="w-5 h-5 text-rose-500" />
-                        ) : (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                        )}
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${selectedEvent.retrievedBy === 'admin_override' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {selectedEvent.retrievedBy === 'admin_override' ? 'Administrative Override' : 'Standard Compliance'}
-                        </span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-rose-600">Administrative Override</span>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[11px] font-black text-rose-500/80 uppercase tracking-widest">Authorized by</p>
+                          <p className="text-sm font-black text-rose-400">{selectedEvent.adminOverride.adminCredentials}</p>
+                          <p className="text-[11px] font-black text-rose-500/80 uppercase tracking-widest mt-3">Override Timestamp</p>
+                          <p className="text-sm font-black text-text">{formatDateTime(selectedEvent.adminOverride.overrideAt)}</p>
+                          <p className="text-[10px] font-medium leading-relaxed opacity-60 mt-2">
+                            This asset was forcibly released under administrative authority. The override is logged and flagged for routine verification.
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-[11px] font-medium leading-relaxed opacity-70">
-                        {selectedEvent.retrievedBy === 'admin_override' 
-                          ? "This asset was accessed via administrative credentials. Access log has been flagged for routine verification." 
-                          : "This distribution followed standard community retrieval protocols. All biometric and safety checks were verified."}
-                      </p>
-                    </div>
+                    ) : (
+                      <div className="p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/30">
+                        <div className="flex items-center gap-3 mb-3">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Standard Compliance</span>
+                        </div>
+                        <p className="text-[11px] font-medium leading-relaxed opacity-70">
+                          {selectedEvent.status === 'retrieved'
+                            ? "This distribution followed standard community retrieval protocols. All biometric and safety checks were verified."
+                            : "Item is currently in safe storage awaiting community retrieval."}
+                        </p>
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-3 p-4 rounded-2xl border border-line/20 opacity-40">
                       <Info className="w-4 h-4" />
@@ -773,6 +775,7 @@ export function ActiveCommunityCalendar() {
                 {selectedStack.map((event) => {
                   const safeColor = SAFE_COLORS[event.lockerId] || SAFE_COLORS['chamber-8'];
                   const qualityColor = event.latestQualityScore === 'fresh' ? 'bg-emerald-500' : event.latestQualityScore === 'aging' ? 'bg-amber-500' : 'bg-rose-500';
+                  const qualityLabel = getQualityLabel(event.latestQualityScore as any).toUpperCase();
                   
                   return (
                     <button
@@ -791,6 +794,7 @@ export function ActiveCommunityCalendar() {
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500">{event.lockerId.replace('chamber-', 'SAFE ')}</span>
                             <div className={`w-2 h-2 rounded-full ${qualityColor}`} />
+                            <span className="text-[9px] font-black uppercase tracking-widest opacity-40">{qualityLabel}</span>
                           </div>
                           <h4 className="text-lg font-black text-text">{event.foodName}</h4>
                           <span className="text-xs text-text-muted">{new Date(event.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>

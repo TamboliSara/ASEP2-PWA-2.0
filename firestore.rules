@@ -7,7 +7,17 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    match /items/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
     match /events/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /activeLogs/{docId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
@@ -39,6 +49,11 @@ service cloud.firestore {
 
     match /fleet/{docId} {
       allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /mail/{docId} {
+      allow read: if request.auth != null;
       allow write: if request.auth != null;
     }
 

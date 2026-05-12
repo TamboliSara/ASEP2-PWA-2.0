@@ -21,7 +21,6 @@ import {
   User,
   Mail,
   Heart,
-  Info,
   Package,
   Droplets
 } from "lucide-react";
@@ -34,6 +33,7 @@ import { FleetMap } from "../components/FleetMap";
 import { useLockerController } from "../features/useLockerController";
 import { useTranslation } from "../store/useTranslation";
 import { formatDateTime, getHoursRemaining } from "../utils/format";
+import { calculateQualityScore, getQualityStage, getQualityLabel, MAX_SHELF_LIFE } from "../utils/safety";
 import { useState, useEffect, useMemo } from "react";
 import { ScrollReveal } from "../components/ScrollReveal";
 import { TextReveal } from "../components/TextReveal";
@@ -167,14 +167,14 @@ export function AdminPageV2() {
     const hrsRemaining = deadline ? getHoursRemaining(deadline.absoluteIso) : 0;
     const finalHrs = isNaN(hrsRemaining) ? (deadline?.hoursRemaining || 0) : hrsRemaining;
     
-    const MAX_SHELF_LIFE = 48; // Standard normalization hours
-    const qualityScore = Math.min(100, Math.round((Math.max(0, finalHrs) / MAX_SHELF_LIFE) * 100));
-    const riskLevel = finalHrs < 4 ? "Critical" : finalHrs < 8 ? "Warning" : "Safe";
-    const spoilageStatus = finalHrs <= 0 ? "Expired" : finalHrs <= 4 ? "Warning" : "Fresh";
+    const qualityScore = calculateQualityScore(finalHrs);
+    const stage = getQualityStage(qualityScore);
+    const riskLevel = stage === "spoilt" ? "Critical" : stage === "aging" ? "Warning" : "Safe";
+    const spoilageStatus = getQualityLabel(stage);
     
-    const aiInsight = finalHrs < 4 
+    const aiInsight = stage === "spoilt" 
       ? "Critical Risk: Immediate intervention required to prevent spoilage. Unit stability is compromised."
-      : finalHrs < 8 
+      : stage === "aging" 
         ? "Warning: Quality degradation detected. Community pickup should be prioritized immediately."
         : "Conditions Optimal: Food quality is stable and safe for distribution. No immediate action required.";
 
@@ -213,7 +213,7 @@ export function AdminPageV2() {
           donorContact: l.activeDonation!.donorContact,
           foodName: l.activeDonation!.foodName,
           dietTag: l.activeDonation!.dietTag,
-          qualityScore: l.activeDonation!.latestQualityScore,
+          qualityScore: getQualityLabel(l.activeDonation!.latestQualityScore as any),
           createdAt: l.activeDonation!.createdAt
         }))
     });
@@ -351,6 +351,8 @@ export function AdminPageV2() {
                   featured
                   index={1}
                 />
+                
+
                 
                 <HeroActionButton 
                   onClick={signOut}

@@ -99,17 +99,53 @@ export async function syncInitialState(state: AppState) {
     }
     console.log("[InitialSync] ✅ 8 chambers synced to lockers/ (self-contained docs)");
 
-    // ── 2. Also write flat audit copies to donations/ and sensorSnapshots/ ──
+    // ── 2. Also write flat audit copies to donations/, sensorSnapshots/, items/ ──
     for (const locker of state.lockers) {
       if (locker.activeDonation) {
         const d = locker.activeDonation;
+        const itemStatus = locker.foodQualityScore === "spoilt" ? "spoiled" : "deposited";
+
+        // ── donations/ (unchanged existing collection) ──
         await setDoc(doc(db, "donations", d.id), {
           ...d,
-          status: locker.foodQualityScore === "spoilt" ? "spoiled" : "deposited",
+          status: itemStatus,
           _syncedAt: serverTimestamp(),
           _source: "initial_sync"
         });
 
+        // ── items/ (NEW permanent lifecycle record — doc ID = donationId) ──
+        await setDoc(doc(db, "items", d.id), {
+          donationId: d.id,
+          lockerId: locker.lockerId,
+          lockerNumber: d.lockerNumber ?? null,
+          status: itemStatus,
+
+          // Item details
+          foodName: d.foodName,
+          categoryLabel: d.categoryLabel,
+          dietTag: d.dietTag,
+          allergensNotes: d.allergensNotes || null,
+          latestQualityScore: d.latestQualityScore ?? null,
+          deadlineEstimate: d.deadlineEstimate ?? null,
+
+          // Donor details
+          donor: {
+            name: d.donorName,
+            contact: d.donorContact,
+            imageUrl: d.donorImageUrl || null,
+            depositedAt: d.createdAt
+          },
+
+          // Lifecycle fields — filled in later on retrieval/override
+          receiver: null,
+          adminOverride: null,
+
+          _createdAt: serverTimestamp(),
+          _updatedAt: serverTimestamp(),
+          _source: "initial_sync"
+        });
+
+        // ── sensorSnapshots/ ──
         await setDoc(doc(db, "sensorSnapshots", `initial-sensor-${locker.lockerId}`), {
           id: `initial-sensor-${locker.lockerId}`,
           lockerId: locker.lockerId,
@@ -121,6 +157,7 @@ export async function syncInitialState(state: AppState) {
           _source: "initial_sync"
         });
 
+        // ── predictions/ ──
         await setDoc(doc(db, "predictions", `initial-pred-${locker.lockerId}`), {
           id: `initial-pred-${locker.lockerId}`,
           lockerId: locker.lockerId,
@@ -136,7 +173,87 @@ export async function syncInitialState(state: AppState) {
         });
       }
     }
-    console.log("[InitialSync] ✅ Flat audit copies synced (donations/, sensorSnapshots/, predictions/)");
+    console.log("[InitialSync] ✅ Flat audit copies synced (donations/, items/, sensorSnapshots/, predictions/)");
+
+
+    // ── 3. Sync Mock Past Retrievals for Calendar Data ──────────────
+    // The calendar needs retrieved data to show history. We add 2 past donations (one fresh, one aging)
+    // that were already retrieved. The system NEVER unlocks for spoiled food.
+    const pastTime1 = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000); // 2 days ago
+    const retrieveTime1 = new Date(pastTime1.getTime() + 5 * 60 * 60 * 1000); // 5 hours later
+    
+    const pastDonation1 = {
+      id: "mock-past-don-1",
+      lockerId: "chamber-1",
+      lockerNumber: 1,
+      foodName: "Vegetable Pasta",
+      categoryId: 2,
+      categoryLabel: "Cooked Meal",
+      donorName: "Anjali Gupta",
+      donorContact: "anjali@ecolocker.local",
+      dietTag: "veg",
+      createdAt: pastTime1.toISOString(),
+      latestQualityScore: "fresh",
+      status: "retrieved",
+      _syncedAt: serverTimestamp(),
+      _source: "initial_sync"
+    };
+
+    const pastRetrieval1 = {
+      id: "mock-past-ret-1",
+      donationId: pastDonation1.id,
+      lockerId: pastDonation1.lockerId,
+      lockerNumber: pastDonation1.lockerNumber,
+      foodName: pastDonation1.foodName,
+      qualityScoreAtRetrieval: "fresh", // Must not be spoiled
+      retrievedAt: retrieveTime1.toISOString(),
+      retrievedBy: "receiver",
+      skipSanitization: false,
+      _syncedAt: serverTimestamp(),
+      _source: "initial_sync"
+    };
+
+    const pastTime2 = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000); // 1 day ago
+    const retrieveTime2 = new Date(pastTime2.getTime() + 10 * 60 * 60 * 1000); // 10 hours later
+    
+    const pastDonation2 = {
+      id: "mock-past-don-2",
+      lockerId: "chamber-2",
+      lockerNumber: 2,
+      foodName: "Apple Pie",
+      categoryId: 3,
+      categoryLabel: "Baked Goods",
+      donorName: "Rohan Kumar",
+      donorContact: "rohan@ecolocker.local",
+      dietTag: "veg",
+      createdAt: pastTime2.toISOString(),
+      latestQualityScore: "aging",
+      status: "retrieved",
+      _syncedAt: serverTimestamp(),
+      _source: "initial_sync"
+    };
+
+    const pastRetrieval2 = {
+      id: "mock-past-ret-2",
+      donationId: pastDonation2.id,
+      lockerId: pastDonation2.lockerId,
+      lockerNumber: pastDonation2.lockerNumber,
+      foodName: pastDonation2.foodName,
+      qualityScoreAtRetrieval: "aging", // Must not be spoiled
+      retrievedAt: retrieveTime2.toISOString(),
+      retrievedBy: "receiver",
+      skipSanitization: false,
+      _syncedAt: serverTimestamp(),
+      _source: "initial_sync"
+    };
+
+    await setDoc(doc(db, "donations", pastDonation1.id), pastDonation1);
+    await setDoc(doc(db, "retrievals", pastRetrieval1.id), pastRetrieval1);
+    
+    await setDoc(doc(db, "donations", pastDonation2.id), pastDonation2);
+    await setDoc(doc(db, "retrievals", pastRetrieval2.id), pastRetrieval2);
+    
+    console.log("[InitialSync] ✅ Mock calendar retrieval data synced");
 
     // ── 5. Sync fleet kiosk summaries ────────────────────────────────
     for (const kiosk of sampleFleetLockers) {

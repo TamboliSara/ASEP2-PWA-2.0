@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { useAppContext } from "@/store/AppContext";
 import { useTranslation } from "@/store/useTranslation";
 import type { LocaleCode } from "@/types/domain";
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, Box } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface GradientActionItem {
   id: string;
@@ -19,10 +20,22 @@ interface GradientActionItem {
 export function GradientStatusBar() {
   const { state, dispatch } = useAppContext();
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const locales: LocaleCode[] = ["en", "hi", "mr"];
   
   const items: GradientActionItem[] = [
+    {
+      id: 'visualizer',
+      label: '3D Model',
+      display: '3D',
+      icon: <Box size={14} />,
+      gradientFrom: '#EC4899',
+      gradientTo: '#BE185D',
+      onClick: () => navigate('/visualizer'),
+      isActive: location.pathname === '/visualizer'
+    },
     ...locales.map((locale) => ({
       id: locale,
       label: locale === 'en' ? 'English' : locale === 'hi' ? 'Hindi' : 'Marathi',

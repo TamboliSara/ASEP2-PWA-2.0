@@ -2190,9 +2190,9 @@ input:focus::placeholder {
 }
 
 .quality-mini-pill.spoilt { 
-  color: #EF4444; 
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.15);
+  color: #A855F7; 
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.15);
 }
 
 [data-theme-mode="light"] .quality-mini-pill {
@@ -2202,7 +2202,7 @@ input:focus::placeholder {
 
 [data-theme-mode="light"] .quality-mini-pill.fresh { color: #059669; }
 [data-theme-mode="light"] .quality-mini-pill.aging { color: #D97706; }
-[data-theme-mode="light"] .quality-mini-pill.spoilt { color: #DC2626; }
+[data-theme-mode="light"] .quality-mini-pill.spoilt { color: #9333EA; }
 
 /* ─── LUXE ADMIN DASHBOARD REFINEMENTS ─── */
 

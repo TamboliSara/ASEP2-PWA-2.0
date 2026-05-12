@@ -27,6 +27,7 @@ export type AppAction =
   | { type: "set-donation-draft"; draft: Partial<DonationDraft> }
   | { type: "record-donation"; donation: DonationRecord }
   | { type: "reset-donations" }
+  | { type: "reset-to-fresh-state"; freshLockers: LockerState[] }
   | { type: "reset-donation-draft" }
   | { type: "append-log"; event: LockerEvent }
   | { type: "push-alert"; alert: AlertRecord }
@@ -44,9 +45,9 @@ export const initialAppState: AppState = {
   lockers: [
     { ...sampleLockerState, lockerId: "chamber-1", occupancyState: "empty" },
     { ...sampleLockerState, lockerId: "chamber-2", occupancyState: "empty" },
-    { ...sampleLockerState, lockerId: "chamber-3", occupancyState: "empty" },
-    { ...sampleLockerState, lockerId: "chamber-4", occupancyState: "empty" },
-    { ...sampleLockerState, lockerId: "chamber-5", occupancyState: "empty" },
+    { ...sampleLockerState, lockerId: "chamber-3", occupancyState: "occupied", foodQualityScore: "aging", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(Date.now() + 20 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c3", lockerId: "chamber-3", donorName: "Amit Sharma", donorContact: "amit@ecolocker.local", foodName: "Mixed Fruit Bowl", categoryLabel: "Raw Produce", dietTag: "veg", latestQualityScore: "aging", allergensNotes: "Freshly cut fruits", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(Date.now() + 20 * 3600000).toISOString() } } },
+    { ...sampleLockerState, lockerId: "chamber-4", occupancyState: "occupied", foodQualityScore: "spoilt", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(Date.now() + 2 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c4", lockerId: "chamber-4", donorName: "Rahul Desai", donorContact: "rahul@ecolocker.local", foodName: "Chicken Biryani", categoryLabel: "Cooked Meal", dietTag: "non_veg", latestQualityScore: "spoilt", allergensNotes: "Contains spices and nuts. Packed at 8:00 PM.", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(Date.now() + 2 * 3600000).toISOString() } } },
+    { ...sampleLockerState, lockerId: "chamber-5", occupancyState: "occupied", foodQualityScore: "fresh", deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(Date.now() + 48 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c5", lockerId: "chamber-5", donorName: "Vikram Singh", donorContact: "v.singh@ecolocker.local", foodName: "Bread", categoryLabel: "Baked Goods", dietTag: "veg", latestQualityScore: "fresh", allergensNotes: "Contains gluten", deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(Date.now() + 48 * 3600000).toISOString() } } },
     { ...sampleLockerState, lockerId: "chamber-6", occupancyState: "empty" },
     { ...sampleLockerState, lockerId: "chamber-7", occupancyState: "empty" },
     { ...sampleLockerState, lockerId: "chamber-8", occupancyState: "empty" },
@@ -59,6 +60,30 @@ export const initialAppState: AppState = {
   isAdminAuthenticated: false,
   syncMessage: ""
 };
+
+/** Builds a fresh copy of the initial state with live timestamps (call at runtime, not module load). */
+export function buildFreshInitialState(): AppState {
+  const now = Date.now();
+  return {
+    ...initialAppState,
+    lockers: [
+      { ...sampleLockerState, lockerId: "chamber-1", occupancyState: "empty" },
+      { ...sampleLockerState, lockerId: "chamber-2", occupancyState: "empty" },
+      { ...sampleLockerState, lockerId: "chamber-3", occupancyState: "occupied", foodQualityScore: "aging",
+        deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(now + 20 * 3600000).toISOString() },
+        activeDonation: { ...sampleDonation, id: "donation-c3", lockerId: "chamber-3", donorName: "Amit Sharma", donorContact: "amit@ecolocker.local", foodName: "Mixed Fruit Bowl", categoryLabel: "Raw Produce", dietTag: "veg", latestQualityScore: "aging", allergensNotes: "Freshly cut fruits", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(now + 20 * 3600000).toISOString() } } },
+      { ...sampleLockerState, lockerId: "chamber-4", occupancyState: "occupied", foodQualityScore: "spoilt",
+        deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(now + 2 * 3600000).toISOString() },
+        activeDonation: { ...sampleDonation, id: "donation-c4", lockerId: "chamber-4", donorName: "Rahul Desai", donorContact: "rahul@ecolocker.local", foodName: "Chicken Biryani", categoryLabel: "Cooked Meal", dietTag: "non_veg", latestQualityScore: "spoilt", allergensNotes: "Contains spices and nuts.", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(now + 2 * 3600000).toISOString() } } },
+      { ...sampleLockerState, lockerId: "chamber-5", occupancyState: "occupied", foodQualityScore: "fresh",
+        deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(now + 48 * 3600000).toISOString() },
+        activeDonation: { ...sampleDonation, id: "donation-c5", lockerId: "chamber-5", donorName: "Vikram Singh", donorContact: "v.singh@ecolocker.local", foodName: "Bread", categoryLabel: "Baked Goods", dietTag: "veg", latestQualityScore: "fresh", allergensNotes: "Contains gluten", deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(now + 48 * 3600000).toISOString() } } },
+      { ...sampleLockerState, lockerId: "chamber-6", occupancyState: "empty" },
+      { ...sampleLockerState, lockerId: "chamber-7", occupancyState: "empty" },
+      { ...sampleLockerState, lockerId: "chamber-8", occupancyState: "empty" },
+    ]
+  };
+}
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -104,15 +129,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "reset-donations":
       return {
         ...state,
+        donationHistory: initialAppState.donationHistory,
+        lockers: initialAppState.lockers,
+        syncMessage: "All donation records cleared from the kiosk. Original mock data restored."
+      };
+    case "reset-to-fresh-state":
+      return {
+        ...state,
         donationHistory: [],
-        lockers: state.lockers.map((l) => ({
-          ...l,
-          activeDonation: undefined,
-          occupancyState: "empty",
-          sanitizationState: "idle",
-          faultState: "none"
-        })),
-        syncMessage: "All donation records cleared from the kiosk."
+        lockers: action.freshLockers,
+        logs: [],
+        alerts: [],
+        syncMessage: "SYSTEM RESET: Mock data restored with fresh timestamps."
       };
     case "reset-donation-draft":
       return { ...state, donationDraft: defaultDonationDraft };

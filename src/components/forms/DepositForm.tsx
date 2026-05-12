@@ -113,8 +113,6 @@ export function DepositForm({
 
     if (currentStep < 4) {
       nextStep();
-      if (!isVerified) return;
-      await onSubmit(imageData);
     }
   }
 
@@ -143,7 +141,7 @@ export function DepositForm({
               {currentStep === 1 ? t("foodDetails") || "Food Details" : 
                currentStep === 2 ? t("allergyInfo") || "Safety & Allergens" : 
                currentStep === 3 ? t("confirmDeposit") || "Donor Details" :
-               "Identity Verification"}
+               "Donor Authentication"}
             </h2>
           </div>
           
@@ -162,7 +160,7 @@ export function DepositForm({
             {currentStep === 1 ? t("foodDetailsBody") || "Tell us what you are sharing today." :
              currentStep === 2 ? t("allergyInfoBody") || "Important safety information for receivers." :
              currentStep === 3 ? t("confirmDepositBody") || "Review your donation details." :
-             "Secure face scan required for community safety."}
+             "Secure biometric verification required."}
           </p>
         </div>
       </div>
@@ -277,14 +275,8 @@ export function DepositForm({
         )}
 
         {currentStep === 4 && (
-          <div className="form-grid-luxe animate-luxe-entry" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <AppleFaceIDScanner 
-              onVerify={async (imageData) => {
-                setIsVerified(true);
-                // Call the actual parent onSubmit directly since we can't easily pass it through event
-                await onSubmit(imageData);
-              }} 
-            />
+          <div className="animate-luxe-entry" style={{ padding: '1rem 0' }}>
+            <AppleFaceIDScanner onVerify={(img) => onSubmit(img)} />
           </div>
         )}
 
@@ -308,15 +300,21 @@ export function DepositForm({
       </div>
 
       <div className="form-actions-luxe" style={{ marginTop: '2rem' }}>
-        {currentStep > 1 && (
+        {currentStep > 1 && currentStep < 4 && (
           <button className="luxe-secondary-button" type="button" onClick={prevStep} disabled={isBusy} style={{ padding: '0.75rem 1.5rem', fontSize: '0.95rem' }}>
             <span className="btn-icon">←</span>
             {t("back") || "Back"}
           </button>
         )}
-        {currentStep < 4 && (
+        {currentStep < 3 && (
           <button className="luxe-primary-button" type="submit" disabled={isBusy} style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
             {isBusy ? t("submittingDeposit") : t("continue") || "Continue"}
+            <span className="btn-icon">→</span>
+          </button>
+        )}
+        {currentStep === 3 && (
+          <button className="luxe-primary-button" type="submit" disabled={isBusy} style={{ padding: '0.75rem 2rem', fontSize: '1rem', background: 'linear-gradient(135deg, var(--accent) 0%, #10B981 100%)' }}>
+            {isBusy ? t("submittingDeposit") : "Proceed to Verification"}
             <span className="btn-icon">→</span>
           </button>
         )}

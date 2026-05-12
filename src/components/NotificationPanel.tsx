@@ -21,7 +21,7 @@ const getSeverityConfig = (severity: string) => {
     case 'success':
       return { variant: 'success', icon: <CircleCheck /> };
     default:
-      return { variant: 'info', icon: <Info /> };
+      return { variant: 'info', icon: <Bell className="size-4" /> };
   }
 };
 

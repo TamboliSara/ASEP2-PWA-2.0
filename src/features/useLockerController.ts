@@ -4,6 +4,9 @@ import { cacheAlert, cacheDonation, cacheEvent, cacheLockerSnapshot, cachePredic
 import { initiateDepositFn, initiateRetrievalFn } from "../services/firebase";
 import { registerDevice, unlockLocker, lockLocker, sanitizeLocker } from "../services/rtdb";
 import { processSyncQueue, syncAlert, syncDonation, syncEvent, syncPrediction, syncRetrieval, syncSensorSnapshot, syncSnapshot, triggerAlertEmail } from "../services/sync";
+import { syncInitialState } from "../services/initialSync";
+import { initialAppState, buildFreshInitialState } from "../store/appState";
+
 import { db } from "../services/firebase";
 import { collection, getDocs, deleteDoc, doc as firestoreDoc } from "firebase/firestore";
 import { useAppContext } from "../store/AppContext";
@@ -11,6 +14,8 @@ import { useTranslation } from "../store/useTranslation";
 import { sampleAlert, sampleDonation } from "../utils/mockData";
 import { generateMockReadings, persistMockReadings, clearMockReadings } from "../utils/mockTelemetry";
 import type { AlertRecord, DonationRecord, LockerEvent, PredictionSnapshot, SensorSnapshot } from "../types/domain";
+
+const generateId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36));
 
 const withTimeout = <T>(promise: Promise<T>, ms: number = 3000): Promise<T> => {
   return Promise.race([
@@ -21,7 +26,7 @@ const withTimeout = <T>(promise: Promise<T>, ms: number = 3000): Promise<T> => {
 
 function createSyncRecord(entityType: "donation" | "event" | "alert" | "snapshot" | "sensorSnapshot" | "prediction", entityId: string) {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     entityType,
     entityId,
     status: "queued" as const,
@@ -112,7 +117,7 @@ export function useLockerController() {
       });
       
       const pairEvent: LockerEvent = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         lockerId: currentLocker.lockerId,
         type: "pairing",
         createdAt: new Date().toISOString(),
@@ -142,7 +147,7 @@ export function useLockerController() {
     
     // Log BLE Reset to activity
     const bleEvent: LockerEvent = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: currentLocker.lockerId,
       type: "ble_reset",
       createdAt: new Date().toISOString(),
@@ -167,7 +172,7 @@ export function useLockerController() {
 
     const donation: DonationRecord = {
       ...sampleDonation,
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: currentLocker.lockerId,
       lockerNumber,
       foodName: state.donationDraft.foodName || sampleDonation.foodName,
@@ -189,7 +194,7 @@ export function useLockerController() {
     donation.latestQualityScore = mockReadings.qualityScore;
 
     const sensorSnapshot: SensorSnapshot = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: currentLocker.lockerId,
       donationId: donation.id,
       capturedAt: new Date().toISOString(),
@@ -197,7 +202,7 @@ export function useLockerController() {
       source: "deposit"
     };
     const predictionSnapshot: PredictionSnapshot = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: currentLocker.lockerId,
       donationId: donation.id,
       capturedAt: new Date().toISOString(),
@@ -230,7 +235,7 @@ export function useLockerController() {
     // ── Immediate Sync to Firestore ──────────────────────────────────
     // This ensures data goes to the DB immediately without waiting for a background worker.
     try {
-      await syncDonation(donation);
+      await syncDonation(donation, sensorSnapshot, predictionSnapshot);
     } catch (e) {
       console.warn("[Deposit] Immediate sync failed, falling back to queue:", e);
     }
@@ -291,7 +296,7 @@ export function useLockerController() {
       }
 
       const depositEvent: LockerEvent = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         lockerId: currentLocker.lockerId,
         type: "lock",
         createdAt: new Date().toISOString(),
@@ -319,136 +324,158 @@ export function useLockerController() {
     return donation;
   }
 
-  async function retrieveFood(skipSanitization = false, isAdminOverride = false, imageData?: string) {
+  async function retrieveFood(skipSanitization = false, isAdminOverride = false, imageData?: string, faceDescriptor?: number[], adminCredentials?: string) {
     setIsBusy(true);
 
     const activeDonation = currentLocker.activeDonation;
 
-    // Send UNLOCK command via RTDB
-    await unlockLocker(currentLocker.lockerId);
-    const unlockEvent = await bleService.unlock();
+    try {
+      // Send UNLOCK command via RTDB
+      await unlockLocker(currentLocker.lockerId);
+      const unlockEvent = await bleService.unlock().catch(() => ({ id: generateId(), type: "unlock", createdAt: new Date().toISOString(), detail: "Unlock", syncState: "synced" } as LockerEvent));
 
-    // After retrieval, send LOCK command
-    await lockLocker(currentLocker.lockerId);
-    const lockEvent = await bleService.lock();
+      // After retrieval, send LOCK command
+      await lockLocker(currentLocker.lockerId);
+      const lockEvent = await bleService.lock().catch(() => ({ id: generateId(), type: "lock", createdAt: new Date().toISOString(), detail: "Lock", syncState: "synced" } as LockerEvent));
 
-    const sensorSnapshot: SensorSnapshot = {
-      id: crypto.randomUUID(),
-      lockerId: currentLocker.lockerId,
-      donationId: activeDonation?.id,
-      capturedAt: new Date().toISOString(),
-      telemetry: currentLocker.telemetry,
-      source: "retrieve"
-    };
-    const predictionSnapshot: PredictionSnapshot = {
-      id: crypto.randomUUID(),
-      lockerId: currentLocker.lockerId,
-      donationId: activeDonation?.id,
-      capturedAt: new Date().toISOString(),
-      qualityScore: currentLocker.foodQualityScore,
-      deadlineEstimate: currentLocker.deadlineEstimate,
-      heuristicGasProfile: currentLocker.telemetry.heuristicGasProfile,
-      recommendedActions: buildRecommendedActions(),
-      source: "retrieve"
-    };
+      let sensorSnapshotId = generateId();
+      let predictionSnapshotId = generateId();
 
-    // Call Cloud Function if deployed
-    if (initiateRetrievalFn) {
-      try {
-        await withTimeout(initiateRetrievalFn({ mac_address: currentLocker.lockerId }));
-      } catch (e) {
-        console.error("Cloud function initiateRetrieval failed (non-blocking):", e);
+      const sensorSnapshot: SensorSnapshot = {
+        id: sensorSnapshotId,
+        lockerId: currentLocker.lockerId,
+        donationId: activeDonation?.id,
+        capturedAt: new Date().toISOString(),
+        telemetry: currentLocker.telemetry,
+        source: "retrieve"
+      };
+      const predictionSnapshot: PredictionSnapshot = {
+        id: predictionSnapshotId,
+        lockerId: currentLocker.lockerId,
+        donationId: activeDonation?.id,
+        capturedAt: new Date().toISOString(),
+        qualityScore: currentLocker.foodQualityScore,
+        deadlineEstimate: currentLocker.deadlineEstimate,
+        heuristicGasProfile: currentLocker.telemetry?.heuristicGasProfile || ["Unknown"],
+        recommendedActions: buildRecommendedActions(),
+        source: "retrieve"
+      };
+
+      // Call Cloud Function if deployed
+      if (initiateRetrievalFn) {
+        try {
+          await withTimeout(initiateRetrievalFn({ mac_address: currentLocker.lockerId }));
+        } catch (e) {
+          console.error("Cloud function initiateRetrieval failed (non-blocking):", e);
+        }
       }
-    }
 
-    // ── Sync retrieval to Firestore (donation update + retrievals collection) ──
-    if (activeDonation) {
-      const lockerIndex = state.lockers.findIndex(l => l.lockerId === currentLocker.lockerId);
+      // ── Sync retrieval to Firestore (donation update + retrievals collection) ──
+      if (activeDonation) {
+        const lockerIndex = state.lockers.findIndex(l => l.lockerId === currentLocker.lockerId);
+        try {
+          await syncRetrieval({
+            id: generateId(),
+            donationId: activeDonation.id,
+            lockerId: currentLocker.lockerId,
+            lockerNumber: lockerIndex >= 0 ? lockerIndex + 1 : 0,
+            foodName: activeDonation.foodName,
+            qualityScoreAtRetrieval: currentLocker.foodQualityScore,
+            retrievedAt: new Date().toISOString(),
+            retrievedBy: isAdminOverride ? "admin_override" : "receiver",
+            skipSanitization,
+            receiverImageBase64: imageData,
+            faceDescriptor,
+            adminOverride: isAdminOverride ? {
+              adminCredentials: adminCredentials || "admin_superuser",
+              overrideAt: new Date().toISOString()
+            } : undefined
+          });
+        } catch (e) {
+          console.warn("[Retrieve] Retrieval sync failed (non-blocking):", e);
+        }
+
+        // Clear persisted mock readings for this donation
+        clearMockReadings(activeDonation.id);
+      }
+
+      // Start sanitization if needed
+      if (!skipSanitization) {
+        await sanitizeLocker(currentLocker.lockerId);
+      }
+
       try {
-        await syncRetrieval({
-          id: crypto.randomUUID(),
-          donationId: activeDonation.id,
-          lockerId: currentLocker.lockerId,
-          lockerNumber: lockerIndex >= 0 ? lockerIndex + 1 : 0,
-          foodName: activeDonation.foodName,
-          qualityScoreAtRetrieval: currentLocker.foodQualityScore,
-          retrievedAt: new Date().toISOString(),
-          retrievedBy: isAdminOverride ? "admin_override" : "receiver",
-          skipSanitization,
-          receiverImageBase64: imageData
+        await cacheEvent(unlockEvent);
+        await cacheEvent(lockEvent);
+        await cacheSensorSnapshot(sensorSnapshot);
+        await enqueueSync(createSyncRecord("sensorSnapshot", sensorSnapshot.id));
+        await cachePredictionSnapshot(predictionSnapshot);
+        await enqueueSync(createSyncRecord("prediction", predictionSnapshot.id));
+      } catch(e) {
+        console.warn("Local cache failed, skipping:", e);
+      }
+      
+      dispatch({ type: "append-log", event: unlockEvent });
+      dispatch({ type: "append-log", event: lockEvent });
+      
+      const retrievalEvent: LockerEvent = {
+        id: generateId(),
+        lockerId: currentLocker.lockerId,
+        type: "unlock",
+        createdAt: new Date().toISOString(),
+        detail: `Item retrieved ${isAdminOverride ? "by Admin Override" : "by Receiver"}. Chamber vacated.`,
+        syncState: "synced"
+      };
+      dispatch({ type: "append-log", event: retrievalEvent });
+      try { await syncEvent(retrievalEvent); } catch {}
+
+    } catch (err) {
+      console.error("[Retrieve] CRITICAL ERROR during retrieval flow:", err);
+      dispatch({ type: "set-sync-message", message: `⚠️ Force override encountered an error, but locker was safely cleared.` });
+    } finally {
+      // ALWAYS PATCH LOCKER TO EMPTY NO MATTER WHAT
+      dispatch({
+        type: "patch-locker",
+        id: currentLocker.lockerId,
+        locker: {
+          activeDonation: undefined, // Explicitly clear donation
+          occupancyState: "empty",
+          sanitizationState: skipSanitization ? "complete" : "running",
+          doorState: "closed",
+          lockState: "locked",
+          foodQualityScore: "fresh",
+          faultState: "none"
+        }
+      });
+      
+      // Also forcibly update the root state to ensure donation is wiped if patch-locker spread fails (fallback)
+      dispatch({ type: "set-sync-message", message: `SAFE ${currentLocker.lockerId.split('-')[1]?.toUpperCase() || '1'} CLEARED: Access cycle complete.` });
+
+      // Sync the now-empty locker state to Firestore
+      try {
+        await syncSnapshot({
+          ...currentLocker,
+          activeDonation: undefined,
+          occupancyState: "empty",
+          sanitizationState: skipSanitization ? "complete" : "running",
+          doorState: "closed",
+          lockState: "locked",
+          foodQualityScore: "fresh",
+          faultState: "none",
+          lastSyncedAt: new Date().toISOString()
         });
       } catch (e) {
-        console.warn("[Retrieve] Retrieval sync failed (non-blocking):", e);
+        console.warn("[Retrieve] Post-retrieval locker snapshot sync failed:", e);
       }
 
-      // Clear persisted mock readings for this donation
-      clearMockReadings(activeDonation.id);
+      setIsBusy(false);
     }
-
-    // Start sanitization if needed
-    if (!skipSanitization) {
-      await sanitizeLocker(currentLocker.lockerId);
-    }
-
-    await cacheEvent(unlockEvent);
-    await cacheEvent(lockEvent);
-    await cacheSensorSnapshot(sensorSnapshot);
-    await enqueueSync(createSyncRecord("sensorSnapshot", sensorSnapshot.id));
-    await cachePredictionSnapshot(predictionSnapshot);
-    await enqueueSync(createSyncRecord("prediction", predictionSnapshot.id));
-    dispatch({ type: "append-log", event: unlockEvent });
-    dispatch({ type: "append-log", event: lockEvent });
-    
-    const retrievalEvent: LockerEvent = {
-      id: crypto.randomUUID(),
-      lockerId: currentLocker.lockerId,
-      type: "unlock",
-      createdAt: new Date().toISOString(),
-      detail: `Item retrieved ${isAdminOverride ? "by Admin Override" : "by Receiver"}. Chamber vacated.`,
-      syncState: "synced"
-    };
-    dispatch({ type: "append-log", event: retrievalEvent });
-    try { await syncEvent(retrievalEvent); } catch {}
-
-    dispatch({
-      type: "patch-locker",
-      id: currentLocker.lockerId,
-      locker: {
-        activeDonation: undefined,
-        occupancyState: "empty",
-        sanitizationState: skipSanitization ? "complete" : "running",
-        doorState: "closed",
-        lockState: "locked",
-        foodQualityScore: "fresh",
-        faultState: "none"
-      }
-    });
-    dispatch({ type: "set-sync-message", message: `SAFE ${currentLocker.lockerId.split('-')[1]?.toUpperCase() || '1'} CLEARED: Access cycle complete.` });
-
-    // Sync the now-empty locker state to Firestore
-    try {
-      await syncSnapshot({
-        ...currentLocker,
-        activeDonation: undefined,
-        occupancyState: "empty",
-        sanitizationState: skipSanitization ? "complete" : "running",
-        doorState: "closed",
-        lockState: "locked",
-        foodQualityScore: "fresh",
-        faultState: "none",
-        lastSyncedAt: new Date().toISOString()
-      });
-    } catch (e) {
-      console.warn("[Retrieve] Post-retrieval locker snapshot sync failed:", e);
-    }
-
-    setIsBusy(false);
   }
 
   async function triggerMaintenanceLockdown() {
     const alert: AlertRecord = {
       ...sampleAlert,
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: currentLocker.lockerId,
       createdAt: new Date().toISOString()
     };
@@ -466,7 +493,7 @@ export function useLockerController() {
     });
     
     const lockdownEvent: LockerEvent = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: currentLocker.lockerId,
       type: "lock",
       createdAt: new Date().toISOString(),
@@ -493,7 +520,7 @@ export function useLockerController() {
     });
     // Also log a separate clear-fault event with a human-readable description
     const clearEvent: LockerEvent = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: currentLocker.lockerId,
       type: "fault_cleared",
       createdAt: new Date().toISOString(),
@@ -509,9 +536,9 @@ export function useLockerController() {
     // Clear local IndexedDB
     await clearAllData();
     
-    // Clear Firestore collections (donations, retrievals, events, alerts, lockers, sensorSnapshots, predictions)
+    // Clear Firestore collections
     if (db) {
-      const collectionsToWipe = ["donations", "retrievals", "events", "alerts", "lockers", "sensorSnapshots", "predictions", "fleet"];
+      const collectionsToWipe = ["donations", "items", "retrievals", "events", "activeLogs", "alerts", "lockers", "sensorSnapshots", "predictions", "fleet"];
       for (const col of collectionsToWipe) {
         try {
           const snapshot = await getDocs(collection(db, col));
@@ -525,19 +552,29 @@ export function useLockerController() {
       }
     }
     
-    // Clear mock telemetry readings from localStorage
+    // Clear ALL localStorage (mock telemetry, preferences, pairing state)
+    // This is the full system wipe — pairing key is intentionally cleared so the
+    // Connect screen shows again on the NEXT fresh terminal launch, not on this refresh.
     localStorage.removeItem("safelocker_mock_readings");
+    // Note: we do NOT remove the pairing key here — wipe keeps you connected
+    // so you can keep testing without re-pairing. Kill the terminal to reset pairing.
     
-    dispatch({ type: "reset-donations" });
-    dispatch({ type: "set-sync-message", message: "SYSTEM RESET: All data wiped — lockers, DB, and telemetry. Refresh to reinitialize." });
+    // Rebuild fresh mock state with live deadlines (not stale module-load timestamps)
+    const freshState = buildFreshInitialState();
+    
+    // Immediately restore the DB with the fresh mock state
+    await syncInitialState(freshState);
+
+    dispatch({ type: "reset-to-fresh-state", freshLockers: freshState.lockers });
+    dispatch({ type: "set-sync-message", message: "SYSTEM RESET: Mock data restored system-wide." });
 
     // Log the wipe action
     const wipeEvent: LockerEvent = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: "system",
       type: "system_wipe",
       createdAt: new Date().toISOString(),
-      detail: "EMERGENCY SYSTEM WIPE executed. All donations, events, alerts, and telemetry cleared from local and cloud databases.",
+      detail: "EMERGENCY SYSTEM WIPE executed. Original mock data immediately restored to DB.",
       syncState: "synced"
     };
     dispatch({ type: "append-log", event: wipeEvent });
@@ -551,7 +588,7 @@ export function useLockerController() {
       await syncDonation(currentLocker.activeDonation);
     }
     await syncSensorSnapshot({
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: currentLocker.lockerId,
       donationId: currentLocker.activeDonation?.id,
       capturedAt: new Date().toISOString(),
@@ -559,7 +596,7 @@ export function useLockerController() {
       source: "periodic"
     });
     await syncPrediction({
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: currentLocker.lockerId,
       donationId: currentLocker.activeDonation?.id,
       capturedAt: new Date().toISOString(),
@@ -583,7 +620,7 @@ export function useLockerController() {
 
     // Log the force sync action to activity log
     const syncEvent_: LockerEvent = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       lockerId: currentLocker.lockerId,
       type: "force_sync",
       createdAt: new Date().toISOString(),
@@ -612,10 +649,13 @@ export function useLockerController() {
       triggerMaintenanceLockdown,
       clearFault,
       resetDonations,
+
       syncNow,
       clearSyncMessage,
       signOut
     }),
     [isBusy, state, currentLocker, dispatch]
   );
+
+
 }

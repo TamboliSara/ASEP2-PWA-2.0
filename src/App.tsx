@@ -8,6 +8,7 @@ import { KioskPage } from "./routes/KioskPage";
 import { ModeSelectPage } from "./routes/ModeSelectPage";
 import { SignInPageV2 } from "./routes/SignInPageV2";
 import { LandingPage } from "./routes/LandingPage";
+import { VisualizerPage } from "./routes/VisualizerPage";
 import { DemoOne } from "./components/demo";
 import AlertDemo from "./components/ui/alert-demo";
 
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/admin/sign-in" element={state.hasCompletedPairing ? <SignInPageV2 /> : <Navigate to="/connect" replace />} />
         <Route path="/welcome" element={state.hasCompletedPairing ? <LandingPage /> : <Navigate to="/connect" replace />} />
         <Route path="/demo" element={<DemoOne />} />
+        <Route path="/visualizer" element={<VisualizerPage />} />
         <Route path="/demo/alerts" element={<AlertDemo />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

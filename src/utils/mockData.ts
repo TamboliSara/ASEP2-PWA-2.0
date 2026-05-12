@@ -12,10 +12,10 @@ import type {
 } from "../types/domain";
 
 const now = new Date();
-const deadline = new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString();
+const deadline = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
 
 export const defaultDeadlineEstimate: DeadlineEstimate = {
-  hoursRemaining: 12,
+  hoursRemaining: 48,
   absoluteIso: deadline
 };
 
@@ -55,7 +55,8 @@ export const sampleDonation: DonationRecord = {
   createdAt: now.toISOString(),
   latestQualityScore: "fresh",
   deadlineEstimate: defaultDeadlineEstimate,
-  syncState: "queued"
+  syncState: "queued",
+  donorImageUrl: "https://i.pravatar.cc/150?u=sara"
 };
 
 export const sampleAlert: AlertRecord = {

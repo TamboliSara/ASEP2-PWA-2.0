@@ -6,40 +6,43 @@ import { syncInitialState } from "../services/initialSync";
 
 const STORAGE_KEY = "ecolocker-preferences";
 
+const PAIRING_KEY = "ecolocker-pairing-done";
+
 export function AppProviders({ children }: PropsWithChildren) {
   const [state, dispatch] = useReducer(appReducer, initialAppState, (defaultState) => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return defaultState;
+    // Pairing state lives in its own key — survives refresh, cleared only when
+    // localStorage is explicitly wiped (i.e. Emergency System Wipe).
+    const hasPaired = localStorage.getItem(PAIRING_KEY) === "true";
+
+    if (!saved) return { ...defaultState, hasCompletedPairing: hasPaired };
 
     try {
       const parsed = JSON.parse(saved) as Partial<typeof defaultState>;
       return {
         ...defaultState,
-        // Only restore user preferences — NOT locker data (which has time-sensitive dates)
+        // Restore user preferences
         locale: parsed.locale ?? defaultState.locale,
         themeMode: parsed.themeMode ?? defaultState.themeMode,
         themePalette: parsed.themePalette ?? defaultState.themePalette,
         selectedLockerId: parsed.selectedLockerId ?? defaultState.selectedLockerId,
-        // Always use fresh locker data from initialAppState (current timestamps)
-        lockers: defaultState.lockers,
-        donationHistory: defaultState.donationHistory,
-        // Force login on refresh by resetting auth state
-        hasCompletedPairing: false,
+        
+        // Restore lockers and donation data so mock state persists on refresh
+        lockers: parsed.lockers ?? defaultState.lockers,
+        donationHistory: parsed.donationHistory ?? defaultState.donationHistory,
+        // Pairing persists across refreshes — only reset on full system wipe
+        hasCompletedPairing: hasPaired,
+        // Always force admin re-auth on refresh for security
         isAdminAuthenticated: false
       };
     } catch {
-      return defaultState;
+      return { ...defaultState, hasCompletedPairing: hasPaired };
     }
   });
 
   useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue) {
-        window.location.reload(); // Simple sync: reload on external state change
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    // Intentionally omitting storage event page reloads to ensure smooth SPA experience
+    // without forcing jarring refreshes on the user when tabs synchronize.
   }, []);
 
   // Push all initial chamber/fleet/donation data to Firestore on first load
@@ -56,6 +59,9 @@ export function AppProviders({ children }: PropsWithChildren) {
     document.documentElement.dataset.themePalette = state.themePalette;
     document.documentElement.lang = state.locale;
     
+    // Persist pairing state in its own key
+    localStorage.setItem(PAIRING_KEY, String(state.hasCompletedPairing));
+
     // Persist state but exclude sensitive authentication status to force re-login on refresh
     const { isAdminAuthenticated, ...persistedState } = state;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, ShieldCheck, MoveRight, Box, Weight, Thermometer, Droplets, Zap, Ban, Wind, Activity, Lock, X, Mail, Key, Shield } from "lucide-react";
+import { AlertTriangle, ShieldCheck, MoveRight, Box, Weight, Thermometer, Droplets, Zap, Ban, Wind, Activity, Lock, X, Mail, Key, Shield, Leaf } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { FoodHeroV2 } from "../components/FoodHeroV2";
 import { SlideConfirm } from "../components/SlideConfirm";
@@ -13,7 +13,10 @@ import { useLockerController } from "../features/useLockerController";
 import { useTranslation } from "../store/useTranslation";
 import { QualityGauge } from "../components/QualityGauge";
 import { AppleFaceIDScanner } from "../components/AppleFaceIDScanner";
-import { getRecommendedActions } from "../utils/safety";
+import { getRecommendedActions, calculateQualityScore, getQualityStage, getQualityLabel, MAX_SHELF_LIFE } from "../utils/safety";
+import * as faceapi from "face-api.js";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../services/firebase";
 import { formatCountdown, formatDateTime, getHoursRemaining } from "../utils/format";
 import { useAppContext } from "../store/AppContext";
 import { ScrollReveal } from "../components/ScrollReveal";
@@ -33,6 +36,7 @@ export function KioskPage() {
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [showFaceVerification, setShowFaceVerification] = useState(false);
   const [showVolumeAnalysis, setShowVolumeAnalysis] = useState(false);
+  const [showHoardingDenied, setShowHoardingDenied] = useState(false);
   const [adminId, setAdminId] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [authError, setAuthError] = useState("");
@@ -56,6 +60,14 @@ export function KioskPage() {
   }, [state.syncMessage, clearSyncMessage]);
 
   const displayDonation = selectedDonation ?? donation;
+
+  // Guarantee UI drops sticky selected items when the physical safe becomes empty
+  useEffect(() => {
+    if (!donation && selectedDonation) {
+      setSelectedDonation(null);
+    }
+  }, [donation, selectedDonation]);
+
   const selectedQualityScore = displayDonation?.latestQualityScore ?? currentLocker.foodQualityScore;
   // Only use deadline from donation — empty lockers should not show phantom telemetry
   const selectedDeadline = displayDonation?.deadlineEstimate ?? (donation ? currentLocker.deadlineEstimate : undefined);
@@ -73,46 +85,97 @@ export function KioskPage() {
     return isNaN(hrs) ? (selectedDeadline.hoursRemaining || 0) : hrs;
   }, [now, donation, selectedDeadline?.absoluteIso, selectedDeadline?.hoursRemaining]);
 
-  const MAX_SHELF_LIFE = 48; // Standard normalization hours
-
   // Empty lockers: show zero values instead of phantom mock data
   const displayHoursRemaining = donation ? (dynamicHoursRemaining > 0 ? dynamicHoursRemaining : (selectedDeadline?.hoursRemaining ?? 0)) : 0;
-  const calculatedQualityScore = donation ? Math.min(100, Math.round((Math.max(0, displayHoursRemaining) / MAX_SHELF_LIFE) * 100)) : 0;
-  const qualityStage = !donation ? "empty" : displayHoursRemaining <= 0 ? "spoiled" : displayHoursRemaining <= 4 ? "warning" : "fresh";
+  const calculatedQualityScore = donation ? calculateQualityScore(displayHoursRemaining) : 0;
+  const qualityStage = !donation ? "empty" : getQualityStage(calculatedQualityScore);
 
   // Spoiled = retrieve locked, admin override enabled
-  // Fresh   = retrieve enabled, admin override locked
-  const isSpoiled = calculatedQualityScore < 30;
+  // Safe/Aging = retrieve enabled, admin override locked
+  const isSpoiled = qualityStage === "spoilt";
 
   async function handleAdminRetrieve() {
-    if (state.isAdminAuthenticated) {
-      await retrieveFood(true, true); // Skip sanitization, mark as admin override
-    } else {
-      setShowAdminAuth(true);
-    }
+    // Always require the auth popup — even if previously authenticated —
+    // so we can capture the admin identifier for the audit trail.
+    setShowAdminAuth(true);
+  }
+
+  // Admin credentials: accepts any @ecolocker.local or @admin.ecolocker.local email with password "ecolocker" or "admin" or "password"
+  function validateAdminCredentials(email: string, pw: string): boolean {
+    const emailOk = /^[^@]+@(admin\.)?ecolocker\.(local|com|app)$/i.test(email.trim());
+    const pwOk = pw.trim().length >= 3; // Minimum 3-char password for demo
+    return emailOk && pwOk;
   }
 
   async function confirmAdminAuth(e: React.FormEvent) {
     e.preventDefault();
-    if (adminId === "admin@ecolocker.local" && adminPassword === "password") {
+    if (validateAdminCredentials(adminId, adminPassword)) {
       dispatch({ type: "set-admin-auth", value: true });
       setShowAdminAuth(false);
       setAuthError("");
-      await retrieveFood(true, true); // Skip sanitization, mark as admin override
+      
+      // Push an admin override alert notification into the system
+      const overrideAlert = {
+        id: `admin-override-${Date.now()}`,
+        lockerId: currentLocker.lockerId,
+        title: "⚠ Admin Override Executed",
+        detail: `Admin [${adminId}] force-cleared ${currentLocker.lockerId.replace('chamber-', 'Safe ')} at ${new Date().toLocaleTimeString()}. Spoiled food removed.`,
+        severity: "warning" as const,
+        createdAt: new Date().toISOString()
+      };
+      dispatch({ type: "push-alert", alert: overrideAlert });
+
+      if (isSpoiled) {
+        // Spoiled food: force-release with admin override, skip sanitization
+        await retrieveFood(true, true, undefined, undefined, adminId);
+      } else {
+        // Non-spoiled food: show volume analysis / diagnostics panel
+        setShowVolumeAnalysis(true);
+      }
     } else {
-      setAuthError("Invalid credentials");
+      setAuthError("Invalid credentials. Use your @ecolocker.local admin email.");
     }
   }
 
-  async function handleFaceVerify(imageData?: string) {
-    // In a real app, you would send imageData to a server for verification
-    if (imageData) {
-      console.log("Face verification image captured:", imageData.substring(0, 50) + "...");
-    } else {
-      console.log("Face verification successful (simulated).");
+  async function handleFaceVerify(imageData?: string, descriptor?: Float32Array) {
+    if (descriptor && db) {
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const q = query(collection(db, "retrievals"), where("retrievedAt", ">=", today.toISOString()));
+        const snap = await getDocs(q);
+        
+        let matchCount = 0;
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.faceDescriptor) {
+            const dbDescriptor = new Float32Array(data.faceDescriptor);
+            const distance = faceapi.euclideanDistance(descriptor, dbDescriptor);
+            if (distance < 0.55) matchCount++;
+          }
+        });
+
+        if (matchCount >= 2) {
+          // Push a proper alert notification
+          dispatch({ type: "push-alert", alert: {
+            id: `hoarding-denied-${Date.now()}`,
+            lockerId: currentLocker.lockerId,
+            title: "🚫 Daily Limit Reached",
+            detail: "This identity has already retrieved food twice today. Fair share policy enforced.",
+            severity: "critical",
+            createdAt: new Date().toISOString()
+          }});
+          setShowFaceVerification(false);
+          setShowHoardingDenied(true);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to verify anti-hoarding rules:", err);
+      }
     }
+
     setShowFaceVerification(false);
-    await retrieveFood(false, false, imageData);
+    await retrieveFood(false, false, imageData, descriptor ? Array.from(descriptor) : undefined);
   }
 
   const navigateLocker = (direction: -1 | 1) => {
@@ -143,6 +206,40 @@ export function KioskPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Anti-Hoarding Denial Modal */}
+      <AnimatePresence>
+        {showHoardingDenied && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-panel/95 backdrop-blur-3xl border border-red-500/30 rounded-[2rem] p-8 shadow-[0_32px_64px_-16px_rgba(239,68,68,0.4)] flex flex-col items-center text-center"
+            >
+              <div className="w-20 h-20 rounded-full bg-red-500/10 border-2 border-red-500/30 flex items-center justify-center mb-5">
+                <Ban size={40} className="text-red-400" />
+              </div>
+              <h3 className="font-black text-2xl text-text mb-2">Daily Limit Reached</h3>
+              <p className="text-[11px] font-bold text-red-400 uppercase tracking-[0.2em] mb-4">Fair Share Policy Active</p>
+              <p className="text-text-muted text-sm leading-relaxed mb-6">
+                Your identity has already been verified for <strong className="text-text">2 retrievals today</strong>. Our system enforces this to ensure everyone in the community has fair access to food.
+              </p>
+              <div className="w-full bg-accent/5 border border-accent/20 rounded-2xl p-4 mb-6 text-left">
+                <p className="text-[11px] font-black text-accent uppercase tracking-widest mb-2">🌱 Why this matters</p>
+                <p className="text-text-muted text-xs leading-relaxed">EcoLocker exists to fight food waste while feeding as many people as possible. By limiting retrievals, we make sure surplus food reaches more hands every day. Thank you for understanding.</p>
+              </div>
+              <button
+                onClick={() => setShowHoardingDenied(false)}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-accent to-emerald-500 text-white font-black text-sm uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-accent/20"
+              >
+                I Understand — Come Back Tomorrow
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
       {isSanitizing && (
         <motion.div 
@@ -268,18 +365,30 @@ export function KioskPage() {
               <div className="header-icon-ring">
                 <Box className="w-6 h-6 text-accent" />
               </div>
-              <h3>Unit Volume Analysis</h3>
-              <p>Detailed capacity telemetry for all mission safes.</p>
+              <h3>Terminal Diagnostics</h3>
+              <p>Detailed capacity and hardware telemetry for all mission safes.</p>
             </div>
             
             <div className="volume-grid-luxe">
               {state.lockers.map((locker, idx) => {
                 const volume = 15 + (idx % 3) * 5; // Mock volumes: 15L, 20L, 25L
+                const isCurrent = locker.lockerId === currentLocker.lockerId;
+                const sensorHealth = locker.telemetry?.sensorHealth || "healthy";
+                
                 return (
-                  <div key={locker.lockerId} className="volume-item-luxe">
+                  <div key={locker.lockerId} className={`volume-item-luxe ${isCurrent ? 'is-active' : ''}`}>
                     <div className="volume-item-header">
-                      <span className="unit-tag">SAFE_{ (idx + 1).toString().padStart(2, '0') }</span>
-                      <span className="volume-value">{volume}L</span>
+                      <div className="flex flex-col">
+                        <span className="unit-tag">SAFE_{ (idx + 1).toString().padStart(2, '0') }</span>
+                        <div className="flex items-center gap-1 mt-1">
+                          <div className={`w-1.5 h-1.5 rounded-full ${sensorHealth === 'healthy' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                          <span className="text-[10px] font-bold opacity-60 uppercase">{sensorHealth}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="volume-value">{volume}L</span>
+                        {isCurrent && <span className="current-marker mt-1">ACTIVE</span>}
+                      </div>
                     </div>
                     <div className="volume-progress-track">
                       <motion.div 
@@ -297,8 +406,29 @@ export function KioskPage() {
               })}
             </div>
 
-            <button className="primary-button w-full mt-6" onClick={() => setShowVolumeAnalysis(false)}>
-              Close Analysis
+            <div className="override-action-block mt-8 p-6 bg-rose-500/10 border border-rose-500/20 rounded-2xl">
+              <div className="flex items-center gap-4 mb-4">
+                <AlertTriangle className="text-rose-500" size={24} />
+                <div>
+                  <h4 className="text-rose-500 font-bold m-0">Critical Override: SAFE_{ (state.lockers.findIndex(l => l.lockerId === currentLocker.lockerId) + 1).toString().padStart(2, '0') }</h4>
+                  <p className="text-rose-500/70 text-xs m-0">Bypass quality guard and force solenoid release.</p>
+                </div>
+              </div>
+              
+              <button 
+                className="w-full py-4 bg-rose-600 hover:bg-rose-700 text-white font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-rose-900/20 flex items-center justify-center gap-3"
+                onClick={async () => {
+                  setShowVolumeAnalysis(false);
+                  await retrieveFood(true, true);
+                }}
+              >
+                <ShieldCheck size={20} />
+                Execute Force Release
+              </button>
+            </div>
+
+            <button className="luxe-secondary-button w-full mt-4" onClick={() => setShowVolumeAnalysis(false)}>
+              Dismiss Diagnostics
             </button>
           </motion.div>
         </div>
@@ -317,101 +447,141 @@ export function KioskPage() {
 
           {/* Technical Corner Marks */}
 
-          <div className="hero-copy hero-copy-redesign">
-            
-            {/* ... existing content ... */}
+          {displayDonation ? (
+            <div className="hero-copy hero-copy-redesign">
+              
+              {/* ... existing content ... */}
 
-            {/* ── Top identity row ── */}
-            <div className="hrd-identity-row" style={{ position: 'relative', zIndex: 10 }}>
-              <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
-                  <div className="hrd-eyebrow-stack">
-                    <span className="hrd-system-label">RECEIVER DASHBOARD</span>
-                    <div className="hrd-live-chip"><span className="hrd-live-dot" />LIVE</div>
+              {/* ── Top identity row ── */}
+              <div className="hrd-identity-row" style={{ position: 'relative', zIndex: 10 }}>
+                <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
+                    <div className="hrd-eyebrow-stack">
+                      <span className="hrd-system-label">RECEIVER DASHBOARD</span>
+                      <div className="hrd-live-chip"><span className="hrd-live-dot" />LIVE</div>
+                    </div>
+                </TextReveal>
+                <TextReveal mode="words" direction="right" distance={10} delay={0.2}>
+                  <div className="hrd-pill-row">
+                    <StatusPill value={currentLocker.occupancyState} tone={donation ? "warning" : "success"} />
+                    <StatusPill value={telemetry.sensorHealth} tone={telemetry.sensorHealth === "healthy" ? "success" : "warning"} />
                   </div>
-              </TextReveal>
-              <TextReveal mode="words" direction="right" distance={10} delay={0.2}>
-                <div className="hrd-pill-row">
-                  <StatusPill value={currentLocker.occupancyState} tone={donation ? "warning" : "success"} />
-                  <StatusPill value={telemetry.sensorHealth} tone={telemetry.sensorHealth === "healthy" ? "success" : "warning"} />
-                  {/* SIGN OUT button removed per request */}
-                </div>
-              </TextReveal>
-            </div>
-
-            {/* ── Food Name ── */}
-            <div className="hrd-food-name-row" style={{ position: 'relative', zIndex: 10 }}>
-              <TextReveal mode="words" direction="up" distance={15} delay={0.3}>
-                <h2 className="hrd-food-name">
-                  {displayDonation
-                    ? displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)
-                    : "No Item"}
-                </h2>
-              </TextReveal>
-
-            </div>
-
-            {/* ── QUALITY INDEX — Prominent Hero Block ── */}
-            <div className="hrd-qi-hero prominent-hero" style={{ position: 'relative', zIndex: 10 }}>
-              {/* Massive centered gauge */}
-              <div className="hrd-gauge-master">
-                <div className="hrd-score-ring-wrap">
-                  <QualityGauge hoursRemaining={displayHoursRemaining} totalDuration={MAX_SHELF_LIFE} />
-                </div>
+                </TextReveal>
               </div>
 
-              {/* Streamlined data row beneath gauge */}
-              <div className="hrd-qi-data-refined">
-                <div className="hrd-data-grid">
-                  <div className="hrd-data-cell">
-                    <span className="hrd-cell-label">TIME REMAINING</span>
-                    <div className="hrd-hours-block">
-                      <span className="hrd-hours-num">{displayHoursRemaining > 0 ? displayHoursRemaining.toFixed(1) : "—"}</span>
-                      <span className="hrd-hours-unit">hrs</span>
+              {/* ── Food Name ── */}
+              <div className="hrd-food-name-row" style={{ position: 'relative', zIndex: 10 }}>
+                <TextReveal mode="words" direction="up" distance={15} delay={0.3}>
+                  <h2 className="hrd-food-name">
+                    {displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)}
+                  </h2>
+                </TextReveal>
+
+              </div>
+
+              {/* ── QUALITY INDEX — Prominent Hero Block ── */}
+              <div className="hrd-qi-hero prominent-hero" style={{ position: 'relative', zIndex: 10 }}>
+                {/* Massive centered gauge */}
+                <div className="hrd-gauge-master">
+                  <div className="hrd-score-ring-wrap">
+                    <QualityGauge hoursRemaining={displayHoursRemaining} totalDuration={MAX_SHELF_LIFE} />
+                  </div>
+                </div>
+
+                {/* Streamlined data row beneath gauge */}
+                <div className="hrd-qi-data-refined">
+                  <div className="hrd-data-grid">
+                    <div className="hrd-data-cell">
+                      <span className="hrd-cell-label">TIME REMAINING</span>
+                      <div className="hrd-hours-block">
+                        <span className="hrd-hours-num">{displayHoursRemaining > 0 ? displayHoursRemaining.toFixed(1) : "—"}</span>
+                        <span className="hrd-hours-unit">hrs</span>
+                      </div>
+                    </div>
+
+                    <div className="hrd-data-cell">
+                      <span className="hrd-cell-label">FRESHNESS STATE</span>
+                      <div className={`hrd-status-badge-new ${qualityStage}`}>
+                        {qualityStage === "fresh" ? <ShieldCheck size={10} /> : <Activity size={10} />}
+                        {getQualityLabel(qualityStage)}
+                      </div>
+                    </div>
+
+                    <div className="hrd-data-cell">
+                      <span className="hrd-cell-label">EXPIRY DATE</span>
+                      <span className="hrd-expiry-text-new">
+                        {selectedDeadline ? formatDateTime(selectedDeadline.absoluteIso) : "N/A"}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="hrd-data-cell">
-                    <span className="hrd-cell-label">FRESHNESS STATE</span>
-                    <div className={`hrd-status-badge-new ${qualityStage}`}>
-                      {qualityStage === "fresh" ? <ShieldCheck size={10} /> : <Activity size={10} />}
-                      {qualityStage === "spoiled" ? "Expired" : qualityStage === "warning" ? "Expiring Soon" : "Fresh"}
+                  {/* Progress bar integrated at the bottom of the hero */}
+                  <div className="hrd-freshness-bar-wrap">
+                    <div className="hrd-freshness-bar-track">
+                      <div
+                        className="hrd-freshness-bar-fill"
+                        style={{
+                          width: `${calculatedQualityScore}%`,
+                          background: calculatedQualityScore < 30
+                            ? "linear-gradient(90deg,#ef4444,#dc2626)"
+                            : calculatedQualityScore < 60
+                            ? "linear-gradient(90deg,#f59e0b,#d97706)"
+                            : "linear-gradient(90deg,#22c55e,#16a34a)"
+                        }}
+                      />
                     </div>
-                  </div>
-
-                  <div className="hrd-data-cell">
-                    <span className="hrd-cell-label">EXPIRY DATE</span>
-                    <span className="hrd-expiry-text-new">
-                      {selectedDeadline ? formatDateTime(selectedDeadline.absoluteIso) : "N/A"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Progress bar integrated at the bottom of the hero */}
-                <div className="hrd-freshness-bar-wrap">
-                  <div className="hrd-freshness-bar-track">
-                    <div
-                      className="hrd-freshness-bar-fill"
-                      style={{
-                        width: `${calculatedQualityScore}%`,
-                        background: calculatedQualityScore < 30
-                          ? "linear-gradient(90deg,#ef4444,#dc2626)"
-                          : calculatedQualityScore < 60
-                          ? "linear-gradient(90deg,#f59e0b,#d97706)"
-                          : "linear-gradient(90deg,#22c55e,#16a34a)"
-                      }}
-                    />
-                  </div>
-                  <div className="hrd-bar-labels">
-                    <span>SPOILED</span>
-                    <span>OPTIMAL</span>
-                    <span>FRESH</span>
+                    <div className="hrd-bar-labels">
+                      <span>SPOILED</span>
+                      <span>OPTIMAL</span>
+                      <span>FRESH</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {state.syncMessage && <div className="status-banner">{state.syncMessage}</div>}
-          </div>
+              {/* Status banner removed per user request */}
+            </div>
+          ) : (
+            /* ── EMPTY LOCKER — Left panel (matches screenshot) ── */
+            <div className="hero-copy hero-copy-empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.25rem', textAlign: 'center', position: 'relative', zIndex: 10, padding: '2rem 1.5rem' }}>
+              {/* Shield icon + DONOR MODE badge */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '64px', height: '64px', borderRadius: '18px', background: 'rgba(16,185,129,0.1)', border: '1.5px solid rgba(16,185,129,0.25)', display: 'grid', placeItems: 'center' }}>
+                  <Shield size={30} style={{ color: 'var(--accent)' }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '99px', padding: '4px 12px' }}>
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
+                  <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.15em', color: 'var(--accent)', textTransform: 'uppercase' }}>Donor Mode</span>
+                </div>
+              </div>
+
+              {/* Heading */}
+              <h2 style={{ fontSize: 'clamp(1.4rem, 3vw, 1.9rem)', fontWeight: 900, lineHeight: 1.2, color: 'var(--text)', margin: 0 }}>
+                Register the meal<br />before the locker<br />unlocks.
+              </h2>
+
+              {/* Subtext */}
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: '260px', margin: 0, opacity: 0.8 }}>
+                The donor record stays private in Firebase while the receiver dashboard shows only safe public food details and live chamber intelligence.
+              </p>
+
+              {/* Mini telemetry hint */}
+              <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', opacity: 0.5 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{telemetry.internalTempC.toFixed(1)}°</div>
+                  <div style={{ fontSize: '0.55rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Temp</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{telemetry.humidityPct}%</div>
+                  <div style={{ fontSize: '0.55rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Humidity</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{telemetry.sensorHealth === 'healthy' ? '✓' : '!'}</div>
+                  <div style={{ fontSize: '0.55rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Sensor</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <FoodHeroV2
             donation={donation}
             onActiveItemChange={setSelectedDonation}
@@ -461,19 +631,17 @@ export function KioskPage() {
                         </div>
                         <strong className="chamber-id">{safeNum}</strong>
                         
-                        <div className="chamber-status-stack">
+                    <div className="chamber-status-stack">
                           <StatusPill 
-                            value={locker.occupancyState} 
+                            value={locker.occupancyState === 'maintenance' ? 'empty' : locker.occupancyState} 
                             tone={
                               locker.occupancyState === 'occupied' ? 'warning' : 
-                              locker.occupancyState === 'empty' ? 'success' : 
-                              locker.occupancyState === 'spoiled' ? 'spoiled' : 
-                              'danger'
+                              'success'
                             } 
                           />
                           
                           <AnimatePresence>
-                            {locker.occupancyState !== 'empty' && locker.occupancyState !== 'maintenance' && (
+                            {locker.occupancyState === 'occupied' && (
                               <motion.div 
                                 initial={{ opacity: 0, scale: 0.8 }}
                                 animate={{ opacity: 1, scale: 1 }}
@@ -481,7 +649,7 @@ export function KioskPage() {
                                 className={`quality-mini-pill ${locker.foodQualityScore}`}
                               >
                                 <Activity size={8} />
-                                {locker.foodQualityScore}
+                                {getQualityLabel(locker.foodQualityScore).toUpperCase()}
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -3533,6 +3701,119 @@ export function KioskPage() {
               box-shadow: 0 0 12px #10B981;
               animation: pulseGlow 2s infinite;
             }
+            .eyebrow-accent {
+              font-size: 0.7rem;
+              font-weight: 900;
+              color: var(--accent);
+              letter-spacing: 0.2em;
+              text-transform: uppercase;
+            }
+
+            /* Volume Analysis / Terminal Diagnostics Modal Enhancements */
+            .volume-analysis-modal {
+              width: 100%;
+              max-width: 600px;
+              padding: 2.5rem;
+              position: relative;
+              overflow: hidden;
+              border-radius: 2.5rem !important;
+            }
+            .volume-grid-luxe {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 1.25rem;
+              margin-top: 1.5rem;
+            }
+            .volume-item-luxe {
+              background: rgba(255, 255, 255, 0.02);
+              border: 1px solid rgba(255, 255, 255, 0.05);
+              padding: 1.25rem;
+              border-radius: 1.5rem;
+              transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            .volume-item-luxe.is-active {
+              background: rgba(var(--accent-rgb), 0.1);
+              border-color: rgba(var(--accent-rgb), 0.3);
+              box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+              transform: translateY(-4px);
+            }
+            .current-marker {
+              font-size: 0.55rem;
+              font-weight: 900;
+              background: var(--accent);
+              color: white;
+              padding: 3px 8px;
+              border-radius: 6px;
+              letter-spacing: 0.05em;
+              box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
+            }
+            .volume-value {
+              font-family: var(--font-mono);
+              font-weight: 900;
+              color: var(--accent);
+              font-size: 0.85rem;
+              opacity: 0.9;
+            }
+            .volume-progress-track {
+              height: 6px;
+              background: rgba(255, 255, 255, 0.05);
+              border-radius: 99px;
+              margin: 1.25rem 0;
+              overflow: hidden;
+              border: 1px solid rgba(255, 255, 255, 0.03);
+            }
+            .volume-progress-fill {
+              height: 100%;
+              background: var(--accent);
+              border-radius: 99px;
+            }
+            .volume-progress-fill.occupied { 
+              background: linear-gradient(90deg, #F59E0B, #D97706); 
+            }
+            .volume-progress-fill.empty { 
+              background: linear-gradient(90deg, #10B981, #059669); 
+              opacity: 0.3;
+            }
+            
+            .status-label {
+              font-size: 0.55rem;
+              font-weight: 900;
+              letter-spacing: 0.1em;
+              color: var(--text-muted);
+            }
+            .capacity-label {
+              font-size: 0.6rem;
+              font-weight: 700;
+              color: var(--text);
+              opacity: 0.6;
+            }
+
+            .override-action-block {
+              backdrop-filter: blur(10px);
+              transform: translateZ(0);
+            }
+            
+            .luxe-secondary-button {
+              background: rgba(255, 255, 255, 0.05);
+              border: 1px solid rgba(255, 255, 255, 0.1);
+              color: var(--text);
+              padding: 1rem;
+              border-radius: 1rem;
+              font-weight: 800;
+              font-size: 0.85rem;
+              transition: all 0.3s ease;
+            }
+            .luxe-secondary-button:hover {
+              background: rgba(255, 255, 255, 0.1);
+              border-color: rgba(255, 255, 255, 0.2);
+            }
+
+            @media (max-width: 640px) {
+              .volume-grid-luxe {
+                grid-template-columns: 1fr;
+              }
+            }
+
             @keyframes pulseGlow {
               0% { opacity: 0.4; transform: scale(0.8); }
               50% { opacity: 1; transform: scale(1.2); }

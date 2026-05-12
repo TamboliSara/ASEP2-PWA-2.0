@@ -5,6 +5,7 @@ import { Menu } from "./ui/fluid-menu";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
 import type { FleetLockerSummary } from "../types/domain";
+import { getQualityLabel } from "../utils/safety";
 
 /**
  * Derives FleetLockerSummary[] from live app state instead of mock data.
@@ -228,7 +229,7 @@ export function FleetMap() {
                                       chamber.isOccupied ? 'bg-danger/10 text-danger border-danger/20' :
                                       'bg-panel/50 text-text-muted border-line'}`}
                                   >
-                                    {chamber.isOccupied ? chamber.quality : 'idle'}
+                                    {chamber.isOccupied ? getQualityLabel(chamber.quality as any) : 'idle'}
                                   </span>
                                 </div>
                               ))
@@ -253,7 +254,7 @@ export function FleetMap() {
                                         locker.foodQualityScore === 'aging' ? 'bg-warning/10 text-warning border-warning/20' : 
                                         'bg-danger/10 text-danger border-danger/20'}`}
                                     >
-                                      {locker.foodQualityScore}
+                                      {getQualityLabel(locker.foodQualityScore)}
                                     </span>
                                   </div>
                                 ));

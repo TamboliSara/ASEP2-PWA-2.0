@@ -7,6 +7,7 @@ import { signInAnonymously, connectAuthEmulator } from "firebase/auth";
 import { connectFirestoreEmulator } from "firebase/firestore";
 import { connectDatabaseEmulator } from "firebase/database";
 import { connectFunctionsEmulator } from "firebase/functions";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "demo-api-key",
@@ -26,6 +27,7 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const rtdb = getDatabase(app);
 export const functions = getFunctions(app);
+export const storage = getStorage(app);
 
 // ── Connect to Emulators in Development ──────────────────────────
 // To use real cloud Firebase instead of emulators, add VITE_USE_CLOUD=true to .env.local
@@ -34,9 +36,10 @@ const useCloud = import.meta.env.VITE_USE_CLOUD === "true";
 if (import.meta.env.DEV && !useCloud) {
   try {
     connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-    connectFirestoreEmulator(db, "127.0.0.1", 8080);
-    connectDatabaseEmulator(rtdb, "127.0.0.1", 9000);
+    connectFirestoreEmulator(db, "127.0.0.1", 8081);
+    connectDatabaseEmulator(rtdb, "127.0.0.1", 9001);
     connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+    connectStorageEmulator(storage, "127.0.0.1", 9199);
     console.log("[Firebase] Connected to local emulators");
   } catch (e) {
     console.error("[Firebase] Emulator connection failed:", e);

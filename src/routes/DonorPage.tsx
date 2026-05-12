@@ -5,7 +5,7 @@ import { ArrowRight, Package, ShieldCheck, Info, ChevronLeft, ChevronRight, Shie
 import { DepositForm } from "../components/forms/DepositForm";
 import { SafetyCapacityCard } from "../components/SafetyCapacityCard";
 import { useLockerController } from "../features/useLockerController";
-import { BiometricGuard } from "../features/biometrics/BiometricGuard";
+
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
 import { ScrollReveal } from "../components/ScrollReveal";
@@ -19,8 +19,7 @@ export function DonorPage() {
   const [isFlowStarted, setIsFlowStarted] = useState(false);
   const [depositConfirmed, setDepositConfirmed] = useState(false);
   const [showSafetyCard, setShowSafetyCard] = useState(false);
-  const [showBiometricModal, setShowBiometricModal] = useState(false);
-  const [biometricDescriptor, setBiometricDescriptor] = useState<Float32Array | null>(null);
+
 
   // Auto-show safety card if not started and not showing yet
   useEffect(() => {
@@ -72,18 +71,7 @@ export function DonorPage() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showBiometricModal && (
-          <BiometricGuard 
-            onVerified={(descriptor) => {
-              setBiometricDescriptor(descriptor);
-              setShowBiometricModal(false);
-              setIsFlowStarted(true); // Proceed to form
-            }}
-            onClose={() => setShowBiometricModal(false)}
-          />
-        )}
-      </AnimatePresence>
+
 
       {/* Top Navigation */}
       <div className="w-full max-w-6xl flex justify-between items-center mb-6">
