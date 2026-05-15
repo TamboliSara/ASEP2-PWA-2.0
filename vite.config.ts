@@ -1,17 +1,13 @@
-import { fileURLToPath } from "url";
-import path from "path";
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import tailwindcss from "@tailwindcss/vite";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 export default defineConfig({
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
   plugins: [
@@ -19,6 +15,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: 'auto',
       includeAssets: ["icons/icon.svg"],
       manifest: {
         name: "EcoLocker",
@@ -41,7 +38,11 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"]
+      },
+      devOptions: {
+        enabled: true,
+        type: 'module'
       }
     })
   ]
-});
+});
