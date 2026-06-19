@@ -33,6 +33,10 @@ export interface SensorTelemetry {
   heaterStep: number;
   sensorHealth: SensorHealth;
   heuristicGasProfile: string[];
+  daysRemaining?: number;
+  safetyClass?: number;
+  safetyScore?: number;
+  distanceCm?: number;
 }
 
 export interface DonationRecord {

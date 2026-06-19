@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Package, ShieldCheck, Info, ChevronLeft, ChevronRight, Shield } from "lucide-react";
+import { ArrowRight, Package, ShieldCheck, Info, ChevronLeft, ChevronRight, Shield, AlertTriangle } from "lucide-react";
 import { DepositForm } from "../components/forms/DepositForm";
 import { SafetyCapacityCard } from "../components/SafetyCapacityCard";
 import { useLockerController } from "../features/useLockerController";
@@ -18,6 +18,7 @@ export function DonorPage() {
   const { t } = useTranslation();
   const [isFlowStarted, setIsFlowStarted] = useState(false);
   const [depositConfirmed, setDepositConfirmed] = useState(false);
+  const [depositFailed, setDepositFailed] = useState(false);
   const [showSafetyCard, setShowSafetyCard] = useState(false);
 
 
@@ -30,10 +31,17 @@ export function DonorPage() {
   }, [isFlowStarted, depositConfirmed]);
 
   async function handleSubmit(imageData?: string) {
+    setDepositFailed(false);
     const donation = await submitDeposit(imageData);
-    setDepositConfirmed(true);
     if (donation) {
+      // Real food confirmed by ultrasonic sensor — proceed to receiver dashboard
+      setDepositConfirmed(true);
       window.setTimeout(() => navigate("/receive", { replace: true }), 900);
+    } else {
+      // Ghost attempt: no food detected, deposit was cancelled by firmware.
+      // Reset the flow so the donor can try again cleanly.
+      setDepositFailed(true);
+      setIsFlowStarted(false);
     }
   }
 
@@ -88,6 +96,44 @@ export function DonorPage() {
           <span className="text-xs font-black uppercase tracking-widest">Safety Guidelines</span>
         </button>
       </div>
+
+      {/* Ghost-attempt failure banner — shown when hardware detects no food */}
+      <AnimatePresence>
+        {depositFailed && (
+          <motion.div
+            initial={{ opacity: 0, y: -16, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 280, damping: 24 }}
+            className="w-full max-w-5xl mb-4 flex items-start gap-3 px-5 py-4 rounded-2xl"
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              border: "1.5px solid rgba(239,68,68,0.35)",
+              backdropFilter: "blur(12px)"
+            }}
+          >
+            <div style={{ flexShrink: 0, marginTop: "2px" }}>
+              <AlertTriangle className="w-5 h-5" style={{ color: "#f87171" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "0.8rem", fontWeight: 900, color: "#f87171", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                No Food Detected
+              </p>
+              <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.6)", margin: 0, lineHeight: 1.55 }}>
+                The sensor did not detect food inside the chamber. The locker has been re-locked automatically.
+                Please place your food item inside and try again.
+              </p>
+            </div>
+            <button
+              onClick={() => setDepositFailed(false)}
+              className="text-text-muted hover:text-white transition-colors flex-shrink-0 mt-0.5"
+              aria-label="Dismiss"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ScrollReveal type="blur" direction="up" distance={40} threshold={0.1}>
         <div className="w-full max-w-5xl grid md:grid-cols-5 gap-0 overflow-hidden rounded-[2rem] border border-line bg-panel/20 backdrop-blur-3xl shadow-2xl">

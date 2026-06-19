@@ -60,20 +60,34 @@ export function rtdbRef(path: string) {
   return ref(rtdb, path);
 }
 
+function resolveLockerId(lockerId: string): string {
+  if (lockerId === "chamber-1") {
+    try {
+      const savedMac = localStorage.getItem("ecolocker-hardware-mac");
+      if (savedMac && savedMac !== "SIMULATED" && savedMac !== "") {
+        return savedMac;
+      }
+    } catch (e) {
+      console.warn("[Firebase] localStorage not available:", e);
+    }
+  }
+  return lockerId;
+}
+
 export function telemetryRef(lockerId: string) {
-  return rtdbRef(`telemetry/${lockerId}`);
+  return rtdbRef(`telemetry/${resolveLockerId(lockerId)}`);
 }
 
 export function commandRef(lockerId: string) {
-  return rtdbRef(`commands/${lockerId}`);
+  return rtdbRef(`commands/${resolveLockerId(lockerId)}`);
 }
 
 export function statusRef(lockerId: string) {
-  return rtdbRef(`status/${lockerId}`);
+  return rtdbRef(`status/${resolveLockerId(lockerId)}`);
 }
 
 export function deviceRegistrationRef(lockerId: string) {
-  return rtdbRef(`devices/${lockerId}`);
+  return rtdbRef(`devices/${resolveLockerId(lockerId)}`);
 }
 
 // ── Anonymous Auth (auto sign-in for kiosk mode) ──────────────────

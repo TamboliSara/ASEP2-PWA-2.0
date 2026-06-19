@@ -144,6 +144,7 @@ export async function syncDonation(
       donorName: record.donorName,
       donorContact: record.donorContact,
       donorImageUrl: imageUrl || record.donorImageUrl || null,   // calendar reads this
+      donorImageBase64: record.donorImageBase64 || null,         // ensures calendar has the raw image if upload fails
       foodName: record.foodName,
       createdAt: record.createdAt,
 
@@ -440,6 +441,57 @@ export async function syncRetrieval(record: RetrievalRecord) {
     return true;
   } catch (error) {
     console.error("[Sync] ❌ Retrieval sync failed:", error);
+    return false;
+  }
+}
+
+// ── Denied Attempt Logging ─────────────────────────────────────────
+
+export interface DeniedAttemptRecord {
+  id: string;
+  lockerId: string;
+  attemptedAt: string;
+  denialReason: "daily_limit_reached" | "no_face_scan";
+  /** Running count of how many times this person has been denied today (fleet-wide) */
+  deniedTodayCount: number;
+  receiverImageBase64?: string;
+  faceDescriptor?: number[];
+}
+
+export async function syncDeniedAttempt(record: DeniedAttemptRecord): Promise<boolean> {
+  if (!db) {
+    console.warn("[Sync] No Firestore — denied attempt not logged.");
+    return false;
+  }
+
+  try {
+    // Upload the receiver's image for the audit trail (non-blocking if it fails)
+    let receiverImageUrl: string | null = null;
+    if (record.receiverImageBase64) {
+      receiverImageUrl = await uploadImage(
+        record.receiverImageBase64,
+        `deniedAttempts/${record.id}_receiver.jpg`
+      ).catch(() => null);
+    }
+
+    await withTimeout(
+      setDoc(doc(db, "deniedAttempts", record.id), {
+        id: record.id,
+        lockerId: record.lockerId,
+        attemptedAt: record.attemptedAt,
+        denialReason: record.denialReason,
+        deniedTodayCount: record.deniedTodayCount,
+        faceDescriptor: record.faceDescriptor ?? null,
+        receiverImageBase64: record.receiverImageBase64 ?? null,
+        receiverImageUrl,
+        _syncedAt: serverTimestamp()
+      })
+    );
+
+    console.log(`[Sync] ✅ Denied attempt logged: ${record.id} — reason: ${record.denialReason} (today count: ${record.deniedTodayCount})`);
+    return true;
+  } catch (error) {
+    console.error("[Sync] ❌ Denied attempt log failed:", error);
     return false;
   }
 }

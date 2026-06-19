@@ -5,7 +5,8 @@ import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
 import { ScrollReveal } from "../components/ScrollReveal";
 import { motion } from "framer-motion";
-import { Bluetooth, ShieldCheck, Box, Activity, Database, Check, Loader2, Leaf } from "lucide-react";
+import { Bluetooth, ShieldCheck, Box, Activity, Database, Check, Loader2, Wifi, AlertCircle } from "lucide-react";
+import { HARDWARE_LOCKER_ID } from "../store/appState";
 
 type PairingStep = "idle" | "ble_discovery" | "cloud_register" | "state_sync" | "complete" | "error";
 
@@ -15,25 +16,35 @@ export function ConnectPage() {
   const { currentLocker, pairLocker, isBusy } = useLockerController();
   const { t } = useTranslation();
   const [pairingStep, setPairingStep] = useState<PairingStep>("idle");
+  const [pairingCancelled, setPairingCancelled] = useState(false);
+
+  const isRealHardwarePaired = !!state.hardwareMac && state.hardwareMac !== "SIMULATED" && state.hardwareMac !== "";
 
   const steps = useMemo(() => [
-    { text: "Hardware Discovery", icon: Bluetooth, key: "ble_discovery" },
-    { text: "Cloud Registration", icon: Database, key: "cloud_register" },
-    { text: "Security Handshake", icon: ShieldCheck, key: "state_sync" },
-    { text: "System Online", icon: Activity, key: "complete" },
+    { text: "Hardware Discovery (BLE)", icon: Bluetooth,   key: "ble_discovery" },
+    { text: "Cloud Registration",       icon: Database,     key: "cloud_register" },
+    { text: "Security Handshake",       icon: ShieldCheck,  key: "state_sync" },
+    { text: "System Online",            icon: Activity,     key: "complete" },
   ], []);
 
   const handlePair = useCallback(async () => {
+    setPairingCancelled(false);
     setPairingStep("ble_discovery");
     const success = await pairLocker();
 
     if (success) {
       setPairingStep("complete");
-      setTimeout(() => navigate("/", { replace: true }), 1500);
+      setTimeout(() => navigate("/", { replace: true }), 1800);
     } else {
-      setPairingStep("error");
+      // Check if cancelled vs error
+      if (state.syncMessage.includes("cancelled")) {
+        setPairingCancelled(true);
+        setPairingStep("idle");
+      } else {
+        setPairingStep("error");
+      }
     }
-  }, [pairLocker, navigate]);
+  }, [pairLocker, navigate, state.syncMessage]);
 
   const getCurrentStepIndex = (): number => {
     const msg = state.syncMessage.toLowerCase();
@@ -73,6 +84,47 @@ export function ConnectPage() {
           </h1>
           
           <p className="hero-body-luxe">{t("connectBody")}</p>
+
+          {/* Hardware info box */}
+          <div style={{
+            background: "rgba(var(--accent-rgb), 0.06)",
+            border: "1px solid rgba(var(--accent-rgb), 0.2)",
+            borderRadius: "12px",
+            padding: "12px 16px",
+            marginBottom: "16px",
+            fontSize: "0.82rem"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", fontWeight: 600 }}>
+              <Wifi size={14} />
+              <span>System Configuration</span>
+            </div>
+            <div style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+              🔒 <strong>Chamber 1</strong> — Real ESP32-S3 Hardware
+              {isRealHardwarePaired && (
+                <span style={{ color: "var(--accent)", marginLeft: 6, fontSize: "0.78rem" }}>
+                  (MAC: {state.hardwareMac})
+                </span>
+              )}
+              <br />
+              📋 <strong>Chambers 2–8</strong> — Mock simulation (no hardware required)
+            </div>
+          </div>
+
+          {pairingCancelled && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                display: "flex", gap: "8px", alignItems: "center",
+                background: "rgba(255,180,0,0.08)", border: "1px solid rgba(255,180,0,0.3)",
+                borderRadius: "8px", padding: "8px 12px", marginBottom: "12px",
+                fontSize: "0.82rem", color: "var(--text-muted)"
+              }}
+            >
+              <AlertCircle size={14} style={{ color: "#f59e0b" }} />
+              Bluetooth pairing cancelled. Click "Connect" to try again.
+            </motion.div>
+          )}
           
           <div className="connect-actions-luxe">
             <button 

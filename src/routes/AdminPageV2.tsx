@@ -611,6 +611,13 @@ export function AdminPageV2() {
                   color={currentLocker.telemetry.humidityPct <= 70 ? "var(--accent-bright)" : currentLocker.telemetry.humidityPct <= 85 ? "var(--warning)" : "var(--danger)"}
                   icon={<Droplets className="w-4 h-4" />}
                 />
+                <MetricItem
+                  label="HC-SR04 Distance"
+                  value={currentLocker.telemetry.distanceCm != null ? `${currentLocker.telemetry.distanceCm.toFixed(1)} cm` : "—"}
+                  progress={currentLocker.telemetry.distanceCm != null ? (currentLocker.telemetry.distanceCm < 34 ? 88 : 10) : 0}
+                  color={currentLocker.telemetry.distanceCm != null && currentLocker.telemetry.distanceCm < 34 ? "var(--accent-bright)" : "var(--text-muted)"}
+                  icon={<Activity className="w-4 h-4" />}
+                />
               </div>
               
               <div className="mt-10 pt-6 border-t border-line dark:border-white/5 flex items-center justify-between relative z-10">

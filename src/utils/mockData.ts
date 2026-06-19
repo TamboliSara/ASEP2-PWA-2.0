@@ -55,8 +55,7 @@ export const sampleDonation: DonationRecord = {
   createdAt: now.toISOString(),
   latestQualityScore: "fresh",
   deadlineEstimate: defaultDeadlineEstimate,
-  syncState: "queued",
-  donorImageUrl: "https://i.pravatar.cc/150?u=sara"
+  syncState: "queued"
 };
 
 export const sampleAlert: AlertRecord = {

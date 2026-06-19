@@ -15,8 +15,51 @@ import { QualityGauge } from "../components/QualityGauge";
 import { AppleFaceIDScanner } from "../components/AppleFaceIDScanner";
 import { getRecommendedActions, calculateQualityScore, getQualityStage, getQualityLabel, MAX_SHELF_LIFE } from "../utils/safety";
 import * as faceapi from "face-api.js";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "../services/firebase";
+import { syncDeniedAttempt } from "../services/sync";
+
+// ── Fleet-wide daily retrieval tracker ─────────────────────────────────────
+// Stores Float32Array face descriptors for every retrieval that happened today.
+// Module-level = survives React re-renders; sessionStorage = survives page refresh.
+// Both reset automatically at midnight (date string comparison).
+const TRACKER_KEY = "ecolocker_daily_retrievals";
+const TODAY       = new Date().toDateString();
+
+function loadTodayDescriptors(): Float32Array[] {
+  try {
+    const raw = sessionStorage.getItem(TRACKER_KEY);
+    if (!raw) return [];
+    const parsed: { date: string; descriptors: number[][] } = JSON.parse(raw);
+    if (parsed.date !== TODAY) return []; // new day — stale data
+    return parsed.descriptors.map(d => new Float32Array(d));
+  } catch { return []; }
+}
+
+function saveTodayDescriptors(descriptors: Float32Array[]) {
+  try {
+    sessionStorage.setItem(TRACKER_KEY, JSON.stringify({
+      date: TODAY,
+      descriptors: descriptors.map(d => Array.from(d))
+    }));
+  } catch {}
+}
+
+// In-memory list for the current tab (fast, no serialisation overhead per check)
+const _sessionDescriptors: Float32Array[] = loadTodayDescriptors();
+
+function countMatchesInSession(descriptor: Float32Array): number {
+  let count = 0;
+  for (const stored of _sessionDescriptors) {
+    try {
+      if (faceapi.euclideanDistance(descriptor, stored) < 0.55) count++;
+    } catch {}
+  }
+  return count;
+}
+
+function registerDescriptorInSession(descriptor: Float32Array) {
+  _sessionDescriptors.push(descriptor);
+  saveTodayDescriptors(_sessionDescriptors);
+}
 import { formatCountdown, formatDateTime, getHoursRemaining } from "../utils/format";
 import { useAppContext } from "../store/AppContext";
 import { ScrollReveal } from "../components/ScrollReveal";
@@ -27,19 +70,28 @@ export function KioskPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { state, currentLocker, selectLocker, isBusy, retrieveFood, triggerMaintenanceLockdown, syncNow, clearSyncMessage } = useLockerController();
-  const donation = currentLocker.activeDonation;
+  const donation = currentLocker?.activeDonation;
   const [selectedDonation, setSelectedDonation] = useState(donation);
-  const telemetry = currentLocker.telemetry;
-  const isFaulted = currentLocker.faultState !== "none";
-  const isSanitizing = currentLocker.sanitizationState === "running";
+  const telemetry = currentLocker?.telemetry || {
+    internalTempC: 0,
+    humidityPct: 0,
+    pressureHpa: 0,
+    gasResistanceOhms: 0,
+    sensorHealth: "healthy",
+    heuristicGasProfile: []
+  };
+  const isFaulted = currentLocker?.faultState !== "none";
+  const isSanitizing = currentLocker?.sanitizationState === "running";
   const [now, setNow] = useState(Date.now());
   const [showAdminAuth, setShowAdminAuth] = useState(false);
   const [showFaceVerification, setShowFaceVerification] = useState(false);
   const [showVolumeAnalysis, setShowVolumeAnalysis] = useState(false);
+  // Hoarding denial: only shown temporarily to the denied person — never a permanent kiosk lock
   const [showHoardingDenied, setShowHoardingDenied] = useState(false);
   const [adminId, setAdminId] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [deniedMatchCount, setDeniedMatchCount] = useState(0);
 
   useEffect(() => {
     setSelectedDonation(donation);
@@ -64,7 +116,7 @@ export function KioskPage() {
   // Guarantee UI drops sticky selected items when the physical safe becomes empty
   useEffect(() => {
     if (!donation && selectedDonation) {
-      setSelectedDonation(null);
+      setSelectedDonation(undefined);
     }
   }, [donation, selectedDonation]);
 
@@ -138,42 +190,33 @@ export function KioskPage() {
   }
 
   async function handleFaceVerify(imageData?: string, descriptor?: Float32Array) {
-    if (descriptor && db) {
-      try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const q = query(collection(db, "retrievals"), where("retrievedAt", ">=", today.toISOString()));
-        const snap = await getDocs(q);
-        
-        let matchCount = 0;
-        snap.forEach(doc => {
-          const data = doc.data();
-          if (data.faceDescriptor) {
-            const dbDescriptor = new Float32Array(data.faceDescriptor);
-            const distance = faceapi.euclideanDistance(descriptor, dbDescriptor);
-            if (distance < 0.55) matchCount++;
-          }
-        });
-
-        if (matchCount >= 2) {
-          // Push a proper alert notification
-          dispatch({ type: "push-alert", alert: {
-            id: `hoarding-denied-${Date.now()}`,
-            lockerId: currentLocker.lockerId,
-            title: "🚫 Daily Limit Reached",
-            detail: "This identity has already retrieved food twice today. Fair share policy enforced.",
-            severity: "critical",
-            createdAt: new Date().toISOString()
-          }});
-          setShowFaceVerification(false);
-          setShowHoardingDenied(true);
-          return;
-        }
-      } catch (err) {
-        console.error("Failed to verify anti-hoarding rules:", err);
-      }
+    // ── Guard: face scan is mandatory — no descriptor = denied immediately ──
+    if (!descriptor) {
+      const deniedId = `denied-nf-${Date.now()}`;
+      dispatch({ type: "push-alert", alert: {
+        id: deniedId,
+        lockerId: currentLocker.lockerId,
+        title: "🚫 Face Scan Required",
+        detail: "Face verification is mandatory for all retrievals. Access denied.",
+        severity: "critical",
+        createdAt: new Date().toISOString()
+      }});
+      // Best-effort audit log — does NOT block the return path
+      syncDeniedAttempt({
+        id: deniedId,
+        lockerId: currentLocker.lockerId,
+        attemptedAt: new Date().toISOString(),
+        denialReason: "no_face_scan",
+        deniedTodayCount: _sessionDescriptors.length + 1,
+        receiverImageBase64: imageData
+      }).catch(() => {});
+      setShowFaceVerification(false);
+      return;
     }
 
+    // ── Fair Share check disabled — all verified faces proceed to retrieval ──
+    // (Re-enable the matchCount >= 2 block below to restore daily limit enforcement)
+    if (descriptor) registerDescriptorInSession(descriptor);
     setShowFaceVerification(false);
     await retrieveFood(false, false, imageData, descriptor ? Array.from(descriptor) : undefined);
   }
@@ -207,53 +250,126 @@ export function KioskPage() {
         )}
       </AnimatePresence>
 
-      {/* Anti-Hoarding Denial Modal */}
-      <AnimatePresence>
-        {showHoardingDenied && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-sm bg-panel/95 backdrop-blur-3xl border border-red-500/30 rounded-[2rem] p-8 shadow-[0_32px_64px_-16px_rgba(239,68,68,0.4)] flex flex-col items-center text-center"
-            >
-              <div className="w-20 h-20 rounded-full bg-red-500/10 border-2 border-red-500/30 flex items-center justify-center mb-5">
-                <Ban size={40} className="text-red-400" />
+      {/* Anti-Hoarding Denial Modal — temporary, auto-dismisses after 8s */}
+      {showHoardingDenied && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center backdrop-blur-2xl p-4" style={{ background: 'rgba(0,0,0,0.75)' }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.88, y: 30 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 22 }}
+            className="relative w-full max-w-sm flex flex-col items-center text-center"
+            style={{
+              background: "var(--panel)",
+              border: "1px solid rgba(239,68,68,0.35)",
+              borderRadius: "2rem",
+              padding: "2.5rem 2rem",
+              boxShadow: "0 0 0 1px rgba(239,68,68,0.1), 0 40px 80px -20px rgba(239,68,68,0.3)"
+            }}
+          >
+            {/* Pulsing ban icon */}
+            <div style={{ position: "relative", marginBottom: "1.5rem" }}>
+              <div style={{
+                width: "88px", height: "88px", borderRadius: "50%",
+                background: "rgba(239,68,68,0.08)",
+                border: "2px solid rgba(239,68,68,0.3)",
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                <Ban size={44} style={{ color: "#f87171" }} />
               </div>
-              <h3 className="font-black text-2xl text-text mb-2">Daily Limit Reached</h3>
-              <p className="text-[11px] font-bold text-red-400 uppercase tracking-[0.2em] mb-4">Fair Share Policy Active</p>
-              <p className="text-text-muted text-sm leading-relaxed mb-6">
-                Your identity has already been verified for <strong className="text-text">2 retrievals today</strong>. Our system enforces this to ensure everyone in the community has fair access to food.
-              </p>
-              <div className="w-full bg-accent/5 border border-accent/20 rounded-2xl p-4 mb-6 text-left">
-                <p className="text-[11px] font-black text-accent uppercase tracking-widest mb-2">🌱 Why this matters</p>
-                <p className="text-text-muted text-xs leading-relaxed">EcoLocker exists to fight food waste while feeding as many people as possible. By limiting retrievals, we make sure surplus food reaches more hands every day. Thank you for understanding.</p>
-              </div>
-              <button
-                onClick={() => setShowHoardingDenied(false)}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-accent to-emerald-500 text-white font-black text-sm uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-accent/20"
-              >
-                I Understand — Come Back Tomorrow
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              <motion.div
+                animate={{ scale: [1, 1.35, 1], opacity: [0.4, 0, 0.4] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                style={{
+                  position: "absolute", inset: "-8px",
+                  borderRadius: "50%",
+                  border: "2px solid rgba(239,68,68,0.5)",
+                  pointerEvents: "none"
+                }}
+              />
+            </div>
 
-      <AnimatePresence>
-      {isSanitizing && (
-        <motion.div 
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="sanitization-overlay" 
-        >
-          <div className="overlay-content glass-panel">
-            <div className="spinner" />
-            <h2>Sanitization in Progress</h2>
-            <p>Locker is being cleaned for your safety. Please wait a moment.</p>
-          </div>
-        </motion.div>
+            {/* Lock badge */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: "0.5rem",
+              background: "rgba(239,68,68,0.12)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              borderRadius: "99px",
+              padding: "0.3rem 1rem",
+              marginBottom: "1rem"
+            }}>
+              <Lock size={11} style={{ color: "#f87171" }} />
+              <span style={{ fontSize: "0.6rem", fontWeight: 900, letterSpacing: "0.2em", color: "#f87171", textTransform: "uppercase" }}>
+                ACCESS LOCKED FOR TODAY
+              </span>
+            </div>
+
+            <h3 style={{ fontSize: "1.6rem", fontWeight: 900, color: "var(--text)", margin: "0 0 0.5rem", lineHeight: 1.2 }}>
+              Daily Limit Reached
+            </h3>
+            <p style={{ fontSize: "0.7rem", fontWeight: 800, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.18em", margin: "0 0 1.25rem" }}>
+              Fair Share Policy · 3rd Retrieval Blocked
+            </p>
+
+            <p style={{ fontSize: "0.88rem", color: "var(--text-muted)", lineHeight: 1.65, marginBottom: "1.5rem" }}>
+              Our fleet has detected that your identity has already collected food{" "}
+              <strong style={{ color: "var(--text)" }}>{deniedMatchCount} time{deniedMatchCount !== 1 ? "s" : ""} today</strong>.
+              {" "}To ensure <strong style={{ color: "var(--text)" }}>everyone in the community</strong> gets a fair share, access is limited to <strong style={{ color: "var(--text)" }}>2 retrievals per day</strong>.
+            </p>
+
+            {/* Why sharing matters block */}
+            <div style={{
+              width: "100%",
+              background: "rgba(16,185,129,0.05)",
+              border: "1px solid rgba(16,185,129,0.2)",
+              borderLeft: "4px solid var(--accent)",
+              borderRadius: "0 1rem 1rem 0",
+              padding: "1rem 1.25rem",
+              marginBottom: "1.5rem",
+              textAlign: "left"
+            }}>
+              <p style={{ fontSize: "0.6rem", fontWeight: 900, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", margin: "0 0 0.6rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <Leaf size={10} /> Why sharing is essential
+              </p>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", lineHeight: 1.6, margin: 0 }}>
+                EcoLocker exists to fight food waste <em>and</em> feed as many people as possible.
+                Every meal left for someone else is a life made a little easier.
+                By respecting the daily limit, you help this food reach more families across the community.
+                We're grateful for your understanding.
+              </p>
+            </div>
+
+            {/* Dismiss — auto-closes after 8s, kiosk returns to normal for next person */}
+            <button
+              onClick={() => setShowHoardingDenied(false)}
+              style={{
+                width: "100%",
+                padding: "0.95rem",
+                borderRadius: "14px",
+                background: "linear-gradient(135deg, var(--accent), #059669)",
+                color: "white",
+                fontWeight: 900,
+                fontSize: "0.8rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.12em",
+                border: "none",
+                cursor: "pointer",
+                boxShadow: "0 8px 24px rgba(16,185,129,0.25)",
+                marginBottom: "0.75rem"
+              }}
+            >
+              ✓ Understood
+            </button>
+
+            {/* Note: this modal auto-dismisses so the next person can use the kiosk */}
+            <p style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.5, margin: 0 }}>
+              Your daily limit is tracked by face recognition.
+              This screen will close automatically so others can use this kiosk.
+            </p>
+          </motion.div>
+        </div>
       )}
-      </AnimatePresence>
+
+
 
       {showAdminAuth && (
         <div className="admin-auth-overlay">
@@ -502,7 +618,7 @@ export function KioskPage() {
                       <span className="hrd-cell-label">FRESHNESS STATE</span>
                       <div className={`hrd-status-badge-new ${qualityStage}`}>
                         {qualityStage === "fresh" ? <ShieldCheck size={10} /> : <Activity size={10} />}
-                        {getQualityLabel(qualityStage)}
+                        {qualityStage === "empty" ? "EMPTY" : getQualityLabel(qualityStage)}
                       </div>
                     </div>
 
@@ -567,15 +683,15 @@ export function KioskPage() {
               {/* Mini telemetry hint */}
               <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', opacity: 0.5 }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{telemetry.internalTempC.toFixed(1)}°</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{(telemetry?.internalTempC ?? 0).toFixed(1)}°</div>
                   <div style={{ fontSize: '0.55rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Temp</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{telemetry.humidityPct}%</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{telemetry?.humidityPct ?? 0}%</div>
                   <div style={{ fontSize: '0.55rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Humidity</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{telemetry.sensorHealth === 'healthy' ? '✓' : '!'}</div>
+                  <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--accent)' }}>{telemetry?.sensorHealth === 'healthy' ? '✓' : '!'}</div>
                   <div style={{ fontSize: '0.55rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Sensor</div>
                 </div>
               </div>
@@ -4067,6 +4183,16 @@ export function KioskPage() {
                   </div>
                 </div>
               </div>
+              <div className="nature-spec-card">
+                <div className="spec-icon-container">📏</div>
+                <div className="spec-info">
+                  <span className="spec-label">Distance</span>
+                  <div className="spec-value-group">
+                    <span className="spec-value">{telemetry.distanceCm != null ? telemetry.distanceCm.toFixed(1) : "—"}</span>
+                    <span className="spec-unit">cm</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </SurfaceCard>
         </ScrollReveal>
@@ -4261,15 +4387,55 @@ export function KioskPage() {
               </div>
             )}
 
-            {/* Retrieve Item — ENABLED when fresh & healthy, DISABLED when spoiled or faulted */}
-            <div className="retrieve-action-area-luxe" style={{ position: 'relative', zIndex: 1, marginTop: '0' }}>
-              <SlideConfirm 
-                label={isSpoiled ? "⚠ Restricted — Food Spoiled" : isFaulted ? "⚠ Locker Faulted — Use Override" : (t("slideToRetrieve") || "Slide to Retrieve")}
-                onConfirm={() => setShowFaceVerification(true)}
-                disabled={!donation || isFaulted || isBusy || isSanitizing || isSpoiled}
-                className="luxe-slide-container"
-              />
-            </div>
+            {/* Retrieve Item — shows slider normally; only shows denial banner to the blocked person */}
+            {showHoardingDenied ? (
+              /* ── Daily-limit lock state — only visible to the denied person, auto-dismisses in 8s ── */
+              <div style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem",
+                padding: "1.5rem",
+                background: "rgba(239,68,68,0.04)",
+                border: "1px solid rgba(239,68,68,0.2)",
+                borderRadius: "16px",
+                textAlign: "center"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  <Ban size={18} style={{ color: "#f87171", flexShrink: 0 }} />
+                  <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                    Access Denied — Daily Limit Reached
+                  </span>
+                </div>
+                <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: 0, lineHeight: 1.55 }}>
+                  You've already collected food {deniedMatchCount} time{deniedMatchCount !== 1 ? "s" : ""} today.
+                  Fair Share Policy limits 2 retrievals per person per day.
+                  This screen will close automatically.
+                </p>
+                <button
+                  onClick={() => setShowHoardingDenied(false)}
+                  style={{
+                    padding: "0.5rem 1.25rem",
+                    borderRadius: "99px",
+                    background: "rgba(239,68,68,0.1)",
+                    border: "1px solid rgba(239,68,68,0.25)",
+                    color: "#f87171",
+                    fontSize: "0.65rem",
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    cursor: "pointer"
+                  }}
+                >
+                  Understood
+                </button>
+              </div>
+            ) : (
+              <div className="retrieve-action-area-luxe" style={{ position: 'relative', zIndex: 1, marginTop: '0' }}>
+                <SlideConfirm 
+                  label={isSpoiled ? "⚠ Restricted — Food Spoiled" : isFaulted ? "⚠ Locker Faulted — Use Override" : (t("slideToRetrieve") || "Slide to Retrieve")}
+                  onConfirm={() => setShowFaceVerification(true)}
+                  disabled={!donation || isFaulted || isBusy || isSanitizing || isSpoiled}
+                  className="luxe-slide-container"
+                />
+              </div>
+            )}
 
             {/* Admin Override — ENABLED when spoiled OR faulted (ensures there's always a way to get food out) */}
             <div className="admin-override-area" style={{ marginTop: '2rem', position: 'relative', zIndex: 1 }}>

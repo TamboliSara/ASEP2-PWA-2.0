@@ -78,7 +78,7 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
       });
       streamRef.current = s;
       if (videoRef.current) videoRef.current.srcObject = s;
-      setTimeout(() => setScanStatus("scanning"), 400);
+      setTimeout(() => setScanStatus("scanning"), 100); // minimal delay — feel instant
     } catch {
       setScanStatus("camera_error");
     }
@@ -92,18 +92,17 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
   const captureImage = useCallback((): string | null => {
     if (!videoRef.current) return null;
     const canvas = document.createElement('canvas');
-    canvas.width = 280;
-    canvas.height = 280;
+    canvas.width = 320;
+    canvas.height = 320;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
+    // Draw without mirroring so the stored image matches the real face orientation
     const v = videoRef.current;
     const side = Math.min(v.videoWidth, v.videoHeight);
     const sx = (v.videoWidth - side) / 2;
     const sy = (v.videoHeight - side) / 2;
     ctx.drawImage(v, sx, sy, side, side, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.55);
+    return canvas.toDataURL('image/jpeg', 0.80);
   }, []);
 
   // Smart detection loop — auto-retries, no button needed unless camera error
@@ -214,11 +213,13 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
   if (!hasConsented) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-sm mx-auto bg-panel/90 backdrop-blur-3xl border border-line rounded-[2rem] p-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] relative overflow-hidden"
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        className="w-full max-w-sm mx-auto backdrop-blur-[40px] border rounded-[2rem] p-8 relative overflow-hidden flex flex-col shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)]"
+        style={{ background: 'var(--panel)', borderColor: 'var(--line)' }}
       >
-        <div className="absolute -top-20 -right-20 w-44 h-44 bg-accent/20 rounded-full blur-[70px]" />
+        <div className="absolute -top-20 -right-20 w-48 h-48 bg-accent/20 rounded-full blur-[80px]" />
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-accent via-emerald-400 to-accent" />
 
         <div className="flex flex-col items-center text-center mb-6">
@@ -276,15 +277,16 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
     );
   }
 
-  // ── Scanner UI ───────────────────────────────────────────────────────────────
+  // ── Scanner UI ────────────────────────────────────────────────────────────
   const isSuccess = scanStatus === "success";
-  const ringColor = isSuccess ? "#10B981" : warning ? "#EF4444" : "url(#faceGrad)";
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-sm mx-auto bg-panel/90 backdrop-blur-3xl border border-line rounded-[2rem] p-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col items-center"
+      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      className="w-full max-w-sm mx-auto backdrop-blur-[40px] border rounded-[2rem] p-8 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)] relative overflow-hidden flex flex-col items-center"
+      style={{ background: 'var(--panel)', borderColor: 'var(--line)' }}
     >
       <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-accent via-emerald-400 to-accent" />
 
@@ -292,29 +294,39 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
       <div className="relative w-64 h-64 mb-5 mt-2 flex items-center justify-center">
         <svg className="absolute inset-0 w-full h-full z-10" viewBox="0 0 100 100">
           <defs>
+            {/* Ombre gradient — matches the top accent bar perfectly */}
             <linearGradient id="faceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="var(--accent)" />
+              <stop offset="50%" stopColor="#34d399" />
+              <stop offset="100%" stopColor="var(--accent)" />
+            </linearGradient>
+            <linearGradient id="successGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#10B981" />
-              <stop offset="100%" stopColor="#059669" />
+              <stop offset="100%" stopColor="#34d399" />
+            </linearGradient>
+            <linearGradient id="warningGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ef4444" />
+              <stop offset="100%" stopColor="#f97316" />
             </linearGradient>
           </defs>
           {/* Background track */}
-          <circle cx="50" cy="50" r="47" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="2" />
-          {/* Progress arc */}
+          <circle cx="50" cy="50" r="47" fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth="2" />
+          {/* Progress arc with ombre gradient */}
           <motion.circle
             cx="50" cy="50" r="47"
             fill="none"
-            stroke={ringColor}
+            stroke={isSuccess ? "url(#successGrad)" : warning ? "url(#warningGrad)" : "url(#faceGrad)"}
             strokeWidth="3"
             strokeLinecap="round"
             strokeDasharray="295.31"
-            animate={{ strokeDashoffset: 295.31 - (progress / 100) * 295.31, stroke: ringColor }}
-            transition={{ duration: 1.2, ease: "linear" }}
-            style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%" }}
+            animate={{ strokeDashoffset: 295.31 - (progress / 100) * 295.31 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%", filter: isSuccess ? "drop-shadow(0 0 6px #10B981)" : warning ? "drop-shadow(0 0 4px #ef4444)" : "drop-shadow(0 0 5px #10B98188)" }}
           />
         </svg>
 
         {/* Circular camera mask */}
-        <div className="absolute inset-[10px] rounded-full overflow-hidden bg-background border border-line/40 flex items-center justify-center" style={{ clipPath: 'circle(50% at 50% 50%)' }}>
+        <div className="absolute inset-[12px] rounded-full overflow-hidden flex items-center justify-center bg-black/5" style={{ boxShadow: 'inset 0 0 0 1px var(--line), inset 0 8px 32px rgba(0,0,0,0.3)' }}>
           <motion.video
             ref={videoRef}
             autoPlay
@@ -346,8 +358,8 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
           {/* No stream yet */}
           {!streamRef.current && scanStatus !== "camera_error" && (
             <div className="flex flex-col items-center gap-3 opacity-40 z-10">
-              <Camera size={40} className="text-text animate-pulse" />
-              <p className="text-[10px] text-text uppercase font-bold tracking-widest">{modelsLoaded ? "Waking Camera..." : "Loading AI..."}</p>
+              <Camera size={40} style={{ color: 'var(--text)' }} className="animate-pulse" />
+              <p className="text-[10px] uppercase font-bold tracking-widest" style={{ color: 'var(--text)' }}>{modelsLoaded ? "Starting Camera..." : "Loading AI..."}</p>
             </div>
           )}
 
@@ -392,24 +404,24 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
       <div className="h-16 flex items-center justify-center w-full">
         <AnimatePresence mode="wait">
           {scanStatus === "idle" && (
-            <motion.p key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="text-accent font-bold uppercase tracking-[0.2em] text-[10px]">
+            <motion.p key="idle" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="font-bold uppercase tracking-[0.2em] text-[10px]" style={{ color: 'var(--accent)' }}>
               Initializing...
             </motion.p>
           )}
           {scanStatus === "scanning" && (
             <motion.div key="scanning" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="text-center">
-              <p className={`font-black text-lg tracking-tight mb-1 transition-colors ${warning ? 'text-red-400' : 'text-text'}`}>
+              <p className={`font-black text-lg tracking-tight mb-1 transition-colors ${warning ? 'text-red-400' : ''}`} style={!warning ? { color: 'var(--text)' } : {}}>
                 {warning ? 'Adjust Position' : 'Scanning...'}
               </p>
-              <p className="text-[10px] text-text-muted uppercase font-bold tracking-widest">
+              <p className="text-[10px] uppercase font-bold tracking-widest" style={{ color: 'var(--text-muted)' }}>
                 {warning ? 'System will retry automatically' : 'Hold still — verifying identity'}
               </p>
             </motion.div>
           )}
           {isSuccess && (
             <motion.div key="success" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center">
-              <p className="text-accent font-black text-2xl tracking-tighter mb-1">Identity Verified</p>
-              <p className="text-[10px] text-accent/60 uppercase font-black tracking-[0.3em]">Access Granted</p>
+              <p className="font-black text-2xl tracking-tighter mb-1" style={{ color: 'var(--accent)' }}>Identity Verified</p>
+              <p className="text-[10px] uppercase font-black tracking-[0.3em]" style={{ color: 'var(--accent)', opacity: 0.6 }}>Access Granted</p>
             </motion.div>
           )}
           {scanStatus === "camera_error" && (
@@ -418,7 +430,7 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
                 <AlertCircle size={16} />
                 <span>Camera Access Denied</span>
               </div>
-              <p className="text-[10px] text-text-muted text-center">Please allow camera access in your browser settings and try again.</p>
+              <p className="text-[10px] text-center" style={{ color: 'var(--text-muted)' }}>Please allow camera access in your browser settings and try again.</p>
               <button
                 onClick={startCamera}
                 type="button"

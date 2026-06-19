@@ -2,10 +2,10 @@ import { useMemo, useState } from "react";
 import { bleService } from "../services/ble";
 import { cacheAlert, cacheDonation, cacheEvent, cacheLockerSnapshot, cachePredictionSnapshot, cacheSensorSnapshot, clearAllData, enqueueSync } from "../services/db";
 import { initiateDepositFn, initiateRetrievalFn } from "../services/firebase";
-import { registerDevice, unlockLocker, lockLocker, sanitizeLocker } from "../services/rtdb";
+import { registerDevice, unlockLocker, adminUnlockLocker, lockLocker, spoilageLockLocker, sanitizeLocker, getOccupancy, setDeviceFoodType } from "../services/rtdb";
 import { processSyncQueue, syncAlert, syncDonation, syncEvent, syncPrediction, syncRetrieval, syncSensorSnapshot, syncSnapshot, triggerAlertEmail } from "../services/sync";
 import { syncInitialState } from "../services/initialSync";
-import { initialAppState, buildFreshInitialState } from "../store/appState";
+import { initialAppState, buildFreshInitialState, HARDWARE_LOCKER_ID } from "../store/appState";
 
 import { db } from "../services/firebase";
 import { collection, getDocs, deleteDoc, doc as firestoreDoc } from "firebase/firestore";
@@ -34,6 +34,34 @@ function createSyncRecord(entityType: "donation" | "event" | "alert" | "snapshot
   };
 }
 
+function playAlarmSound() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audioCtx = new AudioContextClass();
+    const playBeep = (time: number, duration: number, frequency: number) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(frequency, time);
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(0.3, time + 0.05);
+      gain.gain.setValueAtTime(0.3, time + duration - 0.05);
+      gain.gain.linearRampToValueAtTime(0, time + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(time);
+      osc.stop(time + duration);
+    };
+    const now = audioCtx.currentTime;
+    playBeep(now, 0.2, 880);
+    playBeep(now + 0.3, 0.2, 880);
+    playBeep(now + 0.6, 0.2, 880);
+  } catch (e) {
+    console.error("Failed to play audio alarm:", e);
+  }
+}
+
 export function useLockerController() {
   const { state, dispatch } = useAppContext();
   const { t } = useTranslation();
@@ -42,6 +70,12 @@ export function useLockerController() {
   const currentLocker = useMemo(() => {
     return state.lockers.find((l) => l.lockerId === state.selectedLockerId) || state.lockers[0];
   }, [state.lockers, state.selectedLockerId]);
+
+  /** Is the currently selected locker backed by real hardware? */
+  const isHardwareLocker = currentLocker.lockerId === HARDWARE_LOCKER_ID;
+
+  /** MAC address for sending RTDB commands to the real ESP32 */
+  const hardwareMac = state.hardwareMac || undefined;
 
   function buildRecommendedActions() {
     const quality = currentLocker.foodQualityScore;
@@ -77,26 +111,34 @@ export function useLockerController() {
     dispatch({ type: "set-sync-message", message: "Initiating device pairing..." });
 
     try {
-      // Step 1: BLE discovery (simulated until ESP32 is ready)
+      // Step 1: Real BLE pairing (opens browser Bluetooth picker if BLE supported)
+      dispatch({ type: "set-sync-message", message: "Searching for EcoLocker hardware..." });
       const paired = await bleService.pair();
 
-      // Step 2: Register device in Firebase RTDB (creates telemetry/commands/status slots)
+      // Step 2: Store the MAC address so all future RTDB commands reach the hardware
+      if (paired.macAddress && paired.macAddress !== "SIMULATED") {
+        dispatch({ type: "set-hardware-mac", mac: paired.macAddress });
+        console.log(`[Pair] 🔒 Hardware MAC registered: ${paired.macAddress}`);
+      }
+
+      // Step 3: Register device in Firebase RTDB (creates telemetry/commands/status slots)
       dispatch({ type: "set-sync-message", message: "Registering device in cloud..." });
-      await new Promise(resolve => setTimeout(resolve, 800)); // Simulate cloud latency
+      await new Promise(resolve => setTimeout(resolve, 800));
       
+      // Register under chamber-1 (PWA internal ID) AND under the real MAC address
       const registered = await registerDevice(
-        currentLocker.lockerId,
+        HARDWARE_LOCKER_ID,
         paired.deviceName,
-        `MAC_${currentLocker.lockerId}`
+        paired.macAddress !== "SIMULATED" ? paired.macAddress : undefined
       );
 
       if (registered) {
-        console.log(`[Pair] ✅ Device ${currentLocker.lockerId} registered in RTDB`);
+        console.log(`[Pair] ✅ Device ${HARDWARE_LOCKER_ID} registered in RTDB (MAC: ${paired.macAddress})`);
       } else {
         console.warn(`[Pair] ⚠️ RTDB registration skipped — operating in offline mode`);
       }
 
-      // Step 3: Sync locker snapshot to Firestore
+      // Step 4: Sync locker snapshot to Firestore
       dispatch({ type: "set-sync-message", message: "Syncing locker state..." });
       await syncSnapshot({
         ...currentLocker,
@@ -105,32 +147,44 @@ export function useLockerController() {
         lastSyncedAt: new Date().toISOString()
       });
 
-      // Step 4: Update local state
+      // Step 5: Update local state
       dispatch({
         type: "patch-locker",
-        id: currentLocker.lockerId,
+        id: HARDWARE_LOCKER_ID,
         locker: {
-          bleConnected: true,
+          bleConnected:     true,
           pairedDeviceName: paired.deviceName,
-          lastSyncedAt: new Date().toISOString()
+          lastSyncedAt:     new Date().toISOString()
         }
       });
       
       const pairEvent: LockerEvent = {
         id: generateId(),
-        lockerId: currentLocker.lockerId,
+        lockerId: HARDWARE_LOCKER_ID,
         type: "pairing",
         createdAt: new Date().toISOString(),
-        detail: `Hardware connection established with ${paired.deviceName}. ${registered ? "Cloud DB armed." : "Offline mode."}`,
+        detail: paired.isRealHardware
+          ? `Real hardware paired: ${paired.deviceName} (MAC: ${paired.macAddress}). Firebase RTDB armed.`
+          : `Simulation mode active. 7 mock chambers ready. Connect hardware to enable physical control.`,
         syncState: "synced"
       };
       dispatch({ type: "append-log", event: pairEvent });
       try { await syncEvent(pairEvent); } catch {}
 
       dispatch({ type: "set-pairing-complete", value: true });
-      dispatch({ type: "set-sync-message", message: registered ? t("pairSuccess") + " — Cloud connected." : t("pairSuccess") + " — Offline mode." });
+
+      const statusMsg = paired.isRealHardware
+        ? `📡 Hardware connected (${paired.macAddress}). 7 mock chambers ready.`
+        : `🔁 Simulation mode — no physical hardware detected. All 8 chambers are mock.`;
+      dispatch({ type: "set-sync-message", message: statusMsg });
       return true;
     } catch (error) {
+      const err = error as Error;
+      if (err.name === "NotFoundError") {
+        // User cancelled the BLE picker — don't pair in sim mode, show message
+        dispatch({ type: "set-sync-message", message: "Bluetooth pairing cancelled. Try again to connect hardware." });
+        return false;
+      }
       console.error("[Pair] Pairing failed:", error);
       dispatch({ type: "set-sync-message", message: "Pairing failed. Check connection and try again." });
       return false;
@@ -184,6 +238,7 @@ export function useLockerController() {
       dietTag: state.donationDraft.dietTag,
       createdAt: new Date().toISOString(),
       donorImageBase64: imageData,
+      donorImageUrl: undefined, // never use the mock placeholder — real image comes from Storage upload
       syncState: "queued"
     };
 
@@ -213,86 +268,256 @@ export function useLockerController() {
       source: "deposit"
     };
 
-    dispatch({
-      type: "patch-locker",
-      id: currentLocker.lockerId,
-      locker: {
-        activeDonation: donation,
-        occupancyState: "occupied",
-        lockState: "locked",
-        doorState: "closed",
-        sanitizationState: "complete",
-        foodQualityScore: mockReadings.qualityScore,
-        deadlineEstimate: mockReadings.deadlineEstimate,
-        telemetry: mockReadings.telemetry,
-        lastSyncedAt: new Date().toISOString()
+    try {
+      try {
+        await bleService.sendCategory({
+          foodName: donation.foodName,
+          categoryId: donation.categoryId,
+          categoryLabel: donation.categoryLabel,
+          donorName: donation.donorName,
+          donorContact: donation.donorContact,
+          allergensNotes: donation.allergensNotes,
+          dietTag: donation.dietTag
+        });
+      } catch (e) {
+        console.warn("[Deposit] Category send failed:", e);
       }
-    });
-    dispatch({ type: "record-donation", donation });
-    dispatch({ type: "reset-donation-draft" });
-    dispatch({ type: "set-sync-message", message: `${donation.foodName}: ${t("donationConfirmed")}` });
 
-    // ── Immediate Sync to Firestore ──────────────────────────────────
-    // This ensures data goes to the DB immediately without waiting for a background worker.
-    try {
-      await syncDonation(donation, sensorSnapshot, predictionSnapshot);
-    } catch (e) {
-      console.warn("[Deposit] Immediate sync failed, falling back to queue:", e);
-    }
+      if (isHardwareLocker) {
+        // ── REAL HARDWARE LOCKER FLOW ─────────────────────────────
+        console.log(`[Deposit] 🔒 Sending UNLOCK to hardware (MAC: ${hardwareMac})...`);
+        dispatch({ type: "set-sync-message", message: "Opening physical locker... please place food inside." });
 
-    try {
-      await bleService.sendCategory({
-        foodName: donation.foodName,
-        categoryId: donation.categoryId,
-        categoryLabel: donation.categoryLabel,
-        donorName: donation.donorName,
-        donorContact: donation.donorContact,
-        allergensNotes: donation.allergensNotes,
-        dietTag: donation.dietTag
-      });
-      // Send UNLOCK command via RTDB for ESP32 to pick up
-      await unlockLocker(currentLocker.lockerId);
-      const unlockEvent = await bleService.unlock();
+        // Write active food type to RTDB status node so ESP32 edge ML reads it
+        const label = donation.categoryLabel.toLowerCase();
+        const foodTypeKey = label.includes("meat") ? "cooked_meat"
+                          : label.includes("dairy") || label.includes("milk") ? "dairy"
+                          : label.includes("fruit") ? "fruit"
+                          : label.includes("roti") || label.includes("yeast") ? "roti"
+                          : label.includes("vegetable") || label.includes("veg") ? "vegetable"
+                          : "dairy";
+        
+        await setDeviceFoodType(HARDWARE_LOCKER_ID, foodTypeKey, hardwareMac);
+        // Persist food type so AppProviders can reconstruct the donation on reload
+        try { localStorage.setItem("ecolocker-last-food-type", foodTypeKey); } catch {}
 
-      // After door closes, send LOCK command
-      await lockLocker(currentLocker.lockerId);
-      const lockEvent = await bleService.lock();
+        // Send unlock to RTDB (ESP32 will pick it up and open the solenoid)
+        await unlockLocker(HARDWARE_LOCKER_ID, hardwareMac);
+        const unlockEvent = await bleService.unlock().catch(() => ({
+          id: generateId(),
+          lockerId: HARDWARE_LOCKER_ID,
+          type: "unlock",
+          createdAt: new Date().toISOString(),
+          detail: "Unlocked physical door.",
+          syncState: "synced"
+        } as LockerEvent));
 
-      // Start sanitization cycle
-      await sanitizeLocker(currentLocker.lockerId);
-      const cycleEvent = await bleService.startSanitization();
-      const events: LockerEvent[] = [unlockEvent, lockEvent, cycleEvent];
+        // Wait for the ESP32 to complete its unlock→wait→relock→ultrasonic cycle
+        // The firmware takes ~7-8 seconds (5s door open + 3 readings)
+        dispatch({ type: "set-sync-message", message: "Door opened — waiting for food deposit and auto-relock..." });
+        await new Promise(resolve => setTimeout(resolve, 9000));
 
-      // Call Cloud Function if deployed
-      if (initiateDepositFn) {
-        try {
-          await withTimeout(initiateDepositFn({
-            mac_address: currentLocker.lockerId,
-            item_name: donation.foodName,
-            dietary_tags: donation.dietTag ? [donation.dietTag] : [],
-            quantity: 1,
-            donor_name: donation.donorName,
-            donor_contact: donation.donorContact,
-            allergens_notes: donation.allergensNotes,
-            category_label: donation.categoryLabel,
-            locker_number: lockerNumber
-          }));
-        } catch (e) {
-          console.error("Cloud function initiateDeposit failed (non-blocking):", e);
+        // Poll RTDB occupancy — the ESP32 wrote the result after relocking
+        const occupancy = await getOccupancy(hardwareMac ?? HARDWARE_LOCKER_ID);
+        console.log(`[Deposit] 📡 RTDB occupancy after unlock cycle: "${occupancy}"`);
+
+        if (occupancy !== "occupied") {
+          // Play buzzer alarm
+          playAlarmSound();
+
+          // Show in-app alert (replaces native browser popup)
+          const ghostAlertId = generateId();
+          dispatch({
+            type: "push-alert",
+            alert: {
+              id: ghostAlertId,
+              lockerId: HARDWARE_LOCKER_ID,
+              title: "No Food Detected — Deposit Cancelled",
+              detail: "The ultrasonic sensor did not detect any food in the chamber after the door cycle. The locker has been automatically re-locked. Please ensure food is fully inside before the door closes, then try again.",
+              severity: "warning" as const,
+              createdAt: new Date().toISOString()
+            }
+          });
+
+          // Cancel the deposit and inform the user
+          console.warn("[Deposit] ⚠️  No food detected after unlock cycle. Cancelling deposit.");
+          dispatch({
+            type: "set-sync-message",
+            message: "⚠️ No food was detected inside the locker. The door has been re-locked. Please try again."
+          });
+          dispatch({
+            type: "patch-locker",
+            id: HARDWARE_LOCKER_ID,
+            locker: {
+              activeDonation: undefined, // Explicitly clear any stale donation so receiver dashboard stays clean
+              occupancyState: "empty",
+              lockState: "locked",
+              doorState: "closed"
+            }
+          });
+          // Log the failed deposit attempt
+          const failEvent: LockerEvent = {
+            id: generateId(),
+            lockerId: HARDWARE_LOCKER_ID,
+            type: "timeout",
+            createdAt: new Date().toISOString(),
+            detail: "Donor opened locker but no food was detected. Deposit cancelled. Door auto-locked.",
+            syncState: "synced"
+          };
+          dispatch({ type: "append-log", event: failEvent });
+          try { await syncEvent(failEvent); } catch {}
+          setIsBusy(false);
+          return null;
         }
-      }
 
-      await cacheDonation(donation);
-      await enqueueSync(createSyncRecord("donation", donation.id));
-      await cacheSensorSnapshot(sensorSnapshot);
-      await enqueueSync(createSyncRecord("sensorSnapshot", sensorSnapshot.id));
-      await cachePredictionSnapshot(predictionSnapshot);
-      await enqueueSync(createSyncRecord("prediction", predictionSnapshot.id));
+        // Food confirmed! Lock and sanitize.
+        await lockLocker(HARDWARE_LOCKER_ID, hardwareMac);
+        const lockEvent = await bleService.lock().catch(() => ({
+          id: generateId(),
+          lockerId: HARDWARE_LOCKER_ID,
+          type: "lock",
+          createdAt: new Date().toISOString(),
+          detail: "Locked physical door.",
+          syncState: "synced"
+        } as LockerEvent));
 
-      for (const event of events) {
-        await cacheEvent(event);
-        await enqueueSync(createSyncRecord("event", event.id));
-        dispatch({ type: "append-log", event });
+        await sanitizeLocker(HARDWARE_LOCKER_ID, hardwareMac);
+        const cycleEvent = await bleService.startSanitization().catch(() => ({
+          id: generateId(),
+          lockerId: HARDWARE_LOCKER_ID,
+          type: "cycle_complete",
+          createdAt: new Date().toISOString(),
+          detail: "Sanitization started.",
+          syncState: "synced"
+        } as LockerEvent));
+
+        const events: LockerEvent[] = [unlockEvent, lockEvent, cycleEvent];
+
+        // Now commit local updates and sync to database since food is physically confirmed
+        dispatch({
+          type: "patch-locker",
+          id: currentLocker.lockerId,
+          locker: {
+            activeDonation: donation,
+            occupancyState: "occupied",
+            lockState: "locked",
+            doorState: "closed",
+            sanitizationState: "complete",
+            foodQualityScore: mockReadings.qualityScore,
+            deadlineEstimate: mockReadings.deadlineEstimate,
+            telemetry: mockReadings.telemetry,
+            lastSyncedAt: new Date().toISOString()
+          }
+        });
+        dispatch({ type: "record-donation", donation });
+        dispatch({ type: "reset-donation-draft" });
+        dispatch({ type: "set-sync-message", message: `✅ Food detected and locker secured! Deposit recorded.` });
+
+        // ── Immediate Sync to Firestore ──────────────────────────────────
+        try {
+          await syncDonation(donation, sensorSnapshot, predictionSnapshot);
+        } catch (e) {
+          console.warn("[Deposit] Immediate sync failed, falling back to queue:", e);
+        }
+
+        if (initiateDepositFn) {
+          try {
+            await withTimeout(initiateDepositFn({
+              mac_address: hardwareMac ?? HARDWARE_LOCKER_ID,
+              item_name: donation.foodName,
+              dietary_tags: donation.dietTag ? [donation.dietTag] : [],
+              quantity: 1,
+              donor_name: donation.donorName,
+              donor_contact: donation.donorContact,
+              allergens_notes: donation.allergensNotes,
+              category_label: donation.categoryLabel,
+              locker_number: lockerNumber
+            }));
+          } catch (e) {
+            console.error("Cloud function initiateDeposit failed (non-blocking):", e);
+          }
+        }
+
+        await cacheDonation(donation);
+        await enqueueSync(createSyncRecord("donation", donation.id));
+        await cacheSensorSnapshot(sensorSnapshot);
+        await enqueueSync(createSyncRecord("sensorSnapshot", sensorSnapshot.id));
+        await cachePredictionSnapshot(predictionSnapshot);
+        await enqueueSync(createSyncRecord("prediction", predictionSnapshot.id));
+        for (const event of events) {
+          await cacheEvent(event);
+          await enqueueSync(createSyncRecord("event", event.id));
+          dispatch({ type: "append-log", event });
+        }
+
+        // If quality is already spoilt, enforce physical lockdown
+        if (donation.latestQualityScore === "spoilt") {
+          console.warn("[Deposit] 🚨 Food quality is already spoilt — triggering spoilage lockdown.");
+          await spoilageLockLocker(HARDWARE_LOCKER_ID, hardwareMac);
+          await bleService.sendLock();
+        }
+      } else {
+        // ── MOCK LOCKER FLOW (Chambers 2-8) ───────────────────────
+        const unlockEvent = await bleService.unlock();
+        const lockEvent   = await bleService.lock();
+        const cycleEvent  = await bleService.startSanitization();
+        const events: LockerEvent[] = [unlockEvent, lockEvent, cycleEvent];
+
+        dispatch({
+          type: "patch-locker",
+          id: currentLocker.lockerId,
+          locker: {
+            activeDonation: donation,
+            occupancyState: "occupied",
+            lockState: "locked",
+            doorState: "closed",
+            sanitizationState: "complete",
+            foodQualityScore: mockReadings.qualityScore,
+            deadlineEstimate: mockReadings.deadlineEstimate,
+            telemetry: mockReadings.telemetry,
+            lastSyncedAt: new Date().toISOString()
+          }
+        });
+        dispatch({ type: "record-donation", donation });
+        dispatch({ type: "reset-donation-draft" });
+        dispatch({ type: "set-sync-message", message: `${donation.foodName}: ${t("donationConfirmed")}` });
+
+        // ── Immediate Sync to Firestore ──────────────────────────────────
+        try {
+          await syncDonation(donation, sensorSnapshot, predictionSnapshot);
+        } catch (e) {
+          console.warn("[Deposit] Immediate sync failed, falling back to queue:", e);
+        }
+
+        if (initiateDepositFn) {
+          try {
+            await withTimeout(initiateDepositFn({
+              mac_address: currentLocker.lockerId,
+              item_name: donation.foodName,
+              dietary_tags: donation.dietTag ? [donation.dietTag] : [],
+              quantity: 1,
+              donor_name: donation.donorName,
+              donor_contact: donation.donorContact,
+              allergens_notes: donation.allergensNotes,
+              category_label: donation.categoryLabel,
+              locker_number: lockerNumber
+            }));
+          } catch (e) {
+            console.error("Cloud function initiateDeposit failed (non-blocking):", e);
+          }
+        }
+
+        await cacheDonation(donation);
+        await enqueueSync(createSyncRecord("donation", donation.id));
+        await cacheSensorSnapshot(sensorSnapshot);
+        await enqueueSync(createSyncRecord("sensorSnapshot", sensorSnapshot.id));
+        await cachePredictionSnapshot(predictionSnapshot);
+        await enqueueSync(createSyncRecord("prediction", predictionSnapshot.id));
+        for (const event of events) {
+          await cacheEvent(event);
+          await enqueueSync(createSyncRecord("event", event.id));
+          dispatch({ type: "append-log", event });
+        }
       }
 
       const depositEvent: LockerEvent = {
@@ -300,7 +525,9 @@ export function useLockerController() {
         lockerId: currentLocker.lockerId,
         type: "lock",
         createdAt: new Date().toISOString(),
-        detail: `Deposit registered: ${donation.foodName}. Safe sealed and secured.`,
+        detail: isHardwareLocker
+          ? `[HARDWARE] Deposit confirmed: ${donation.foodName}. Ultrasonic sensor verified food. Chamber secured.`
+          : `[MOCK] Deposit registered: ${donation.foodName}. Chamber sealed and secured.`,
         syncState: "synced"
       };
       dispatch({ type: "append-log", event: depositEvent });
@@ -315,7 +542,8 @@ export function useLockerController() {
         sanitizationState: "complete",
         lastSyncedAt: new Date().toISOString()
       });
-    } catch {
+    } catch (err) {
+      console.error("[Deposit] Error in deposit flow:", err);
       dispatch({ type: "set-sync-message", message: `${donation.foodName}: ${t("donationConfirmed")}` });
     } finally {
       setIsBusy(false);
@@ -330,13 +558,32 @@ export function useLockerController() {
     const activeDonation = currentLocker.activeDonation;
 
     try {
-      // Send UNLOCK command via RTDB
-      await unlockLocker(currentLocker.lockerId);
-      const unlockEvent = await bleService.unlock().catch(() => ({ id: generateId(), type: "unlock", createdAt: new Date().toISOString(), detail: "Unlock", syncState: "synced" } as LockerEvent));
+      if (isHardwareLocker) {
+        // ── REAL HARDWARE RETRIEVAL ────────────────────────────────
+        console.log(`[Retrieve] 🔓 Sending UNLOCK to hardware for retrieval (MAC: ${hardwareMac})...`);
+        dispatch({ type: "set-sync-message", message: "Opening physical locker for retrieval..." });
 
-      // After retrieval, send LOCK command
-      await lockLocker(currentLocker.lockerId);
-      const lockEvent = await bleService.lock().catch(() => ({ id: generateId(), type: "lock", createdAt: new Date().toISOString(), detail: "Lock", syncState: "synced" } as LockerEvent));
+        if (isAdminOverride) {
+          await adminUnlockLocker(HARDWARE_LOCKER_ID, hardwareMac);
+          await bleService.sendAdminUnlock();
+        } else {
+          await unlockLocker(HARDWARE_LOCKER_ID, hardwareMac);
+          await bleService.sendUnlock();
+        }
+
+        // Wait for ESP32 cycle
+        await new Promise(resolve => setTimeout(resolve, 9000));
+
+        // After retrieval, occupancy should be empty
+        dispatch({ type: "set-sync-message", message: "Food retrieved. Re-locking chamber..." });
+      } else {
+        // ── MOCK RETRIEVAL ─────────────────────────────────────────
+        await unlockLocker(currentLocker.lockerId);
+      }
+
+      const unlockEvent = await bleService.unlock().catch(() => ({ id: generateId(), type: "unlock", createdAt: new Date().toISOString(), detail: "Unlock", syncState: "synced" } as LockerEvent));
+      await lockLocker(currentLocker.lockerId, isHardwareLocker ? hardwareMac : undefined);
+      const lockEvent   = await bleService.lock().catch(() => ({ id: generateId(), type: "lock", createdAt: new Date().toISOString(), detail: "Lock", syncState: "synced" } as LockerEvent));
 
       let sensorSnapshotId = generateId();
       let predictionSnapshotId = generateId();
@@ -491,6 +738,13 @@ export function useLockerController() {
         occupancyState: "maintenance"
       }
     });
+
+    // If this is the hardware locker, enforce the lock physically via RTDB
+    if (currentLocker.lockerId === HARDWARE_LOCKER_ID) {
+      console.warn("[Lockdown] 🚨 Sending spoilage LOCK command to hardware.");
+      await spoilageLockLocker(HARDWARE_LOCKER_ID, hardwareMac);
+      await bleService.sendLock();
+    }
     
     const lockdownEvent: LockerEvent = {
       id: generateId(),
