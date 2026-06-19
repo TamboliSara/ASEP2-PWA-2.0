@@ -444,86 +444,148 @@ export function AdminPageV2() {
                 </div>
               </div>
 
-              {state.lockers.filter(l => l.activeDonation).length > 0 ? (
+              {/* Safe 1 is always visible (hardware locker); mocks only show when occupied */}
+              {(() => {
+                const displayLockers = state.lockers.filter(l =>
+                  l.lockerId === "chamber-1" || l.activeDonation
+                );
+                return displayLockers.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {state.lockers.filter(l => l.activeDonation).map((locker, idx) => (
-                    <motion.div 
+                  {displayLockers.map((locker, idx) => (
+                    <motion.div
                       key={locker.lockerId}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 * idx }}
                       className={`relative p-5 rounded-[1.75rem] border transition-all duration-500 group/donation overflow-hidden cursor-pointer
-                        ${locker.lockerId === state.selectedLockerId 
-                          ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[0_0_40px_rgba(16,184,129,0.1)]' 
-                          : 'bg-panel-elevated/40 dark:bg-white/5 border-line dark:border-white/10 hover:border-emerald-500/30'}`}
+                        ${locker.lockerId === state.selectedLockerId
+                          ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[0_0_40px_rgba(16,184,129,0.1)]'
+                          : locker.activeDonation
+                            ? 'bg-panel-elevated/40 dark:bg-white/5 border-line dark:border-white/10 hover:border-emerald-500/30'
+                            : 'bg-panel-elevated/20 dark:bg-white/[0.02] border-dashed border-line/60 dark:border-white/[0.06] hover:border-emerald-500/20'}`}
                       onClick={() => selectLocker(locker.lockerId)}
                     >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-lg border transition-all duration-500
-                              ${locker.lockerId === state.selectedLockerId ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-muted/10 dark:bg-white/5 border-line dark:border-white/10 group-hover/donation:border-emerald-500/50'}`}>
-                              <User className="w-5 h-5" />
+                      {locker.activeDonation ? (
+                        /* ── OCCUPIED: real donation card ─────────────────── */
+                        <>
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-500
+                                  ${locker.lockerId === state.selectedLockerId ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-muted/10 dark:bg-white/5 border-line dark:border-white/10 group-hover/donation:border-emerald-500/50'}`}>
+                                  <User className="w-5 h-5" />
+                                </div>
+                                <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md bg-emerald-500 text-[7px] font-black text-white uppercase tracking-tighter">
+                                  {locker.lockerId.replace('chamber-', 'SAFE')}
+                                </div>
+                              </div>
+                              <div className="flex flex-col overflow-hidden">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500/60 leading-none mb-1">VERIFIED DONOR</span>
+                                <span className="text-base font-black text-text truncate leading-tight">{locker.activeDonation.donorName}</span>
+                                <div className="flex items-center gap-1 mt-0.5 opacity-60">
+                                  <Mail className="w-2.5 h-2.5 text-text-muted" />
+                                  <span className="text-[9px] font-medium text-text-muted truncate lowercase">{locker.activeDonation.donorContact}</span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md bg-emerald-500 text-[7px] font-black text-white uppercase tracking-tighter">
-                              {locker.lockerId.replace('chamber-', 'SAFE')}
+                            <div className={`w-2 h-2 rounded-full mt-2 ${locker.activeDonation.latestQualityScore === 'fresh' ? 'bg-emerald-500 shadow-[0_0_8px_#10B981]' : locker.activeDonation.latestQualityScore === 'aging' ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                          </div>
+
+                          <div className="mb-3">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <Package className="w-3 h-3 text-emerald-500" />
+                              <span className="text-[8px] font-black uppercase tracking-widest text-text-muted opacity-60">Stored Asset</span>
+                            </div>
+                            <div className="px-3 py-1.5 rounded-lg bg-panel dark:bg-white/5 border border-line dark:border-white/5">
+                              <span className="text-sm font-black text-text tracking-tight">{locker.activeDonation.foodName}</span>
                             </div>
                           </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500/60 leading-none mb-1">VERIFIED DONOR</span>
-                            <span className="text-base font-black text-text truncate leading-tight">{locker.activeDonation?.donorName}</span>
-                            <div className="flex items-center gap-1 mt-0.5 opacity-60">
-                              <Mail className="w-2.5 h-2.5 text-text-muted" />
-                              <span className="text-[9px] font-medium text-text-muted truncate lowercase">{locker.activeDonation?.donorContact}</span>
+
+                          <div className="grid grid-cols-2 gap-2 mb-4">
+                            <div className={`p-3 rounded-xl border flex flex-col gap-0.5
+                              ${locker.activeDonation.dietTag === 'veg' || locker.activeDonation.dietTag === 'vegan'
+                                ? 'bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                                : 'bg-amber-500/[0.08] border-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
+                              <span className="text-[7px] font-black uppercase tracking-widest opacity-60">Dietary</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest">{locker.activeDonation.dietTag || 'Standard'}</span>
+                            </div>
+                            <div className={`p-3 rounded-xl border flex flex-col gap-0.5
+                              ${locker.activeDonation.latestQualityScore === 'fresh'
+                                ? 'bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                                : locker.activeDonation.latestQualityScore === 'aging'
+                                ? 'bg-amber-500/[0.08] border-amber-500/20 text-amber-700 dark:text-amber-400'
+                                : 'bg-rose-500/[0.08] border-rose-500/20 text-rose-700 dark:text-rose-400'}`}>
+                              <span className="text-[7px] font-black uppercase tracking-widest opacity-60">Quality</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest">{locker.activeDonation.latestQualityScore || 'Nominal'}</span>
                             </div>
                           </div>
-                        </div>
-                        <div className={`w-2 h-2 rounded-full mt-2 ${locker.activeDonation?.latestQualityScore === 'fresh' ? 'bg-emerald-500 shadow-[0_0_8px_#10B981]' : locker.activeDonation?.latestQualityScore === 'aging' ? 'bg-amber-500' : 'bg-rose-500'}`} />
-                      </div>
 
-                      <div className="mb-3">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Package className="w-3 h-3 text-emerald-500" />
-                          <span className="text-[8px] font-black uppercase tracking-widest text-text-muted opacity-60">Stored Asset</span>
-                        </div>
-                        <div className="px-3 py-1.5 rounded-lg bg-panel dark:bg-white/5 border border-line dark:border-white/5">
-                          <span className="text-sm font-black text-text tracking-tight">{locker.activeDonation?.foodName}</span>
-                        </div>
-                      </div>
+                          <div className="flex items-center justify-between pt-3 border-t border-line dark:border-white/5">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-text-muted opacity-40" />
+                              <span className="text-[9px] font-mono font-bold text-text-muted">{formatDateTime(locker.activeDonation.createdAt)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[8px] font-black uppercase tracking-tighter text-text-muted opacity-40">System Logged</span>
+                              <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        /* ── EMPTY: Safe 1 hardware status card ──────────── */
+                        <>
+                          <div className="flex items-start justify-between mb-5">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-500
+                                  ${locker.lockerId === state.selectedLockerId ? 'bg-emerald-500/20 border-emerald-500/40' : 'bg-muted/10 dark:bg-white/5 border-line dark:border-white/10'}`}>
+                                  <Box className="w-5 h-5 text-text-muted" />
+                                </div>
+                                <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md bg-emerald-500/60 text-[7px] font-black text-white uppercase tracking-tighter">
+                                  {locker.lockerId.replace('chamber-', 'SAFE')}
+                                </div>
+                              </div>
+                              <div className="flex flex-col overflow-hidden">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500/60 leading-none mb-1">HARDWARE UNIT</span>
+                                <span className="text-base font-black text-text-muted leading-tight">Awaiting Donation</span>
+                                <span className="text-[9px] text-text-muted opacity-50 mt-0.5">Paired · Live Monitoring</span>
+                              </div>
+                            </div>
+                            <div className="w-2 h-2 rounded-full mt-2 bg-text-muted/30 animate-pulse" />
+                          </div>
 
-                      <div className="grid grid-cols-2 gap-2 mb-4">
-                        <div className={`p-3 rounded-xl border transition-colors duration-300 flex flex-col gap-0.5
-                          ${locker.activeDonation?.dietTag === 'veg' || locker.activeDonation?.dietTag === 'vegan'
-                            ? 'bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-700 dark:text-emerald-400' 
-                            : 'bg-amber-500/[0.08] border-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
-                          <span className="text-[7px] font-black uppercase tracking-widest opacity-60">Dietary</span>
-                          <span className="text-[10px] font-black uppercase tracking-widest">
-                            {locker.activeDonation?.dietTag || 'Standard'}
-                          </span>
-                        </div>
-                        <div className={`p-3 rounded-xl border transition-colors duration-300 flex flex-col gap-0.5
-                          ${locker.activeDonation?.latestQualityScore === 'fresh' 
-                            ? 'bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-700 dark:text-emerald-400' 
-                            : locker.activeDonation?.latestQualityScore === 'aging'
-                            ? 'bg-amber-500/[0.08] border-amber-500/20 text-amber-700 dark:text-amber-400'
-                            : 'bg-rose-500/[0.08] border-rose-500/20 text-rose-700 dark:text-rose-400'}`}>
-                          <span className="text-[7px] font-black uppercase tracking-widest opacity-60">Quality</span>
-                          <span className="text-[10px] font-black uppercase tracking-widest">
-                            {locker.activeDonation?.latestQualityScore || 'Nominal'}
-                          </span>
-                        </div>
-                      </div>
+                          <div className="mb-4 px-3 py-3 rounded-xl bg-panel dark:bg-white/[0.03] border border-dashed border-line/60 dark:border-white/[0.06] flex items-center gap-2">
+                            <Database className="w-4 h-4 text-text-muted opacity-40" />
+                            <span className="text-[11px] font-black text-text-muted opacity-40 uppercase tracking-widest">Chamber Vacant</span>
+                          </div>
 
-                      <div className="flex items-center justify-between pt-3 border-t border-line dark:border-white/5">
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="w-3 h-3 text-text-muted opacity-40" />
-                          <span className="text-[9px] font-mono font-bold text-text-muted">{formatDateTime(locker.activeDonation?.createdAt || "")}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                           <span className="text-[8px] font-black uppercase tracking-tighter text-text-muted opacity-40">System Logged</span>
-                           <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
-                        </div>
-                      </div>
+                          <div className="grid grid-cols-2 gap-2 mb-4">
+                            <div className="p-3 rounded-xl border border-line/40 dark:border-white/[0.05] bg-panel/50 flex flex-col gap-0.5">
+                              <span className="text-[7px] font-black uppercase tracking-widest text-text-muted opacity-40">Lock</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-text-muted opacity-60">
+                                {locker.lockState === 'unlocked' ? '🔓 Unlocked' : '🔒 Secured'}
+                              </span>
+                            </div>
+                            <div className="p-3 rounded-xl border border-line/40 dark:border-white/[0.05] bg-panel/50 flex flex-col gap-0.5">
+                              <span className="text-[7px] font-black uppercase tracking-widest text-text-muted opacity-40">Door</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-text-muted opacity-60">
+                                {locker.doorState === 'open' ? '🚪 Open' : '🚪 Closed'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-3 border-t border-line/40 dark:border-white/[0.05]">
+                            <div className="flex items-center gap-1.5 opacity-30">
+                              <Wifi className="w-3 h-3 text-emerald-500" />
+                              <span className="text-[9px] font-black uppercase tracking-widest text-text-muted">Ready</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 opacity-30">
+                              <span className="text-[8px] font-black uppercase tracking-tighter text-text-muted">ESP32 Online</span>
+                              <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                            </div>
+                          </div>
+                        </>
+                      )}
 
                       {/* Selection Glow */}
                       {locker.lockerId === state.selectedLockerId && (
@@ -532,7 +594,7 @@ export function AdminPageV2() {
                     </motion.div>
                   ))}
                 </div>
-              ) : (
+                ) : (
                 <div className="py-20 flex flex-col items-center justify-center text-center opacity-40 text-text-muted">
                   <div className="w-20 h-20 rounded-full bg-panel-elevated dark:bg-white/5 border border-dashed border-line dark:border-white/20 flex items-center justify-center mb-6">
                     <Database className="w-10 h-10" />
@@ -540,7 +602,8 @@ export function AdminPageV2() {
                   <h4 className="text-xl font-black uppercase tracking-[0.4em] mb-2">Registry Standby</h4>
                   <p className="text-sm font-medium max-w-md mx-auto">The fleet is currently waiting for new community donations. Diagnostic streams will activate upon safe deposition.</p>
                 </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </ScrollReveal>
