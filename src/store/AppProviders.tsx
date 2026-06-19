@@ -129,13 +129,17 @@ export function AppProviders({ children }: PropsWithChildren) {
         const fsOccupancy: string = data?.occupancyState ?? "empty";
         const hasDonation = !!data?.donation?.id;
 
-        // ── Occupied: restore real donation metadata from Firestore ──
-        if ((fsOccupancy === "occupied" || fsOccupancy === "spoiled") && hasDonation) {
-          // Use live quality/deadline from RTDB telemetry if already in state,
-          // otherwise fall back to what Firestore stored.
-          const cur = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
-          const qualityScore = cur?.foodQualityScore ?? (data?.item?.latestQualityScore ?? "fresh");
-          const deadline     = cur?.deadlineEstimate ?? (data?.prediction?.deadlineEstimate ?? {
+        // ── RTDB is ground truth — read its current occupancy first ──────────
+        // Firestore can have stale "occupied" data from a previous session.
+        // We MUST cross-check RTDB before restoring a donation, so the physical
+        // hardware state always wins.
+        const rtdbLocker = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
+        const rtdbSaysOccupied = rtdbLocker?.occupancyState === "occupied" || rtdbLocker?.occupancyState === "spoiled";
+
+        // ── Occupied: restore donation only if RTDB also confirms occupied ──
+        if ((fsOccupancy === "occupied" || fsOccupancy === "spoiled") && hasDonation && rtdbSaysOccupied) {
+          const qualityScore = rtdbLocker?.foodQualityScore ?? (data?.item?.latestQualityScore ?? "fresh");
+          const deadline     = rtdbLocker?.deadlineEstimate ?? (data?.prediction?.deadlineEstimate ?? {
             hoursRemaining: 36,
             absoluteIso: new Date(Date.now() + 36 * 3600000).toISOString()
           });
@@ -170,13 +174,19 @@ export function AppProviders({ children }: PropsWithChildren) {
           console.log(`[AppProviders] ✅ Safe 1 donation restored from Firestore: "${restored.foodName}"`);
         }
 
-        // ── Empty: Firestore confirms locker is vacant — hide from dashboard ──
-        // Ghost-donation guard: if the deposit was cancelled (no food detected),
-        // the controller already patched to empty. This listener ensures the same
-        // on any subsequent page load where Firestore still reflects empty.
+        // ── Firestore says occupied but RTDB says empty → hardware wins, clear it ──
+        else if ((fsOccupancy === "occupied" || fsOccupancy === "spoiled") && !rtdbSaysOccupied) {
+          console.log("[AppProviders] ⚠️ Firestore says occupied but RTDB says empty — trusting hardware, clearing donation.");
+          dispatch({
+            type: "patch-locker",
+            id: HARDWARE_LOCKER_ID,
+            locker: { activeDonation: undefined, occupancyState: "empty" }
+          });
+        }
+
+        // ── Empty: both agree locker is vacant ───────────────────────────────
         else if (fsOccupancy === "empty") {
           const cur = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
-          // Only dispatch if we currently think it's occupied (avoid unnecessary renders)
           if (cur?.occupancyState !== "empty" || cur?.activeDonation) {
             dispatch({
               type: "patch-locker",
