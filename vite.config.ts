@@ -25,7 +25,7 @@ export default defineConfig({
         theme_color: "#193229",
         background_color: "#11211b",
         display: "standalone",
-        orientation: "portrait",
+        orientation: "any",
         start_url: "/",
         icons: [
           {
@@ -37,7 +37,8 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg}"]
+        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024
       },
       devOptions: {
         enabled: true,
@@ -45,4 +46,4 @@ export default defineConfig({
       }
     })
   ]
-});
+});

@@ -27,6 +27,10 @@
     "test_connection": {
       ".read": true,
       ".write": "auth != null"
+    },
+    "data_collection": {
+      ".read": true,
+      ".write": true
     }
   }
 }

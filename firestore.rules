@@ -71,5 +71,10 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.token.admin == true;
       allow write: if false;
     }
+
+    match /deniedAttempts/{docId} {
+      allow read: if request.auth != null && request.auth.token.admin == true;
+      allow write: if true;
+    }
   }
 }

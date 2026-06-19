@@ -1,15 +1,18 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, getDocs } from "firebase/firestore";
 import { getDatabase, ref, set, get } from "firebase/database";
+import { getAuth, signInAnonymously } from "firebase/auth";
 import fs from "fs";
 
 // Load .env.local manually
 const envFile = fs.readFileSync(".env.local", "utf-8");
 const envVars = {};
-envFile.split("\n").forEach(line => {
-  const match = line.match(/^([^=]+)="?(.*?)"?$/);
+envFile.split(/\r?\n/).forEach(line => {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("#")) return;
+  const match = trimmed.match(/^([^=]+)="?(.*?)"?$/);
   if (match) {
-    envVars[match[1]] = match[2];
+    envVars[match[1].trim()] = match[2].trim();
   }
 });
 
@@ -27,11 +30,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
+const auth = getAuth(app);
 
 async function testConnection() {
   console.log("Testing Firebase Web SDK Connection...");
 
   try {
+    console.log("Authenticating anonymously...");
+    await signInAnonymously(auth);
+    console.log("✅ Authenticated successfully.");
     // 1. Test RTDB Write/Read
     console.log("\n--- Testing RTDB ---");
     const testRef = ref(rtdb, "test_connection");
@@ -47,16 +54,20 @@ async function testConnection() {
 
     // 2. Test Firestore Write/Read
     console.log("\n--- Testing Firestore ---");
-    const testDocRef = await addDoc(collection(db, "test_collection"), {
-      message: "Hello from test script",
-      timestamp: Date.now()
+    const testDocRef = await addDoc(collection(db, "activeLogs"), {
+      lockerId: "test-locker",
+      type: "pairing",
+      createdAt: new Date().toISOString(),
+      detail: "Hello from connection test script",
+      syncState: "synced"
     });
     console.log("✅ Successfully wrote to Firestore. Document ID:", testDocRef.id);
 
-    const querySnapshot = await getDocs(collection(db, "test_collection"));
+    const querySnapshot = await getDocs(collection(db, "activeLogs"));
     console.log(`✅ Successfully read from Firestore. Found ${querySnapshot.size} documents.`);
     querySnapshot.forEach((doc) => {
-      console.log(`${doc.id} =>`, doc.data());
+      const data = doc.data();
+      console.log(`${doc.id} =>`, data.detail || data);
     });
 
   } catch (error) {

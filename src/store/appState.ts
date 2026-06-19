@@ -58,9 +58,8 @@ export const initialAppState: AppState = {
   hasCompletedPairing: false,
   hardwareMac: "",  // Set during pairing from BLE device name
     lockers: [
-      { ...sampleLockerState, lockerId: "chamber-1", occupancyState: "occupied", foodQualityScore: "fresh",
-        deadlineEstimate: { hoursRemaining: 36, absoluteIso: new Date(Date.now() + 36 * 3600000).toISOString() },
-        activeDonation: { ...sampleDonation, id: "donation-c1", lockerId: "chamber-1", donorName: "Sanskar", donorContact: "dhonde290@gmail.com", foodName: "Vegetable Sandwich", categoryLabel: "Cooked Meal", dietTag: "veg", latestQualityScore: "fresh", allergensNotes: "None declared", deadlineEstimate: { hoursRemaining: 36, absoluteIso: new Date(Date.now() + 36 * 3600000).toISOString() } } },
+      // chamber-1 is real hardware — always starts empty; RTDB+Firestore subscriptions populate it
+      { ...sampleLockerState, lockerId: "chamber-1", occupancyState: "empty", activeDonation: undefined },
       { ...sampleLockerState, lockerId: "chamber-2", occupancyState: "empty" },
       { ...sampleLockerState, lockerId: "chamber-3", occupancyState: "occupied", foodQualityScore: "aging", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(Date.now() + 20 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c3", lockerId: "chamber-3", donorName: "Amit Sharma", donorContact: "amit@ecolocker.local", foodName: "Mixed Fruit Bowl", categoryLabel: "Raw Produce", dietTag: "veg", latestQualityScore: "aging", allergensNotes: "Freshly cut fruits", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(Date.now() + 20 * 3600000).toISOString() } } },
       { ...sampleLockerState, lockerId: "chamber-4", occupancyState: "occupied", foodQualityScore: "spoilt", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(Date.now() + 2 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c4", lockerId: "chamber-4", donorName: "Rahul Desai", donorContact: "rahul@ecolocker.local", foodName: "Chicken Biryani", categoryLabel: "Cooked Meal", dietTag: "non_veg", latestQualityScore: "spoilt", allergensNotes: "Contains spices and nuts. Packed at 8:00 PM.", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(Date.now() + 2 * 3600000).toISOString() } } },
@@ -84,9 +83,8 @@ export const initialAppState: AppState = {
     return {
       ...initialAppState,
       lockers: [
-        { ...sampleLockerState, lockerId: "chamber-1", occupancyState: "occupied", foodQualityScore: "fresh",
-          deadlineEstimate: { hoursRemaining: 36, absoluteIso: new Date(now + 36 * 3600000).toISOString() },
-          activeDonation: { ...sampleDonation, id: "donation-c1", lockerId: "chamber-1", donorName: "Sanskar", donorContact: "dhonde290@gmail.com", foodName: "Vegetable Sandwich", categoryLabel: "Cooked Meal", dietTag: "veg", latestQualityScore: "fresh", allergensNotes: "None declared", deadlineEstimate: { hoursRemaining: 36, absoluteIso: new Date(now + 36 * 3600000).toISOString() } } },
+        // chamber-1 is real hardware — always starts empty; RTDB+Firestore subscriptions populate it
+        { ...sampleLockerState, lockerId: "chamber-1", occupancyState: "empty", activeDonation: undefined },
         { ...sampleLockerState, lockerId: "chamber-2", occupancyState: "empty" },
         { ...sampleLockerState, lockerId: "chamber-3", occupancyState: "occupied", foodQualityScore: "aging",
           deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(now + 20 * 3600000).toISOString() },

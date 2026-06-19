@@ -1,4 +1,7 @@
-import * as functions from "firebase-functions";
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onValueUpdated, onValueWritten } from "firebase-functions/v2/database";
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 
 admin.initializeApp();
@@ -22,18 +25,18 @@ function euclideanDistance(a: number[], b: number[]): number {
 }
 
 // ── HTTPS Callable: setAdminClaim ─────────────────────────────────
-export const setAdminClaim = functions.https.onCall(async (data, context) => {
-  const { email, secret } = data;
+export const setAdminClaim = onCall(async (request) => {
+  const { email, secret } = request.data;
 
   if (secret !== "SAFE_ADMIN_PROVISION_KEY_2026") {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       "permission-denied",
       "Invalid provisioning secret."
     );
   }
 
   if (!email) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       "invalid-argument",
       "Email is required."
     );
@@ -42,10 +45,10 @@ export const setAdminClaim = functions.https.onCall(async (data, context) => {
   try {
     const user = await admin.auth().getUserByEmail(email);
     await admin.auth().setCustomUserClaims(user.uid, { admin: true });
-    functions.logger.info(`[Admin] Admin claim set for ${email} (${user.uid})`);
+    logger.info(`[Admin] Admin claim set for ${email} (${user.uid})`);
     return { success: true, message: `Admin claim granted to ${email}` };
   } catch (err: any) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       "not-found",
       `User with email ${email} not found: ${err.message}`
     );
@@ -53,7 +56,8 @@ export const setAdminClaim = functions.https.onCall(async (data, context) => {
 });
 
 // ── HTTPS Callable: initiateDeposit ────────────────────────────────
-export const initiateDeposit = functions.https.onCall(async (data, context) => {
+export const initiateDeposit = onCall(async (request) => {
+  const data = request.data;
   const {
     mac_address,
     item_name,
@@ -68,7 +72,7 @@ export const initiateDeposit = functions.https.onCall(async (data, context) => {
   } = data;
 
   if (!mac_address || !item_name) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       "invalid-argument",
       "mac_address and item_name are required."
     );
@@ -111,9 +115,9 @@ export const initiateDeposit = functions.https.onCall(async (data, context) => {
         )
       });
 
-      functions.logger.info(`[Deposit] Donor snapshot uploaded for ${donationId}`);
+      logger.info(`[Deposit] Donor snapshot uploaded for ${donationId}`);
     } catch (err: any) {
-      functions.logger.error(`[Deposit] Snapshot upload failed: ${err.message}`);
+      logger.error(`[Deposit] Snapshot upload failed: ${err.message}`);
     }
   }
 
@@ -136,7 +140,7 @@ export const initiateDeposit = functions.https.onCall(async (data, context) => {
   };
 
   await firestore.collection("donations").doc(donationId).set(donationRecord);
-  functions.logger.info(`[Deposit] Donation ${donationId} created for ${mac_address}`);
+  logger.info(`[Deposit] Donation ${donationId} created for ${mac_address}`);
 
   await rtdb.ref(`commands/${mac_address}`).set({
     command: "UNLOCK",
@@ -145,7 +149,7 @@ export const initiateDeposit = functions.https.onCall(async (data, context) => {
     acknowledged: false,
     donationId: donationId
   });
-  functions.logger.info(`[Deposit] UNLOCK command sent to ${mac_address}`);
+  logger.info(`[Deposit] UNLOCK command sent to ${mac_address}`);
 
   await rtdb.ref(`status/${mac_address}`).update({
     occupancy: "processing",
@@ -161,11 +165,11 @@ export const initiateDeposit = functions.https.onCall(async (data, context) => {
 });
 
 // ── HTTPS Callable: initiateRetrieval ──────────────────────────────
-export const initiateRetrieval = functions.https.onCall(async (data, context) => {
-  const { mac_address, receiver_descriptor, receiver_snapshot_base64 } = data;
+export const initiateRetrieval = onCall(async (request) => {
+  const { mac_address, receiver_descriptor, receiver_snapshot_base64 } = request.data;
 
   if (!mac_address) {
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       "invalid-argument",
       "mac_address is required."
     );
@@ -194,10 +198,10 @@ export const initiateRetrieval = functions.https.onCall(async (data, context) =>
     }
 
     if (matchCount >= MAX_RETRIEVALS_PER_DAY) {
-      functions.logger.warn(
+      logger.warn(
         `[Retrieval] Anti-hoarding block: face matched ${matchCount} times in 24h for ${mac_address}`
       );
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "resource-exhausted",
         "Community fair-use limit reached. Each person may collect up to 2 meals per day to ensure everyone has access."
       );
@@ -214,7 +218,7 @@ export const initiateRetrieval = functions.https.onCall(async (data, context) =>
       .get();
 
     if (donationsQuery.empty) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "not-found",
         "No active meal available in this locker."
       );
@@ -225,7 +229,7 @@ export const initiateRetrieval = functions.https.onCall(async (data, context) =>
 
     const freshSnap = await transaction.get(donationDoc.ref);
     if (!freshSnap.exists || freshSnap.data()?.status !== "deposited") {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "aborted",
         "Meal already claimed by another user. Please try a different locker."
       );
@@ -300,7 +304,7 @@ export const initiateRetrieval = functions.https.onCall(async (data, context) =>
         .doc(result.transactionId)
         .update({ receiverSnapshotUrl });
     } catch (err: any) {
-      functions.logger.error(`[Retrieval] Receiver snapshot upload failed: ${err.message}`);
+      logger.error(`[Retrieval] Receiver snapshot upload failed: ${err.message}`);
     }
   }
 
@@ -318,7 +322,7 @@ export const initiateRetrieval = functions.https.onCall(async (data, context) =>
     last_heartbeat: Date.now()
   });
 
-  functions.logger.info(
+  logger.info(
     `[Retrieval] PENDING_HARDWARE for ${result.donationId} at ${mac_address} (tx: ${result.transactionId})`
   );
 
@@ -331,12 +335,12 @@ export const initiateRetrieval = functions.https.onCall(async (data, context) =>
 });
 
 // ── RTDB Trigger: confirmRetrieval ─────────────────────────────────
-export const confirmRetrieval = functions.database
-  .ref("status/{lockerId}/door_state")
-  .onUpdate(async (change, context) => {
-    const lockerId = context.params.lockerId;
-    const previousState = change.before.val();
-    const currentState = change.after.val();
+export const confirmRetrieval = onValueUpdated(
+  "status/{lockerId}/door_state",
+  async (event) => {
+    const lockerId = event.params.lockerId;
+    const previousState = event.data.before.val();
+    const currentState = event.data.after.val();
 
     if (previousState === "closed" && currentState === "open") {
       const donationsQuery = await firestore
@@ -378,18 +382,18 @@ export const confirmRetrieval = functions.database
         source: "rtdb_trigger"
       });
 
-      functions.logger.info(
+      logger.info(
         `[ConfirmRetrieval] ${donationData.foodName} retrieval confirmed at ${lockerId}`
       );
     }
   });
 
 // ── RTDB Trigger: onTelemetryWrite ─────────────────────────────────
-export const onTelemetryWrite = functions.database
-  .ref("telemetry/{lockerId}")
-  .onWrite(async (change, context) => {
-    const lockerId = context.params.lockerId;
-    const data = change.after.val();
+export const onTelemetryWrite = onValueWritten(
+  "telemetry/{lockerId}",
+  async (event) => {
+    const lockerId = event.params.lockerId;
+    const data = event.data.after.val();
 
     if (!data) return;
 
@@ -413,7 +417,7 @@ export const onTelemetryWrite = functions.database
         source: "telemetry_trigger"
       });
 
-      functions.logger.warn(`[Telemetry] Alert created for ${lockerId}: ${severity}`);
+      logger.warn(`[Telemetry] Alert created for ${lockerId}: ${severity}`);
 
       if (severity === "critical") {
         await rtdb.ref(`commands/${lockerId}`).set({
@@ -423,7 +427,7 @@ export const onTelemetryWrite = functions.database
           acknowledged: false,
           reason: "spoilage_lockdown"
         });
-        functions.logger.warn(`[Telemetry] Quarantine LOCK sent to ${lockerId}`);
+        logger.warn(`[Telemetry] Quarantine LOCK sent to ${lockerId}`);
       }
     }
 
@@ -448,7 +452,7 @@ export const onTelemetryWrite = functions.database
             updatedAt: admin.firestore.Timestamp.now()
           });
 
-          functions.logger.warn(
+          logger.warn(
             `[Telemetry] EMPTY_WARNING flagged for ${lockerId} — Edge Impulse confidence: ${edge_impulse_confidence}`
           );
         }
@@ -464,12 +468,12 @@ export const onTelemetryWrite = functions.database
   });
 
 // ── RTDB Trigger: onCommandAcknowledge ─────────────────────────────
-export const onCommandAck = functions.database
-  .ref("commands/{lockerId}/acknowledged")
-  .onUpdate(async (change, context) => {
-    const lockerId = context.params.lockerId;
-    const wasAcknowledged = change.before.val();
-    const isAcknowledged = change.after.val();
+export const onCommandAck = onValueUpdated(
+  "commands/{lockerId}/acknowledged",
+  async (event) => {
+    const lockerId = event.params.lockerId;
+    const wasAcknowledged = event.data.before.val();
+    const isAcknowledged = event.data.after.val();
 
     if (!wasAcknowledged && isAcknowledged) {
       const commandSnapshot = await rtdb.ref(`commands/${lockerId}`).get();
@@ -484,15 +488,14 @@ export const onCommandAck = functions.database
         source: "rtdb_trigger"
       });
 
-      functions.logger.info(`[Command] ${lockerId} acknowledged: ${commandData?.command}`);
+      logger.info(`[Command] ${lockerId} acknowledged: ${commandData?.command}`);
     }
   });
 
 // ── Scheduled: cleanupExpiredSnapshots ──────────────────────────────
-export const cleanupExpiredSnapshots = functions.pubsub
-  .schedule("every day 00:00")
-  .timeZone("Asia/Kolkata")
-  .onRun(async () => {
+export const cleanupExpiredSnapshots = onSchedule(
+  { schedule: "every day 00:00", timeZone: "Asia/Kolkata" },
+  async (event) => {
     const now = admin.firestore.Timestamp.now();
     const bucket = storage.bucket();
     let deletedCount = 0;
@@ -557,9 +560,125 @@ export const cleanupExpiredSnapshots = functions.pubsub
       source: "scheduled_function"
     });
 
-    functions.logger.info(
+    logger.info(
       `[Cleanup] TTL sweep complete: ${deletedCount} snapshots, ${txDeleted} transactions purged.`
     );
 
-    return null;
-  });
+    return;
+  }
+);
+
+// ── RTDB Trigger: compileSessionToCSV ──────────────────────────────
+export const compileSessionToCSV = onValueWritten(
+  {
+    region: "asia-southeast1",
+    instance: "asep-10fe3-default-rtdb",
+    ref: "data_collection/{mac}/sessions/{sessionId}/status"
+  },
+  async (event) => {
+    const mac = event.params.mac;
+    const sessionId = event.params.sessionId;
+    const status = event.data.after.val();
+
+    if (status !== "completed") return;
+
+    logger.info(`[CSV Compiler] Session ${sessionId} for MAC ${mac} completed. Starting export...`);
+
+    // 1. Fetch the session info (startTime, readings)
+    const sessionRef = admin.database().ref(`data_collection/${mac}/sessions/${sessionId}`);
+    const snapshot = await sessionRef.once("value");
+    const sessionData = snapshot.val();
+
+    if (!sessionData || !sessionData.readings) {
+      logger.error(`[CSV Compiler] No readings found for session ${sessionId}`);
+      return;
+    }
+
+    const startTime = sessionData.startTime || 0;
+    const readings = sessionData.readings;
+
+    // 2. Generate CSV content
+    let csvContent = "internal_temp_c,external_temp_c,humidity_pct,gas_resistance_kohm,hours_elapsed,food_type,safety_label,days_remaining\n";
+
+    const foodType = sessionData.food_type || "dairy";
+    
+    // Sort readings by timestamp
+    const entries = Object.values(readings) as any[];
+    entries.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    // Automatically calculate session duration in hours
+    const firstTimestamp = entries.length > 0 ? (entries[0].timestamp || startTime) : startTime;
+    const lastTimestamp = entries.length > 0 ? (entries[entries.length - 1].timestamp || Date.now()) : Date.now();
+    const sessionDurationHours = (lastTimestamp - firstTimestamp) / (1000.0 * 3600.0);
+
+    // Use max_safe_days if manually specified in DB, otherwise auto-calculate based on experiment duration
+    let maxSafeHours = sessionDurationHours;
+    if (typeof sessionData.max_safe_days === "number") {
+      maxSafeHours = sessionData.max_safe_days * 24.0;
+    } else if (sessionData.max_safe_days && !isNaN(Number(sessionData.max_safe_days))) {
+      maxSafeHours = Number(sessionData.max_safe_days) * 24.0;
+    }
+
+    // Fallback if the session was extremely short or empty
+    if (maxSafeHours <= 0.05) {
+      maxSafeHours = 1.0;
+    }
+
+    for (const entry of entries) {
+      const timestamp = entry.timestamp || 0;
+      const hoursElapsed = startTime ? (timestamp - startTime) / (1000.0 * 3600.0) : 0.0;
+      const lifeFraction = maxSafeHours ? hoursElapsed / maxSafeHours : 0.0;
+
+      const internalTemp = entry.internalTempC || 0.0;
+      const externalTemp = entry.externalTempC || 0.0;
+      const humidity = entry.humidityPct || 0.0;
+      const gasKohm = entry.gasResistanceKohm || (entry.gasResistanceOhms || 0.0) / 1000.0;
+
+      let safetyLabel = 0;
+      if (lifeFraction < 0.50) {
+        safetyLabel = 0;
+      } else if (lifeFraction < 0.85) {
+        safetyLabel = 1;
+      } else {
+        safetyLabel = 2;
+      }
+
+      const daysRemaining = maxSafeHours ? Math.max((maxSafeHours - hoursElapsed) / 24.0, 0.0) : 0.0;
+
+      csvContent += `${internalTemp.toFixed(2)},${externalTemp.toFixed(2)},${humidity.toFixed(2)},${gasKohm.toFixed(2)},${hoursElapsed.toFixed(2)},${foodType},${safetyLabel},${daysRemaining.toFixed(2)}\n`;
+    }
+
+    // 3. Save to Firebase Storage
+    try {
+      const bucket = admin.storage().bucket();
+      const filePath = `data_collection_exports/${mac}/${sessionId}.csv`;
+      const file = bucket.file(filePath);
+
+      await file.save(csvContent, {
+        metadata: {
+          contentType: "text/csv",
+          metadata: {
+            macAddress: mac,
+            sessionId: sessionId,
+            foodType: foodType,
+            maxSafeDays: String(maxSafeHours / 24.0),
+            recordCount: String(entries.length)
+          }
+        }
+      });
+
+      await file.makePublic().catch(() => {});
+      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
+      
+      // Update session with export info
+      await sessionRef.update({
+        csvUrl: publicUrl,
+        exportedAt: admin.database.ServerValue.TIMESTAMP
+      });
+
+      logger.info(`[CSV Compiler] Session ${sessionId} exported successfully to ${filePath}`);
+    } catch (err: any) {
+      logger.error(`[CSV Compiler] Export failed: ${err.message}`);
+    }
+  }
+);
