@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.compileSessionToCSV = exports.cleanupExpiredSnapshots = exports.onCommandAck = exports.onTelemetryWrite = exports.confirmRetrieval = exports.initiateRetrieval = exports.initiateDeposit = exports.setAdminClaim = void 0;
+exports.seedKnowledgeBase = exports.processVoiceCommand = exports.compileSessionToCSV = exports.cleanupExpiredSnapshots = exports.onCommandAck = exports.onTelemetryWrite = exports.confirmRetrieval = exports.initiateRetrieval = exports.initiateDeposit = exports.setAdminClaim = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const database_1 = require("firebase-functions/v2/database");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -546,6 +546,257 @@ exports.compileSessionToCSV = (0, database_1.onValueWritten)({
     }
     catch (err) {
         logger.error(`[CSV Compiler] Export failed: ${err.message}`);
+    }
+});
+// ── HTTPS Callable: processVoiceCommand (AI Agent) ─────────────────
+const params_1 = require("firebase-functions/params");
+const genai_1 = require("@google/genai");
+const geminiApiKey = (0, params_1.defineSecret)("GEMINI_API_KEY");
+exports.processVoiceCommand = (0, https_1.onCall)({ secrets: [geminiApiKey] }, async (request) => {
+    const { text, history } = request.data;
+    if (!text) {
+        throw new https_1.HttpsError("invalid-argument", "Text input is required.");
+    }
+    let fallbackText = "";
+    try {
+        const ai = new genai_1.GoogleGenAI({ apiKey: geminiApiKey.value() });
+        // --- RAG (Retrieval-Augmented Generation) ---
+        let retrievedContext = "";
+        try {
+            const snapshot = await admin.firestore().collection("knowledge_base").limit(20).get();
+            const docs = snapshot.docs.map((doc) => doc.data().text);
+            if (docs.length > 0) {
+                retrievedContext = "Relevant Knowledge Base Information:\n" + docs.map((d) => `- ${d}`).join("\n");
+                logger.info(`[Voice Agent] Retrieved ${snapshot.docs.length} relevant documents.`);
+            }
+            // Fetch active locker status directly from the lockers collection (which is 1:1 with hardware/UI)
+            const lockersSnap = await admin.firestore()
+                .collection("lockers")
+                .get();
+            const lockerMap = new Map();
+            lockersSnap.docs.forEach(doc => {
+                const data = doc.data();
+                let num = parseInt(doc.id.replace("chamber-", "").replace("locker_", ""), 10);
+                if (num >= 1 && num <= 8) {
+                    if (data.occupancyState === "occupied" && data.item) {
+                        const foodName = data.item.foodName || "Unknown Food";
+                        const quality = data.foodQualityScore || "unknown";
+                        const tags = (data.item.dietTag ? [data.item.dietTag] : []).join(', ');
+                        lockerMap.set(num, `OCCUPIED - Contains "${foodName}" (Quality: ${quality}, Tags: ${tags})`);
+                    }
+                    else {
+                        lockerMap.set(num, `EMPTY (No food is stored here currently)`);
+                    }
+                }
+            });
+            retrievedContext += "\n\n--- Current Real-Time Locker Contents ---";
+            for (let i = 1; i <= 8; i++) {
+                if (lockerMap.has(i)) {
+                    retrievedContext += `\nLocker ${i}: ${lockerMap.get(i)}`;
+                    fallbackText += `Locker ${i} contains ${lockerMap.get(i).split('"')[1] || "food"}. `;
+                }
+                else {
+                    retrievedContext += `\nLocker ${i}: EMPTY (No food is stored here currently)`;
+                    fallbackText += `Locker ${i} is empty. `;
+                }
+            }
+        }
+        catch (e) {
+            logger.warn(`[Voice Agent] Failed to fetch RAG data: ${e.message}`);
+        }
+        // --------------------------------------------
+        // Define the tools the AI can use to control the app
+        const navigateTool = {
+            name: "navigate",
+            description: "Navigates the user to a specific page in the SAFE EcoLocker application. Available paths: '/donate' (donor dashboard to deposit food), '/receive' (receiver kiosk to collect food), '/admin' (admin analytics dashboard), '/' (home/mode selection), '/welcome' (landing page), '/visualizer' (data visualizer).",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    path: {
+                        type: "STRING",
+                        description: "The URL path to navigate to. Must be one of: '/', '/donate', '/receive', '/admin', '/welcome', '/visualizer'."
+                    }
+                },
+                required: ["path"]
+            }
+        };
+        const triggerEventTool = {
+            name: "triggerEvent",
+            description: "Triggers a specific UI event in the application.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    eventName: {
+                        type: "STRING",
+                        description: "The name of the event to trigger. Currently supported: 'open-help-widget', 'toggle-theme', 'set-theme-light', 'set-theme-dark'."
+                    }
+                },
+                required: ["eventName"]
+            }
+        };
+        const systemInstruction = `You are EcoLocker AI — the intelligent voice assistant for the SAFE (Smart Automated Food Exchange) locker system.
+
+Your capabilities:
+1. NAVIGATION: Use the 'navigate' tool to take users to different sections.
+   - '/donate' = Donor dashboard (for depositing food)
+   - '/receive' = Receiver/Kiosk (for collecting food)
+   - '/admin' = Admin dashboard (monitoring, analytics)
+   - '/' = Home / Mode selection
+   - '/welcome' = Landing page
+   - '/visualizer' = Data visualizer
+2. UI EVENTS: Use the 'triggerEvent' tool.
+   - 'open-help-widget' = Opens the help/guide overlay
+   - 'toggle-theme' = Toggle light/dark mode
+   - 'set-theme-light' = Switch to light mode
+   - 'set-theme-dark' = Switch to dark mode
+3. KNOWLEDGE: Answer questions about the locker system, food policies, chamber contents, donation process, and food safety using the provided context.
+
+Rules:
+- Be concise — your text is spoken aloud via TTS. Keep answers under 2-3 sentences.
+- If the user speaks Hindi or Marathi, respond in the SAME language.
+- When asked about locker/chamber contents, ONLY use the real-time data provided below. Never guess or hallucinate.
+- Refer to lockers as "Chamber 1", "Chamber 2", etc. when speaking.
+- If a chamber is EMPTY, say it is empty. Do NOT mention any historical items.
+- For navigation requests, ALWAYS use the navigate tool — never just describe the path.
+
+${retrievedContext ? `\nUse the following context to answer the user's question if relevant:\n${retrievedContext}` : ''}`;
+        // Build multi-turn contents from conversation history
+        const contents = [];
+        if (history && Array.isArray(history)) {
+            for (const msg of history) {
+                contents.push({ role: msg.role === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] });
+            }
+        }
+        contents.push({ role: 'user', parts: [{ text }] });
+        const modelConfig = {
+            contents,
+            config: {
+                systemInstruction,
+                tools: [{ functionDeclarations: [navigateTool, triggerEventTool] }],
+            }
+        };
+        // Cascading model strategy: try primary first, fallback to lite on quota error
+        const models = ["gemini-3.5-flash", "gemini-3.5-flash-lite"];
+        let response = null;
+        for (const model of models) {
+            try {
+                logger.info(`[Voice Agent] Trying model: ${model}`);
+                response = await ai.models.generateContent({ model, ...modelConfig });
+                logger.info(`[Voice Agent] Success with model: ${model}`);
+                break; // Success — stop trying
+            }
+            catch (modelErr) {
+                const is429 = (modelErr.message && modelErr.message.includes("429")) || modelErr.status === 429 || modelErr.code === 429;
+                if (is429 && model !== models[models.length - 1]) {
+                    logger.warn(`[Voice Agent] Model ${model} quota exceeded, falling back to next model...`);
+                    continue; // Try next model
+                }
+                throw modelErr; // Not a 429, or last model also failed — rethrow to outer catch
+            }
+        }
+        if (!response) {
+            throw new Error("All models exhausted.");
+        }
+        // Check if the model decided to call a function
+        const functionCalls = response.functionCalls;
+        if (functionCalls && functionCalls.length > 0) {
+            const call = functionCalls[0];
+            const args = call.args || {};
+            logger.info(`[Voice Agent] Tool Call executed: ${call.name}`, args);
+            return {
+                success: true,
+                type: "TOOL_CALL",
+                toolName: call.name,
+                args: args,
+                message: call.name === 'navigate' ? `Navigating to ${args.path}...` : `Triggering ${args.eventName}...`
+            };
+        }
+        // Otherwise, return the conversational response
+        logger.info(`[Voice Agent] Conversational response generated.`);
+        return {
+            success: true,
+            type: "CHAT_RESPONSE",
+            message: response.text
+        };
+    }
+    catch (err) {
+        logger.error(`[Voice Agent] Error processing command: ${err.message}`);
+        // Check for rate limit / quota exceeded
+        if ((err.message && err.message.includes("429")) || err.status === 429 || err.code === 429) {
+            logger.info(`[Voice Agent] Quota exceeded, executing offline intent parsing.`);
+            const lower = text.toLowerCase();
+            if (lower.includes("donate") || lower.includes("deposit") || lower.includes("give") || lower.includes("दान") || lower.includes("खाना") || lower.includes("देना") || lower.includes("जमा")) {
+                return { success: true, type: "TOOL_CALL", toolName: "navigate", args: { path: "/donate" }, message: "Navigating to donor section." };
+            }
+            if (lower.includes("receive") || lower.includes("collect") || lower.includes("take") || lower.includes("get food") || lower.includes("लेना") || lower.includes("प्राप्त") || lower.includes("घेणे")) {
+                return { success: true, type: "TOOL_CALL", toolName: "navigate", args: { path: "/receive" }, message: "Navigating to receive section." };
+            }
+            if (lower.includes("admin") || lower.includes("dashboard") || lower.includes("प्रबंधक") || lower.includes("डैशबोर्ड")) {
+                return { success: true, type: "TOOL_CALL", toolName: "navigate", args: { path: "/admin" }, message: "Navigating to admin dashboard." };
+            }
+            if (lower.includes("home") || lower.includes("start") || lower.includes("back") || lower.includes("होम") || lower.includes("घर") || lower.includes("वापस")) {
+                return { success: true, type: "TOOL_CALL", toolName: "navigate", args: { path: "/" }, message: "Navigating home." };
+            }
+            if (lower.includes("dark") || lower.includes("अंधेरा") || lower.includes("डार्क")) {
+                return { success: true, type: "TOOL_CALL", toolName: "triggerEvent", args: { eventName: "set-theme-dark" }, message: "Switching to dark mode." };
+            }
+            if (lower.includes("light") || lower.includes("रोशनी") || lower.includes("लाइट")) {
+                return { success: true, type: "TOOL_CALL", toolName: "triggerEvent", args: { eventName: "set-theme-light" }, message: "Switching to light mode." };
+            }
+            if (lower.includes("help") || lower.includes("how to") || lower.includes("guide") || lower.includes("मदद") || lower.includes("सहायता") || lower.includes("कैसे")) {
+                return { success: true, type: "TOOL_CALL", toolName: "triggerEvent", args: { eventName: "open-help-widget" }, message: "Opening help guide." };
+            }
+            // Locker status queries
+            if (lower.includes("locker") || lower.includes("chamber") || lower.includes("status") || lower.includes("what") || lower.includes("whats") || lower.includes("क्या") || lower.includes("लॉकर") || lower.includes("चेंबर")) {
+                return {
+                    success: true,
+                    type: "CHAT_RESPONSE",
+                    message: fallbackText || "All lockers are currently empty."
+                };
+            }
+            return {
+                success: true,
+                type: "CHAT_RESPONSE",
+                message: "I'm currently in offline mode due to high demand. I can still help you navigate — try saying 'donate food', 'receive food', or 'show admin dashboard'."
+            };
+        }
+        // Use 'unknown' instead of 'internal' so the frontend can see the actual error message
+        throw new https_1.HttpsError("unknown", err.message || "Failed to process voice command.", err.message);
+    }
+});
+// ── HTTPS Callable: seedKnowledgeBase ────────────────────────────────
+exports.seedKnowledgeBase = (0, https_1.onCall)({ secrets: [geminiApiKey] }, async (request) => {
+    var _a, _b;
+    const { data } = request.data;
+    if (!Array.isArray(data) || data.length === 0) {
+        throw new https_1.HttpsError("invalid-argument", "Requires an array of text strings to seed.");
+    }
+    try {
+        const ai = new genai_1.GoogleGenAI({ apiKey: geminiApiKey.value() });
+        let count = 0;
+        for (const text of data) {
+            if (typeof text !== 'string')
+                continue;
+            // Generate embedding
+            const embeddingResponse = await ai.models.embedContent({
+                model: "text-embedding-004",
+                contents: text,
+            });
+            const vectorData = (_b = (_a = embeddingResponse.embeddings) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.values;
+            if (vectorData) {
+                await firestore.collection("knowledge_base").add({
+                    text,
+                    embedding: admin.firestore.FieldValue.vector(vectorData),
+                    createdAt: admin.firestore.Timestamp.now()
+                });
+                count++;
+            }
+        }
+        return { success: true, message: `Successfully embedded and seeded ${count} documents into the knowledge base.` };
+    }
+    catch (err) {
+        logger.error(`[Seed RAG] Error seeding data: ${err.message}`);
+        throw new https_1.HttpsError("internal", "Failed to seed knowledge base.", err.message);
     }
 });
 //# sourceMappingURL=index.js.map

@@ -38,7 +38,7 @@ if (import.meta.env.DEV && !useCloud) {
     connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
     connectFirestoreEmulator(db, "127.0.0.1", 8081);
     connectDatabaseEmulator(rtdb, "127.0.0.1", 9001);
-    connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+    // connectFunctionsEmulator(functions, "127.0.0.1", 5001); // FORCE CLOUD FOR VOICE ASSISTANT
     connectStorageEmulator(storage, "127.0.0.1", 9199);
     console.log("[Firebase] Connected to local emulators");
   } catch (e) {
@@ -51,6 +51,7 @@ if (import.meta.env.DEV && !useCloud) {
 // ── Cloud Functions ──────────────────────────────────────────────
 export const initiateDepositFn = httpsCallable(functions, 'initiateDeposit');
 export const initiateRetrievalFn = httpsCallable(functions, 'initiateRetrieval');
+export const processVoiceCommandFn = httpsCallable(functions, 'processVoiceCommand');
 
 // ── RTDB Path Helpers (split-database: RTDB = real-time IoT layer) ──
 // telemetry/{lockerId}  → ESP32 pushes sensor readings here

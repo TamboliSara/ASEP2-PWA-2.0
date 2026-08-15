@@ -24,11 +24,12 @@ export function getQualityStage(score: number): FoodQualityScore {
 /**
  * Returns user-friendly labels for the 3 categories.
  */
-export function getQualityLabel(stage: FoodQualityScore): string {
+export function getQualityLabel(stage: FoodQualityScore | "empty"): string {
   switch (stage) {
     case "fresh": return "Fresh";
     case "aging": return "Aging";
     case "spoilt": return "Spoiled";
+    case "empty": return "Empty";
     default: return "Unknown";
   }
 }

@@ -877,15 +877,30 @@ export function FoodHeroV2({
         .food-details-luxe {
           display: flex;
           flex-direction: column;
-          gap: 0.25rem;
+          gap: 0.35rem;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          overflow: hidden;
+          text-align: center;
         }
         .food-title-luxe {
-          font-size: 2.25rem;
+          font-size: clamp(1.4rem, 2.2vw, 2.1rem);
           font-weight: 900;
-          letter-spacing: -0.05em;
+          letter-spacing: -0.04em;
           margin: 0;
           color: var(--text);
-          line-height: 1;
+          line-height: 1.2;
+          word-break: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+          padding: 0 0.5rem;
         }
         .food-subtitle-luxe {
           display: flex;

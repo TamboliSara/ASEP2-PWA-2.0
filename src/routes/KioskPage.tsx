@@ -586,12 +586,11 @@ export function KioskPage() {
 
               {/* ── Food Name ── */}
               <div className="hrd-food-name-row" style={{ position: 'relative', zIndex: 10 }}>
-                <TextReveal mode="words" direction="up" distance={15} delay={0.3}>
-                  <h2 className="hrd-food-name">
+                <TextReveal mode="block" direction="up" distance={15} delay={0.3} className="w-full min-w-0">
+                  <h2 className="hrd-food-name" title={displayDonation.foodName}>
                     {displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)}
                   </h2>
                 </TextReveal>
-
               </div>
 
               {/* ── QUALITY INDEX — Prominent Hero Block ── */}
@@ -860,28 +859,33 @@ export function KioskPage() {
         .hrd-food-name-row {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 1.5rem;
-          flex-wrap: nowrap;
-          min-height: 4rem;
           width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          overflow: hidden;
+          margin-bottom: 0.25rem;
         }
         .hrd-food-name {
-          font-size: clamp(1.8rem, 4vw, 3.2rem);
+          font-size: clamp(1.5rem, 2.8vw, 2.5rem);
           font-weight: 950;
-          letter-spacing: -0.04em;
-          line-height: 1.1;
+          letter-spacing: -0.03em;
+          line-height: 1.15;
           margin: 0;
           color: var(--text);
           background: linear-gradient(135deg, var(--text) 50%, var(--accent));
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
-          white-space: nowrap;
+          word-break: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
           overflow: hidden;
           text-overflow: ellipsis;
-          flex: 1;
-          min-width: 0;
+          max-width: 100%;
+          width: 100%;
         }
         .hrd-safety-chip {
           display: flex;

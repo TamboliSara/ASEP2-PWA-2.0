@@ -95,45 +95,45 @@ export function HelpWidget() {
     }}>
       {[
         {
-          id: "voice",
-          title: "Voice Assistant",
-          desc: "Hands-free control with Web Speech API. Say 'Eco, donate' to start.",
-          icon: Mic,
+          id: "fda-fsma",
+          title: "FDA FSMA Compliance",
+          desc: "Focuses on preventing foodborne illnesses through preventive controls rather than just reacting.",
+          icon: ShieldCheck,
           color: "var(--primary)"
         },
         {
-          id: "face",
-          title: "Biometric Verification",
-          desc: "Real-time face scanning with liveness checks ensures secure access.",
-          icon: ScanFace,
+          id: "fda-haccp",
+          title: "FDA HACCP Standards",
+          desc: "Management system addressing food safety through analysis and control of biological and physical hazards.",
+          icon: Activity,
           color: "var(--success)"
         },
         {
-          id: "health",
-          title: "Smart Safety UI",
-          desc: "Live locker capacity and airtight status monitoring for food hygiene.",
-          icon: Activity,
+          id: "fda-labeling",
+          title: "FDA Labeling Rules",
+          desc: "Strict requirements for declaring nutritional content, allergens, and clear ingredient transparency.",
+          icon: List,
           color: "var(--warning)"
         },
         {
-          id: "admin",
-          title: "Admin Telemetry",
-          desc: "Advanced fleet mapping and interactive community calendar tracking.",
-          icon: Map,
+          id: "fssai-license",
+          title: "FSSAI Licensing",
+          desc: "Mandatory statutory registration for all Food Business Operators (FBOs) to ensure legal accountability.",
+          icon: CheckCircle2,
           color: "var(--info)"
         },
         {
-          id: "alerts",
-          title: "Global Alerts",
-          desc: "Synchronized toast notifications and persistent system alerts hub.",
-          icon: BellRing,
+          id: "fssai-hygiene",
+          title: "FSSAI Schedule 4",
+          desc: "Rigorous general hygienic and sanitary practices required for safe food processing and handling.",
+          icon: ThumbsUp,
           color: "var(--accent)"
         },
         {
-          id: "gestures",
-          title: "Slide Gestures",
-          desc: "Intuitive slide-to-confirm and slide-to-retrieve interactions.",
-          icon: HandHeart,
+          id: "fssai-recall",
+          title: "FSSAI Food Recall",
+          desc: "Rapid response protocols to quickly remove unsafe or misbranded food items from the distribution network.",
+          icon: BellRing,
           color: "var(--accent-warm)"
         }
       ].map((feature, idx) => (
@@ -401,7 +401,7 @@ export function HelpWidget() {
                     { id: "diagram", icon: Network, label: "Architecture" },
                     { id: "donor", icon: Heart, label: "Donate Flow" },
                     { id: "receiver", icon: Package, label: "Receive Flow" },
-                    { id: "features", icon: Sparkles, label: "Smart Features" }
+                    { id: "features", icon: ShieldCheck, label: "Food Policies" }
                   ].map((tab) => (
                     <button 
                       key={tab.id}

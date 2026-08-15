@@ -11,7 +11,7 @@ import { db } from "../services/firebase";
 import { collection, getDocs, deleteDoc, doc as firestoreDoc } from "firebase/firestore";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
-import { sampleAlert, sampleDonation } from "../utils/mockData";
+import { sampleAlert, sampleDonation, sampleLockerState } from "../utils/mockData";
 import { generateMockReadings, persistMockReadings, clearMockReadings } from "../utils/mockTelemetry";
 import type { AlertRecord, DonationRecord, LockerEvent, PredictionSnapshot, SensorSnapshot } from "../types/domain";
 

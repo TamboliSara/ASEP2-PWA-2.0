@@ -1,6 +1,8 @@
 node_modules
 dist
 dist-ssr
+dev-dist
+*.tsbuildinfo
 *.local
 .vscode
 .idea
@@ -9,5 +11,4 @@ dist-ssr
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-node_modules
 .vite

@@ -16,7 +16,7 @@ import { useAppContext } from "./store/AppContext";
 import { syncNavigationEvent } from "./services/initialSync";
 
 export default function App() {
-  const { state } = useAppContext();
+  const { state, dispatch } = useAppContext();
   const location = useLocation();
   const prevPath = useRef(location.pathname);
 
@@ -38,13 +38,34 @@ export default function App() {
     }
   }, [location.pathname]);
 
+  useEffect(() => {
+    const handleToggleTheme = () => {
+      dispatch({
+        type: "set-theme-mode",
+        themeMode: state.themeMode === "dark" ? "light" : "dark"
+      });
+    };
+    const handleSetLight = () => dispatch({ type: "set-theme-mode", themeMode: "light" });
+    const handleSetDark = () => dispatch({ type: "set-theme-mode", themeMode: "dark" });
+
+    window.addEventListener('toggle-theme', handleToggleTheme);
+    window.addEventListener('set-theme-light', handleSetLight);
+    window.addEventListener('set-theme-dark', handleSetDark);
+    
+    return () => {
+      window.removeEventListener('toggle-theme', handleToggleTheme);
+      window.removeEventListener('set-theme-light', handleSetLight);
+      window.removeEventListener('set-theme-dark', handleSetDark);
+    };
+  }, [state.themeMode, dispatch]);
+
   return (
     <AppShell>
       <Routes>
         <Route path="/connect" element={<ConnectPage />} />
         <Route path="/" element={state.hasCompletedPairing ? <ModeSelectPage /> : <Navigate to="/connect" replace />} />
         <Route path="/donate" element={state.hasCompletedPairing ? <DonorPage /> : <Navigate to="/connect" replace />} />
-        <Route path="/receive" element={state.hasCompletedPairing ? <KioskPage /> : <Navigate to="/connect" replace />} />
+        <Route path="/receive" element={<KioskPage />} />
         <Route path="/public" element={<Navigate to="/receive" replace />} />
         <Route path="/admin" element={state.hasCompletedPairing ? <AdminPageV2 /> : <Navigate to="/connect" replace />} />
         <Route path="/admin/sign-in" element={state.hasCompletedPairing ? <SignInPageV2 /> : <Navigate to="/connect" replace />} />
