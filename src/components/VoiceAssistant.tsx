@@ -30,6 +30,52 @@ const SUGGESTIONS = [
   { icon: HelpCircle, text: "How does EcoLocker work?", label: "System guide" },
 ];
 
+function findBestFemaleVoice(lang: string): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  const femaleKeywords = [
+    'female', 'woman', 'zira', 'jenny', 'heera', 'swara', 'veena', 'lekha',
+    'neerja', 'samantha', 'karen', 'victoria', 'kalpana', 'priya', 'ananya',
+    'aditi', 'moira', 'tessa', 'fiona', 'serena', 'ava', 'allison', 'susan',
+    'google uk english female', 'google हिन्दी', 'google मराठी', 'google us english'
+  ];
+
+  const maleKeywords = ['male', 'david', 'george', 'mark', 'ravi', 'madhav', 'guy', 'prabhat', 'hemant', 'stefan', 'richard'];
+
+  const cleanLang = lang.toLowerCase().split('-')[0]; // 'hi', 'mr', 'en'
+
+  // 1. Prioritize language match + female keyword
+  const langFemaleMatch = voices.find(v => {
+    const vLang = v.lang.toLowerCase();
+    const vName = v.name.toLowerCase();
+    const isLang = vLang.includes(cleanLang) || vLang.replace('_', '-').startsWith(cleanLang);
+    const isFemale = femaleKeywords.some(k => vName.includes(k));
+    const isNotMale = !maleKeywords.some(k => vName.includes(k));
+    return isLang && isFemale && isNotMale;
+  });
+  if (langFemaleMatch) return langFemaleMatch;
+
+  // 2. Any voice matching language that is not explicitly male
+  const langMatch = voices.find(v => {
+    const vLang = v.lang.toLowerCase();
+    const vName = v.name.toLowerCase();
+    const isLang = vLang.includes(cleanLang) || vLang.replace('_', '-').startsWith(cleanLang);
+    return isLang && !maleKeywords.some(k => vName.includes(k));
+  });
+  if (langMatch) return langMatch;
+
+  // 3. Fallback: Any premium female voice
+  const generalFemaleMatch = voices.find(v => {
+    const vName = v.name.toLowerCase();
+    return femaleKeywords.some(k => vName.includes(k)) && !maleKeywords.some(k => vName.includes(k));
+  });
+  if (generalFemaleMatch) return generalFemaleMatch;
+
+  return null;
+}
+
 export function VoiceAssistant() {
   const navigate = useNavigate();
   const [state, setState] = useState<AssistantState>('idle');
@@ -60,6 +106,19 @@ export function VoiceAssistant() {
 
   useEffect(() => {
     setMounted(true);
+    // Preload system voices
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      const onVoicesChanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.onvoiceschanged = onVoicesChanged;
+      return () => {
+        if (window.speechSynthesis) {
+          window.speechSynthesis.onvoiceschanged = null;
+        }
+      };
+    }
     return () => setMounted(false);
   }, []);
 
@@ -84,15 +143,23 @@ export function VoiceAssistant() {
       
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.05; 
-      utterance.pitch = 1.02;
       
-      if (/[\u0900-\u097F]/.test(text)) {
-        utterance.lang = appState.locale === 'mr' ? 'mr-IN' : 'hi-IN';
-      } else {
-        utterance.lang = 'en-IN';
+      const isHindiMarathi = /[\u0900-\u097F]/.test(text);
+      const targetLang = isHindiMarathi 
+        ? (appState.locale === 'mr' ? 'mr-IN' : 'hi-IN') 
+        : (appState.locale === 'hi' ? 'hi-IN' : appState.locale === 'mr' ? 'mr-IN' : 'en-IN');
+      
+      utterance.lang = targetLang;
+      
+      // Select best female voice
+      const femaleVoice = findBestFemaleVoice(targetLang);
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
       }
-
+      
+      utterance.rate = 1.02; 
+      utterance.pitch = 1.14; // Bright, pleasant female pitch
+      
       let resolved = false;
       const finish = () => {
         if (!resolved) {
