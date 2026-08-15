@@ -30,48 +30,118 @@ const SUGGESTIONS = [
   { icon: HelpCircle, text: "How does EcoLocker work?", label: "System guide" },
 ];
 
-function findBestFemaleVoice(lang: string): SpeechSynthesisVoice | null {
+function cleanTextForSpeech(text: string): string {
+  if (!text) return "";
+
+  let cleaned = text;
+
+  // 1. Remove markdown bold, italic, code blocks, headers, bullet points
+  cleaned = cleaned.replace(/```[\s\S]*?```/g, "");
+  cleaned = cleaned.replace(/`([^`]+)`/g, "$1");
+  cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, "$1");
+  cleaned = cleaned.replace(/\*([^*]+)\*/g, "$1");
+  cleaned = cleaned.replace(/__([^_]+)__/g, "$1");
+  cleaned = cleaned.replace(/_([^_]+)_/g, "$1");
+  cleaned = cleaned.replace(/^#+\s+/gm, "");
+  cleaned = cleaned.replace(/^[\*\-\+]\s+/gm, "");
+  cleaned = cleaned.replace(/^\d+\.\s+/gm, "");
+
+  // 2. Expand application routes and technical labels to spoken English
+  cleaned = cleaned.replace(/\/donate\b/gi, "donor section");
+  cleaned = cleaned.replace(/\/receive\b/gi, "receiver kiosk");
+  cleaned = cleaned.replace(/\/admin\b/gi, "admin dashboard");
+  cleaned = cleaned.replace(/\/welcome\b/gi, "welcome page");
+  cleaned = cleaned.replace(/\/visualizer\b/gi, "data visualizer");
+  cleaned = cleaned.replace(/\/home\b/gi, "home page");
+
+  // 3. Pronunciation phonetic enhancements for product terms
+  cleaned = cleaned.replace(/\bEcoLocker\b/gi, "Eco Locker");
+  cleaned = cleaned.replace(/\bSAFE\b/g, "Safe");
+  cleaned = cleaned.replace(/\bSAFE_?0*(\d+)\b/gi, "Safe chamber $1");
+  cleaned = cleaned.replace(/\bLocker_?0*(\d+)\b/gi, "Locker $1");
+  cleaned = cleaned.replace(/\bChamber_?0*(\d+)\b/gi, "Chamber $1");
+
+  // 4. Units & Measurements expansion for natural speech
+  cleaned = cleaned.replace(/(\d+(?:\.\d+)?)\s*hrs?\b/gi, "$1 hours");
+  cleaned = cleaned.replace(/(\d+(?:\.\d+)?)\s*mins?\b/gi, "$1 minutes");
+  cleaned = cleaned.replace(/(\d+(?:\.\d+)?)\s*secs?\b/gi, "$1 seconds");
+  cleaned = cleaned.replace(/(\d+(?:\.\d+)?)\s*kg\b/gi, "$1 kilograms");
+  cleaned = cleaned.replace(/(\d+(?:\.\d+)?)\s*g\b/gi, "$1 grams");
+  cleaned = cleaned.replace(/(\d+(?:\.\d+)?)\s*°\s*C\b/gi, "$1 degrees Celsius");
+  cleaned = cleaned.replace(/(\d+(?:\.\d+)?)\s*%/g, "$1 percent");
+
+  // 5. Remove emojis and problematic special symbols that cause stutters
+  cleaned = cleaned.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "");
+  cleaned = cleaned.replace(/[_~`^|\{\}\[\]\<\>\\]/g, " ");
+  cleaned = cleaned.replace(/\s+/g, " ").trim();
+
+  return cleaned;
+}
+
+function findBestFemaleVoice(targetLang: string): SpeechSynthesisVoice | null {
   if (typeof window === 'undefined' || !window.speechSynthesis) return null;
   const voices = window.speechSynthesis.getVoices();
   if (!voices || voices.length === 0) return null;
 
+  const cleanLang = targetLang.toLowerCase().split('-')[0]; // 'hi', 'mr', 'en'
+
   const femaleKeywords = [
-    'female', 'woman', 'zira', 'jenny', 'heera', 'swara', 'veena', 'lekha',
-    'neerja', 'samantha', 'karen', 'victoria', 'kalpana', 'priya', 'ananya',
-    'aditi', 'moira', 'tessa', 'fiona', 'serena', 'ava', 'allison', 'susan',
-    'google uk english female', 'google हिन्दी', 'google मराठी', 'google us english'
+    'natural', 'neural', 'online', 'neerja', 'swara', 'aarohi', 'heera',
+    'veena', 'lekha', 'zira', 'jenny', 'aria', 'samantha', 'karen', 'victoria',
+    'kalpana', 'priya', 'ananya', 'aditi', 'moira', 'tessa', 'fiona', 'serena',
+    'ava', 'allison', 'google uk english female', 'google हिन्दी', 'google मराठी',
+    'google us english', 'female', 'woman'
   ];
 
-  const maleKeywords = ['male', 'david', 'george', 'mark', 'ravi', 'madhav', 'guy', 'prabhat', 'hemant', 'stefan', 'richard'];
+  const maleKeywords = [
+    'male', 'david', 'george', 'mark', 'ravi', 'madhav', 'guy', 'prabhat',
+    'hemant', 'stefan', 'richard', 'james', 'alex', 'fred'
+  ];
 
-  const cleanLang = lang.toLowerCase().split('-')[0]; // 'hi', 'mr', 'en'
+  // Score and rank all voices
+  const scored = voices.map(voice => {
+    const vName = voice.name.toLowerCase();
+    const vLang = voice.lang.toLowerCase();
+    let score = 0;
 
-  // 1. Prioritize language match + female keyword
-  const langFemaleMatch = voices.find(v => {
-    const vLang = v.lang.toLowerCase();
-    const vName = v.name.toLowerCase();
-    const isLang = vLang.includes(cleanLang) || vLang.replace('_', '-').startsWith(cleanLang);
-    const isFemale = femaleKeywords.some(k => vName.includes(k));
-    const isNotMale = !maleKeywords.some(k => vName.includes(k));
-    return isLang && isFemale && isNotMale;
+    // Disqualify explicitly male voices
+    if (maleKeywords.some(k => vName.includes(k))) {
+      return { voice, score: -100 };
+    }
+
+    // High bonus for Indian English voices when language is en (ensures proper Indian food pronunciation)
+    if (cleanLang === 'en' && (vLang.includes('en-in') || vLang.includes('en_in') || vName.includes('india'))) {
+      score += 45;
+    }
+
+    // Language match
+    if (vLang.includes(cleanLang) || vLang.replace('_', '-').startsWith(cleanLang)) {
+      score += 35;
+    }
+
+    // Neural / Natural clarity bonus
+    if (vName.includes('natural') || vName.includes('neural') || vName.includes('online') || vName.includes('enhanced')) {
+      score += 30;
+    }
+
+    // Google / Microsoft high-tier voice bonus
+    if (vName.includes('google') || vName.includes('microsoft') || vName.includes('apple')) {
+      score += 15;
+    }
+
+    // Known high-quality female name bonus
+    if (femaleKeywords.some(k => vName.includes(k))) {
+      score += 20;
+    }
+
+    return { voice, score };
   });
-  if (langFemaleMatch) return langFemaleMatch;
 
-  // 2. Any voice matching language that is not explicitly male
-  const langMatch = voices.find(v => {
-    const vLang = v.lang.toLowerCase();
-    const vName = v.name.toLowerCase();
-    const isLang = vLang.includes(cleanLang) || vLang.replace('_', '-').startsWith(cleanLang);
-    return isLang && !maleKeywords.some(k => vName.includes(k));
-  });
-  if (langMatch) return langMatch;
+  scored.sort((a, b) => b.score - a.score);
 
-  // 3. Fallback: Any premium female voice
-  const generalFemaleMatch = voices.find(v => {
-    const vName = v.name.toLowerCase();
-    return femaleKeywords.some(k => vName.includes(k)) && !maleKeywords.some(k => vName.includes(k));
-  });
-  if (generalFemaleMatch) return generalFemaleMatch;
+  if (scored.length > 0 && scored[0].score > 0) {
+    return scored[0].voice;
+  }
 
   return null;
 }
@@ -142,7 +212,10 @@ export function VoiceAssistant() {
       }
       
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Clean and normalize text for flawless speech articulation
+      const spokenText = cleanTextForSpeech(text);
+      const utterance = new SpeechSynthesisUtterance(spokenText);
       
       const isHindiMarathi = /[\u0900-\u097F]/.test(text);
       const targetLang = isHindiMarathi 
@@ -151,14 +224,15 @@ export function VoiceAssistant() {
       
       utterance.lang = targetLang;
       
-      // Select best female voice
+      // Select the highest-ranked clear female voice
       const femaleVoice = findBestFemaleVoice(targetLang);
       if (femaleVoice) {
         utterance.voice = femaleVoice;
       }
       
-      utterance.rate = 1.02; 
-      utterance.pitch = 1.14; // Bright, pleasant female pitch
+      utterance.rate = 0.98;   // Natural, clear, non-rushed pacing
+      utterance.pitch = 1.08;  // Warm, articulate female pitch
+      utterance.volume = 1.0;
       
       let resolved = false;
       const finish = () => {
@@ -171,7 +245,7 @@ export function VoiceAssistant() {
       utterance.onend = finish;
       utterance.onerror = finish;
       
-      setTimeout(finish, Math.max(5000, text.length * 150));
+      setTimeout(finish, Math.max(5000, spokenText.length * 150));
 
       window.speechSynthesis.speak(utterance);
       (window as any)._lastUtterance = utterance;
