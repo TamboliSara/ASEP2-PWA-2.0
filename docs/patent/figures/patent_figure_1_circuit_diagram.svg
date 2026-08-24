@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 800" width="100%" height="100%" style="background-color: #ffffff; font-family: Arial, sans-serif;">
+  <style>
+    .patent-title { font-size: 18px; font-weight: bold; fill: #000000; text-anchor: middle; }
+    .box { fill: #ffffff; stroke: #000000; stroke-width: 2; stroke-dasharray: none; }
+    .dashed-box { fill: #ffffff; stroke: #000000; stroke-width: 1.5; stroke-dasharray: 6,4; }
+    .pin-box { fill: #ffffff; stroke: #000000; stroke-width: 1.5; }
+    .text-title { font-size: 13px; font-weight: bold; fill: #000000; text-anchor: middle; }
+    .text-sub { font-size: 11px; fill: #000000; text-anchor: middle; }
+    .text-pin { font-size: 10px; fill: #000000; font-family: monospace; }
+    .line { stroke: #000000; stroke-width: 1.5; fill: none; }
+    .line-bus { stroke: #000000; stroke-width: 2.5; fill: none; }
+    .ref-num { font-size: 12px; font-weight: bold; fill: #000000; }
+    .dot { fill: #000000; }
+  </style>
+
+  <!-- Title / Figure Header -->
+  <text x="550" y="30" class="patent-title">FIG. 1</text>
+  <text x="550" y="52" class="text-sub" font-style="italic">HARDWARE CIRCUIT &amp; EMBEDDED ACTUATION SCHEMATIC</text>
+
+  <!-- Outer Boundary - System Unit 100 -->
+  <rect x="40" y="70" width="1020" y="700" height="700" class="dashed-box" />
+  <text x="60" y="95" class="ref-num">100</text>
+  <text x="90" y="95" class="text-sub" font-weight="bold">SAFE HARDWARE ENCLOSURE / EMBEDDED NODE</text>
+
+  <!-- POWER SUPPLY MODULE (116) -->
+  <g transform="translate(70, 120)">
+    <rect x="0" y="0" width="180" height="110" class="box" />
+    <text x="170" y="-8" class="ref-num">116</text>
+    <text x="90" y="25" class="text-title">POWER SUPPLY UNIT</text>
+    <text x="90" y="45" class="text-sub">12V DC Mains / Adapter Input</text>
+    <line x1="20" y1="55" x2="160" y2="55" stroke="#000" stroke-width="1"/>
+    <text x="90" y="72" class="text-sub">Buck Converter: 12V ➔ 5V</text>
+    <text x="90" y="90" class="text-sub">LDO Regulator: 5V ➔ 3.3V</text>
+  </g>
+
+  <!-- ESP32-S3 MICROCONTROLLER (102) -->
+  <g transform="translate(390, 120)">
+    <rect x="0" y="0" width="280" height="420" class="box" />
+    <text x="260" y="-8" class="ref-num">102</text>
+    <text x="140" y="30" class="text-title">ESP32-S3 MICROCONTROLLER</text>
+    <text x="140" y="48" class="text-sub">Xtensa 32-bit LX7 Dual-Core @ 240MHz</text>
+
+    <!-- TinyML & spoilLocked Memory Section -->
+    <rect x="20" y="65" width="240" height="65" class="dashed-box"/>
+    <text x="245" y="60" class="ref-num">114</text>
+    <text x="140" y="85" class="text-title" font-size="11">TINEML INT8 FLASH ENGINE</text>
+    <text x="140" y="103" class="text-sub" font-size="10">Firmware Interlock: spoilLocked [Bool]</text>
+
+    <!-- Pin Outlets Left -->
+    <text x="10" y="165" class="text-pin">3V3 (VCC)</text>
+    <text x="10" y="195" class="text-pin">GND</text>
+    <text x="10" y="245" class="text-pin">GPIO 8 (SCL)</text>
+    <text x="10" y="275" class="text-pin">GPIO 9 (SDA)</text>
+    <text x="10" y="325" class="text-pin">GPIO 4 (1-WIRE)</text>
+    <text x="10" y="375" class="text-pin">GPIO 5 (TRIG)</text>
+    <text x="10" y="405" class="text-pin">GPIO 6 (ECHO)</text>
+
+    <!-- Pin Outlets Right -->
+    <text x="200" y="215" class="text-pin">GPIO 7 (ACTUATE)</text>
+    <text x="210" y="380" class="text-pin">5V (VBUS)</text>
+  </g>
+
+  <!-- BOSCH BME688 SENSOR (104) -->
+  <g transform="translate(70, 280)">
+    <rect x="0" y="0" width="200" height="110" class="box" />
+    <text x="180" y="-8" class="ref-num">104</text>
+    <text x="100" y="25" class="text-title">BOSCH BME688</text>
+    <text x="100" y="42" class="text-sub">VOC Gas Resistance (kΩ)</text>
+    <text x="100" y="58" class="text-sub">Temp, Humidity, Pressure</text>
+    <text x="100" y="80" class="text-sub" font-style="italic">I2C Protocol (0x76/0x77)</text>
+
+    <text x="180" y="95" class="text-pin">SCL SDA 3V3 GND</text>
+  </g>
+
+  <!-- DS18B20 THERMISTOR (106) -->
+  <g transform="translate(70, 430)">
+    <rect x="0" y="0" width="200" height="110" class="box" />
+    <text x="180" y="-8" class="ref-num">106</text>
+    <text x="100" y="25" class="text-title">DS18B20 THERMISTOR</text>
+    <text x="100" y="45" class="text-sub">Food Surface Temperature Sensor</text>
+    <text x="100" y="65" class="text-sub">4.7kΩ Pull-Up Resistor R1</text>
+    <text x="100" y="85" class="text-sub" font-style="italic">1-Wire Digital Bus</text>
+
+    <text x="180" y="100" class="text-pin">DATA 3V3 GND</text>
+  </g>
+
+  <!-- HC-SR04 ULTRASONIC SENSOR (108) -->
+  <g transform="translate(70, 580)">
+    <rect x="0" y="0" width="200" height="110" class="box" />
+    <text x="180" y="-8" class="ref-num">108</text>
+    <text x="100" y="25" class="text-title">HC-SR04 ULTRASONIC</text>
+    <text x="100" y="45" class="text-sub">Ghost-Donation Chamber Sensor</text>
+    <text x="100" y="65" class="text-sub">Distance Measurement (&lt;34cm)</text>
+    <text x="100" y="85" class="text-sub" font-style="italic">Digital PWM Trigger/Echo</text>
+
+    <text x="175" y="100" class="text-pin">TRIG ECHO 5V GND</text>
+  </g>
+
+  <!-- NPN RELAY & DRIVER CIRCUIT (110) -->
+  <g transform="translate(750, 180)">
+    <rect x="0" y="0" width="260" height="200" class="box" />
+    <text x="240" y="-8" class="ref-num">110</text>
+    <text x="130" y="25" class="text-title">RELAY SWITCHING CIRCUIT</text>
+    <text x="130" y="45" class="text-sub">NPN Transistor Driver (2N2222 / Q1)</text>
+    <text x="130" y="65" class="text-sub">Base Resistor Rb = 1kΩ</text>
+    <text x="130" y="85" class="text-sub">Flyback Diode D1 (1N4007)</text>
+    <text x="130" y="115" class="text-title" font-size="11">5V/12V Optocoupled Relay Coil</text>
+
+    <text x="15" y="150" class="text-pin">IN (GPIO 7 Control Signal)</text>
+    <text x="15" y="180" class="text-pin">VCC (12V Power Line)</text>
+  </g>
+
+  <!-- 12V FAIL-SECURE SOLENOID LOCK (112) -->
+  <g transform="translate(750, 460)">
+    <rect x="0" y="0" width="260" height="150" class="box" stroke-width="2.5" />
+    <text x="240" y="-8" class="ref-num">112</text>
+    <text x="130" y="35" class="text-title">12V SOLENOID LOCK</text>
+    <text x="130" y="55" class="text-sub">Electromechanical Actuator</text>
+    <text x="130" y="75" class="text-sub" font-weight="bold">FAIL-SECURE MECHANISM</text>
+    <text x="130" y="95" class="text-sub">(Normally Locked without 12V Signal)</text>
+    <text x="130" y="125" class="text-sub" font-style="italic">Physical Door Latch Mechanism</text>
+  </g>
+
+  <!-- WIRING CONNECTIONS & BUS LINES -->
+
+  <!-- Power Wiring 12V to Relay & Solenoid -->
+  <path d="M 250 140 L 330 140 L 330 100 L 730 100 L 730 330 L 750 330" class="line-bus" />
+  <text x="530" y="93" class="text-pin">12V DC POWER RAIL</text>
+  <circle cx="730" cy="330" r="4" class="dot"/>
+
+  <!-- Power Wiring 5V to HC-SR04 & ESP32 -->
+  <path d="M 250 170 L 310 170 L 310 500 L 670 500 L 670 375 L 670 375" class="line" />
+  <path d="M 310 500 L 310 660 L 70 660" class="line" />
+  <text x="220" y="515" class="text-pin">5V BUS</text>
+
+  <!-- Power Wiring 3.3V to BME688 & DS18B20 & ESP32 -->
+  <path d="M 250 200 L 290 200 L 290 160 L 390 160" class="line" />
+  <path d="M 290 200 L 290 350 L 270 350" class="line" />
+  <path d="M 290 350 L 290 500 L 270 500" class="line" />
+  <text x="300" y="180" class="text-pin">3.3V POWER</text>
+
+  <!-- Ground Line GND -->
+  <path d="M 250 220 L 350 220 L 350 190 L 390 190" class="line" stroke-dasharray="3,3" />
+  <text x="310" y="235" class="text-pin">GND SYSTEM BUS</text>
+
+  <!-- I2C Bus (BME688 -> ESP32 GPIO 8 & 9) -->
+  <path d="M 270 320 L 340 320 L 340 240 L 390 240" class="line-bus" />
+  <path d="M 270 340 L 330 340 L 330 270 L 390 270" class="line-bus" />
+  <text x="345" y="295" class="text-pin">I2C BUS (SCL/SDA)</text>
+
+  <!-- 1-Wire Bus (DS18B20 -> ESP32 GPIO 4) -->
+  <path d="M 270 470 L 360 470 L 360 320 L 390 320" class="line" />
+  <text x="300" y="460" class="text-pin">1-WIRE DATA (GPIO 4)</text>
+
+  <!-- PWM Ultrasonic Bus (HC-SR04 -> ESP32 GPIO 5 & 6) -->
+  <path d="M 270 610 L 370 610 L 370 370 L 390 370" class="line" />
+  <path d="M 270 630 L 380 630 L 380 400 L 390 400" class="line" />
+  <text x="300" y="600" class="text-pin">TRIG/ECHO PWM (GPIO 5/6)</text>
+
+  <!-- GPIO 7 Control Line (ESP32 -> NPN Relay Driver 110) -->
+  <path d="M 670 210 L 750 210" class="line-bus" />
+  <polygon points="745,205 755,210 745,215" fill="#000"/>
+  <text x="675" y="200" class="text-pin">ACTUATE SIGNAL (GPIO 7)</text>
+
+  <!-- Relay output to Solenoid Lock (110 -> 112) -->
+  <path d="M 880 380 L 880 460" class="line-bus" />
+  <polygon points="875,455 880,465 885,455" fill="#000"/>
+  <text x="890" y="425" class="text-pin">12V SWITCHED POWER</text>
+
+</svg>

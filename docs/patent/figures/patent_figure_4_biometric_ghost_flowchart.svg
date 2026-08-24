@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 1200" width="100%" height="100%" style="background-color: #ffffff; font-family: Arial, sans-serif;">
+  <style>
+    .patent-title { font-size: 18px; font-weight: bold; fill: #000000; text-anchor: middle; }
+    .box { fill: #ffffff; stroke: #000000; stroke-width: 1.8; }
+    .diamond { fill: #ffffff; stroke: #000000; stroke-width: 1.8; }
+    .text-title { font-size: 12px; font-weight: bold; fill: #000000; text-anchor: middle; }
+    .text-sub { font-size: 10.5px; fill: #000000; text-anchor: middle; }
+    .line-arrow { stroke: #000000; stroke-width: 1.5; fill: none; marker-end: url(#arrow4); }
+    .ref-num { font-size: 12px; font-weight: bold; fill: #000000; }
+  </style>
+
+  <defs>
+    <marker id="arrow4" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000000" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="475" y="30" class="patent-title">FIG. 4</text>
+  <text x="475" y="52" class="text-sub" font-style="italic">BIOMETRIC CONSENT GATE &amp; GHOST-DONATION PREVENTION FLOWCHART</text>
+
+  <!-- 400 PROTOCOL CONTAINER -->
+  <text x="40" y="80" class="ref-num">400</text>
+
+  <!-- Node 402: USER INITIATES DEPOSIT -->
+  <g transform="translate(285, 75)">
+    <rect x="0" y="0" width="380" height="55" class="box" />
+    <text x="365" y="-4" class="ref-num">402</text>
+    <text x="190" y="25" class="text-title">USER INITIATES DEPOSIT VIA PWA</text>
+    <text x="190" y="42" class="text-sub">Mobile Device Interacts with SAFE Locker Interface</text>
+  </g>
+
+  <path d="M 475 130 L 475 160" class="line-arrow" />
+
+  <!-- Node 404: CAMERA CAPTURE INTERFACE -->
+  <g transform="translate(285, 160)">
+    <rect x="0" y="0" width="380" height="55" class="box" />
+    <text x="365" y="-4" class="ref-num">404</text>
+    <text x="190" y="25" class="text-title">PWA ACCESSES DEVICE CAMERA</text>
+    <text x="190" y="42" class="text-sub">In-Browser Live Video Frame Buffer Stream</text>
+  </g>
+
+  <path d="M 475 215 L 475 245" class="line-arrow" />
+
+  <!-- Node 406: LIVENESS CONSISTENCY DIAMOND -->
+  <g transform="translate(475, 305)">
+    <polygon points="0,-60 160,0 0,60 -160,0" class="diamond" />
+    <text x="145" y="-45" class="ref-num">406</text>
+    <text x="0" y="-10" class="text-title">LIVENESS CONSISTENCY CHECK</text>
+    <text x="0" y="10" class="text-sub">(≥ 4 of 5 Valid Neural Landmark</text>
+    <text x="0" y="25" class="text-sub">Tracking Frames Passed?)</text>
+  </g>
+
+  <!-- FAIL PATH -> BLOCK DEPOSIT (408) -->
+  <path d="M 315 305 L 140 305 L 140 400" class="line-arrow" />
+  <text x="210" y="295" class="text-sub" font-weight="bold">FAIL</text>
+
+  <g transform="translate(40, 400)">
+    <rect x="0" y="0" width="200" height="65" class="box" stroke-width="2" />
+    <text x="185" y="-4" class="ref-num">408</text>
+    <text x="100" y="25" class="text-title">BLOCK DEPOSIT</text>
+    <text x="100" y="45" class="text-sub">Face Unrecognized / Spoof</text>
+  </g>
+
+  <!-- PASS PATH -> EXTRACT EMBEDDING (410) -->
+  <path d="M 635 305 L 750 305 L 750 400" class="line-arrow" />
+  <text x="670" y="295" class="text-sub" font-weight="bold">PASS</text>
+
+  <g transform="translate(600, 400)">
+    <rect x="0" y="0" width="300" height="65" class="box" />
+    <text x="285" y="-4" class="ref-num">410</text>
+    <text x="150" y="25" class="text-title">EXTRACT 128-D FACIAL EMBEDDING</text>
+    <text x="150" y="45" class="text-sub">In-Browser Neural Vector Encoding</text>
+  </g>
+
+  <path d="M 750 465 L 750 495 L 475 495 L 475 525" class="line-arrow" />
+
+  <!-- Node 412: IMMUTABLE IDENTITY COMMITMENT -->
+  <g transform="translate(250, 525)">
+    <rect x="0" y="0" width="450" height="60" class="box" />
+    <text x="435" y="-4" class="ref-num">412</text>
+    <text x="225" y="25" class="text-title">COMMIT IMMUTABLE IDENTITY RECORD TO CLOUD</text>
+    <text x="225" y="45" class="text-sub">Store Anonymized Hashed Embedding in Cloud Firestore (220)</text>
+  </g>
+
+  <path d="M 475 585 L 475 615" class="line-arrow" />
+
+  <!-- Node 414: SOLENOID UNLOCK PULSE -->
+  <g transform="translate(275, 615)">
+    <rect x="0" y="0" width="400" height="60" class="box" stroke-width="2" />
+    <text x="385" y="-4" class="ref-num">414</text>
+    <text x="200" y="25" class="text-title">TRIGGER SOLENOID UNLOCK PULSE (5 SECONDS)</text>
+    <text x="200" y="45" class="text-sub">Sends Actuation Signal to NPN Relay (110) &amp; Solenoid (112)</text>
+  </g>
+
+  <path d="M 475 675 L 475 705" class="line-arrow" />
+
+  <!-- Node 416: ULTRASONIC OCCUPANCY POLL -->
+  <g transform="translate(275, 705)">
+    <rect x="0" y="0" width="400" height="60" class="box" />
+    <text x="385" y="-4" class="ref-num">416</text>
+    <text x="200" y="25" class="text-title">HC-SR04 ULTRASONIC CHAMBER OCCUPANCY POLL</text>
+    <text x="200" y="45" class="text-sub">Measure Distance d from Sensor to Chamber Base</text>
+  </g>
+
+  <path d="M 475 765 L 475 795" class="line-arrow" />
+
+  <!-- Node 418: DISTANCE COMPARATOR DIAMOND -->
+  <g transform="translate(475, 855)">
+    <polygon points="0,-60 160,0 0,60 -160,0" class="diamond" />
+    <text x="145" y="-45" class="ref-num">418</text>
+    <text x="0" y="-10" class="text-title">DISTANCE d &lt; 34.0 cm?</text>
+    <text x="0" y="10" class="text-sub">(Physical Object Present in Chamber?)</text>
+  </g>
+
+  <!-- YES PATH -> DEPOSIT CONFIRMED (420) -->
+  <path d="M 315 855 L 160 855 L 160 960" class="line-arrow" />
+  <text x="220" y="845" class="text-sub" font-weight="bold">YES (Valid Deposit)</text>
+
+  <g transform="translate(30, 960)">
+    <rect x="0" y="0" width="260" height="75" class="box" stroke-width="2" />
+    <text x="245" y="-4" class="ref-num">420</text>
+    <text x="130" y="25" class="text-title">DEPOSIT CONFIRMED &amp; TRACKED</text>
+    <text x="130" y="45" class="text-sub">Initiate Continuous TinyML (300)</text>
+    <text x="130" y="62" class="text-sub">Spoilage Monitoring Loop</text>
+  </g>
+
+  <!-- NO PATH -> GHOST DONATION HANDLER (422) -->
+  <path d="M 635 855 L 750 855 L 750 960" class="line-arrow" />
+  <text x="650" y="845" class="text-sub" font-weight="bold">NO (Empty Chamber - Ghost Attempt)</text>
+
+  <g transform="translate(600, 960)">
+    <rect x="0" y="0" width="300" height="180" class="dashed-box" stroke-width="2" />
+    <text x="285" y="-4" class="ref-num">422</text>
+    <text x="150" y="25" class="text-title">FORENSIC GHOST ATTEMPT HANDLER</text>
+    <text x="150" y="50" class="text-sub">• Trigger Localized Acoustic Alarm</text>
+    <text x="150" y="70" class="text-sub">• Cancel Cloud Donation Record</text>
+    <text x="150" y="90" class="text-sub">• Flag User Account / Log Fraud</text>
+    <text x="150" y="110" class="text-sub">• Commit Anomaly Audit Trail (220)</text>
+    <text x="150" y="130" class="text-sub">• Relock Solenoid (112) Empty</text>
+    <text x="150" y="160" class="text-title" font-size="11" fill="#000000">GHOST-DONATION PREVENTED</text>
+  </g>
+
+</svg>
