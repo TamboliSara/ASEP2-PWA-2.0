@@ -108,6 +108,46 @@ Style: Official patent flowchart style, clear arrow pathways, black and white on
 
 ---
 
+### 🌐 Prompt 5: MASTER ALL-IN-ONE SYSTEM VISION & INTEGRATED ARCHITECTURE
+
+```text
+Create a comprehensive, 8K ultra-detailed 3D isometric cutaway infographic blueprint and technical illustration of the complete "SAFE: Smart Automated Food Exchange" ecosystem. 
+
+Style: High-tech technical infographic blueprint with dark charcoal/slate background, neon cyan, emerald green (SAFE), warning amber (CAUTION), and crimson (DANGER/LOCKED) glowing accents, transparent glass callout panels, ultra-crisp vector lines, clean typography, floating HUD overlays.
+
+The master visual must seamlessly integrate 4 distinct interconnected system domains:
+
+1. CENTRAL PHYSICAL HARDWARE LOCKER & SENSOR CHAMBER:
+- An isometric 3D cutaway model of a multi-compartment community smart food storage locker array with transparent acrylic doors.
+- Highlighted internal sensors mounted on the ceiling of each locker chamber: Bosch BME688 (VOC gas resistance, temp, RH, barometric pressure), DS18B20 contact thermistor probe touching stored food (e.g. Paneer / Bread), HC-SR04 ultrasonic distance sensor pointing down (<34cm occupancy check), and electromechanical 12V fail-secure solenoid door lock latch.
+- Microcontroller & Actuation Hub: ESP32-S3 Dual-Core 240MHz MCU, I2C Multiplexer module, 5V/12V optocoupled relay driver circuit with 2N2222 NPN transistor, 1N4007 flyback diode, and 12V power supply.
+- Status LED bar on door: glowing GREEN for SAFE storage, AMBER for CAUTION, RED for DANGER / HARDWARE LOCKDOWN.
+
+2. LEFT FLOATING HUD PANEL - EDGE TINYML & AI MATHEMATICAL PIPELINE:
+- Preprocessing Flow: Raw multi-parameter sensor stream -> Humidity Cross-Sensitivity Compensation Formula [G_comp = G_raw / (1 - 0.02 * (RH - 55))] -> Feature Engineering (10-feature vector & Temp Delta T_food - T_ambient) -> StandardScaler Normalization.
+- Dual-Model TinyML Engine: On-device INT8-quantized TFLite Micro executing parallel inference in <50ms:
+  a) MLP Food Safety Classifier (Outputs 0: SAFE, 1: CAUTION, 2: DANGER).
+  b) Residual MLP Shelf-Life Regressor (Outputs continuous remaining shelf life in days).
+- Deterministic Interlock: If DANGER (Class 2) detected -> Assert firmware-level 'spoilLocked' boolean flag -> Physically overrides software/cloud commands and locks solenoid door.
+
+3. RIGHT FLOATING HUD PANEL - PROGRESSIVE WEB APP (PWA) & BIOMETRIC CONSENT GATE:
+- Mobile & Kiosk Web UI Screens (asep-10fe3.web.app):
+  a) Donor Mode: Meal registration screen with fields for Food Item (e.g., Paneer, Bread), Category (Raw Produce, Baked Goods), Dietary & Allergen tag ("Contains Gluten").
+  b) Biometric Consent Gate: Real-time face camera feed showing 68-point neural facial landmark tracking and 128-dimensional facial embedding vector extraction, with 4-out-of-5 liveness frame check.
+  c) Receiver Mode & Anti-Hoarding Gate: Biometric identity verification matching cloud hash history to enforce dynamic community allocation limits.
+  d) Intelligence Engine Dashboard: Real-time Quality Index (QI) gauge, remaining shelf-life countdown, and predictive spoilage curves.
+
+4. BOTTOM FLOATING HUD PANEL - FORENSIC GHOST-DONATION PREVENTION PROTOCOL:
+- Process Flowchart: Donor facial authentication -> Solenoid 5-second unlock pulse -> Donor deposits food & closes door -> HC-SR04 ultrasonic sensor measures distance d.
+- Dual Verification Path:
+  - If d < 34.0 cm (Item Present): Confirmed Deposit tracked in Cloud Firestore.
+  - If d >= 34.0 cm (Empty Chamber - Fraud/Ghost Attempt): Trigger localized acoustic alarm, revoke digital cloud donation record, log forensic anomaly audit entry in Cloud Firestore, and relock solenoid empty.
+
+Composition: Centered isometric locker hardware prototype surrounded by four elegant floating glass HUD panels, interconnected with glowing data stream lines and callout reference numbers (100, 102, 104, 106, 108, 110, 112, 114, 200, 204, 206, 208, 300, 306, 400, 422).
+```
+
+---
+
 ## 2. Complete Patent Reference Numeral Key Table
 
 This table maps every callout number across **FIG. 1**, **FIG. 2**, **FIG. 3**, and **FIG. 4** to your patent draft specification:

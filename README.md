@@ -13,4 +13,5 @@ The complete set of formal black-and-white CAD schematics, system architecture d
 - 🏗️ **Figure 2 (Four-Layer System Architecture)**: [SVG](docs/patent/figures/patent_figure_2_system_architecture.svg) | [PNG](docs/patent/figures/patent_figure_2_system_architecture.png) | [PDF](docs/patent/figures/patent_figure_2_system_architecture.pdf)
 - 🧠 **Figure 3 (TinyML Preprocessing & Dual-Model Inference Pipeline)**: [SVG](docs/patent/figures/patent_figure_3_tinyml_pipeline.svg)
 - 🔒 **Figure 4 (Biometric Consent Gate & Ghost-Donation Flowchart)**: [SVG](docs/patent/figures/patent_figure_4_biometric_ghost_flowchart.svg)
+- 🌐 **[Master All-in-One System Vision AI Prompt](docs/patent/patent_diagrams_and_prompts.md#prompt-5-master-all-in-one-system-vision--integrated-architecture)**
 - 🐍 **[Python Schematic Generator Script](docs/patent/scripts/generate_patent_diagrams.py)**
