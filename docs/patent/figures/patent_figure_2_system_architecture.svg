@@ -1,0 +1,198 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 850" width="100%" height="100%" style="background-color: #ffffff; font-family: Arial, sans-serif;">
+  <style>
+    .patent-title { font-size: 18px; font-weight: bold; fill: #000000; text-anchor: middle; }
+    .layer-box { fill: #ffffff; stroke: #000000; stroke-width: 2; stroke-dasharray: 4,3; }
+    .box { fill: #ffffff; stroke: #000000; stroke-width: 1.8; }
+    .inner-box { fill: #ffffff; stroke: #000000; stroke-width: 1.2; }
+    .text-title { font-size: 13px; font-weight: bold; fill: #000000; text-anchor: middle; }
+    .text-sub { font-size: 11px; fill: #000000; text-anchor: middle; }
+    .line { stroke: #000000; stroke-width: 1.5; fill: none; }
+    .line-arrow { stroke: #000000; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+    .ref-num { font-size: 12px; font-weight: bold; fill: #000000; }
+  </style>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000000" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="550" y="30" class="patent-title">FIG. 2</text>
+  <text x="550" y="52" class="text-sub" font-style="italic">FOUR-LAYER SYSTEM ARCHITECTURE FOR AUTONOMOUS FOOD QUALITY &amp; BIOMETRIC ACCOUNTABILITY</text>
+
+  <!-- SYSTEM ARCHITECTURE CONTAINER 200 -->
+  <text x="50" y="80" class="ref-num">200</text>
+
+  <!-- LAYER 1: HARDWARE NODE LAYER (202) -->
+  <g transform="translate(60, 95)">
+    <rect x="0" y="0" width="980" height="155" class="layer-box" />
+    <text x="965" y="-6" class="ref-num">202</text>
+    <text x="15" y="22" class="text-title" text-anchor="start">LAYER 1: HARDWARE NODE LAYER (EMBEDDED LOCAL EDGE)</text>
+
+    <!-- Components in Layer 1 -->
+    <g transform="translate(30, 35)">
+      <rect x="0" y="0" width="180" height="95" class="box" />
+      <text x="165" y="-4" class="ref-num">104-108</text>
+      <text x="90" y="25" class="text-title">SENSOR ARRAY</text>
+      <text x="90" y="45" class="text-sub">• Bosch BME688 (VOC/RH)</text>
+      <text x="90" y="62" class="text-sub">• DS18B20 Temp</text>
+      <text x="90" y="79" class="text-sub">• HC-SR04 Occupancy</text>
+    </g>
+
+    <g transform="translate(260, 35)">
+      <rect x="0" y="0" width="220" height="95" class="box" />
+      <text x="205" y="-4" class="ref-num">102</text>
+      <text x="110" y="25" class="text-title">ESP32-S3 MCU</text>
+      <text x="110" y="45" class="text-sub">Dual-Core 240MHz</text>
+      <text x="110" y="65" class="text-sub">INT8 TinyML Engine (210)</text>
+      <text x="110" y="82" class="text-sub">&lt;50ms Spoilage Classifier</text>
+    </g>
+
+    <g transform="translate(530, 35)">
+      <rect x="0" y="0" width="200" height="95" class="box" stroke-width="2" />
+      <text x="185" y="-4" class="ref-num">114</text>
+      <text x="100" y="25" class="text-title">spoilLocked FLAG</text>
+      <text x="100" y="45" class="text-sub">Firmware Hardware</text>
+      <text x="100" y="62" class="text-sub">Interlock Mechanism</text>
+      <text x="100" y="80" class="text-sub" font-size="10" font-style="italic">(Overrides Cloud Unlock)</text>
+    </g>
+
+    <g transform="translate(760, 35)">
+      <rect x="0" y="0" width="190" height="95" class="box" />
+      <text x="175" y="-4" class="ref-num">112</text>
+      <text x="95" y="25" class="text-title">SOLENOID ACTUATOR</text>
+      <text x="95" y="45" class="text-sub">12V Fail-Secure Lock</text>
+      <text x="95" y="65" class="text-sub">NPN Transistor Driver (110)</text>
+      <text x="95" y="82" class="text-sub">Chamber Latch</text>
+    </g>
+
+    <!-- Inter-layer arrows in L1 -->
+    <path d="M 210 82 L 260 82" class="line-arrow" />
+    <path d="M 480 82 L 530 82" class="line-arrow" />
+    <path d="M 730 82 L 760 82" class="line-arrow" />
+  </g>
+
+  <!-- LAYER CONNECTOR 1 -> 2 -->
+  <path d="M 370 250 L 370 280" class="line-arrow" />
+  <text x="450" y="270" class="text-sub" font-weight="bold">Telemetric Real-Time Sensor Stream &amp; State Payload (HTTPS/REST)</text>
+
+  <!-- LAYER 2: WI-FI COMMUNICATION LAYER (204) -->
+  <g transform="translate(60, 280)">
+    <rect x="0" y="0" width="980" height="80" class="layer-box" />
+    <text x="965" y="-6" class="ref-num">204</text>
+    <text x="15" y="22" class="text-title" text-anchor="start">LAYER 2: COMMUNICATION &amp; SECURE NETWORK BUS</text>
+
+    <g transform="translate(250, 20)">
+      <rect x="0" y="0" width="480" height="45" class="box" />
+      <text x="465" y="-4" class="ref-num">212</text>
+      <text x="240" y="20" class="text-title">IEEE 802.11 b/g/n Wi-Fi &amp; TLS 1.3 SECURE TRANSPORT LAYER</text>
+      <text x="240" y="36" class="text-sub">Asynchronous MQTT / WebSockets &amp; Local Offline Buffer Protocol</text>
+    </g>
+  </g>
+
+  <!-- LAYER CONNECTOR 2 -> 3 -->
+  <path d="M 490 360 L 490 390" class="line-arrow" />
+
+  <!-- LAYER 3: SPLIT-CLOUD DATABASE LAYER (206) -->
+  <g transform="translate(60, 390)">
+    <rect x="0" y="0" width="980" height="175" class="layer-box" />
+    <text x="965" y="-6" class="ref-num">206</text>
+    <text x="15" y="22" class="text-title" text-anchor="start">LAYER 3: SPLIT-CLOUD DATABASE &amp; AUDIT ARCHITECTURE</text>
+
+    <!-- Firebase RTDB 216 -->
+    <g transform="translate(40, 35)">
+      <rect x="0" y="0" width="260" height="115" class="box" />
+      <text x="245" y="-4" class="ref-num">216</text>
+      <text x="130" y="25" class="text-title">FIREBASE REALTIME DB</text>
+      <text x="130" y="45" class="text-sub">Real-Time IoT Bus</text>
+      <text x="130" y="65" class="text-sub">• Locker State Sync</text>
+      <text x="130" y="83" class="text-sub">• Instant Actuation Pulse</text>
+      <text x="130" y="100" class="text-sub">• Live Telemetry Cache</text>
+    </g>
+
+    <!-- Cloud Functions 218 -->
+    <g transform="translate(360, 35)">
+      <rect x="0" y="0" width="260" height="115" class="box" />
+      <text x="245" y="-4" class="ref-num">218</text>
+      <text x="130" y="25" class="text-title">CLOUD FUNCTIONS</text>
+      <text x="130" y="45" class="text-sub">Serverless Logic Engine</text>
+      <text x="130" y="65" class="text-sub">• Dynamic Hoarding Rules</text>
+      <text x="130" y="83" class="text-sub">• Ghost Deposit Revocation</text>
+      <text x="130" y="100" class="text-sub">• Anomaly Forensic Dispatcher</text>
+    </g>
+
+    <!-- Cloud Firestore 220 -->
+    <g transform="translate(680, 35)">
+      <rect x="0" y="0" width="260" height="115" class="box" />
+      <text x="245" y="-4" class="ref-num">220</text>
+      <text x="130" y="25" class="text-title">CLOUD FIRESTORE</text>
+      <text x="130" y="45" class="text-sub">Persistent Audit Store</text>
+      <text x="130" y="65" class="text-sub">• Immutable Biometric Hashes</text>
+      <text x="130" y="83" class="text-sub">• Non-Repudiable Logs</text>
+      <text x="130" y="100" class="text-sub">• Quality Index History</text>
+    </g>
+
+    <path d="M 300 92 L 360 92" class="line-arrow" />
+    <path d="M 620 92 L 680 92" class="line-arrow" />
+  </g>
+
+  <!-- LAYER CONNECTOR 3 -> 4 -->
+  <path d="M 490 565 L 490 595" class="line-arrow" />
+
+  <!-- LAYER 4: PROGRESSIVE WEB APPLICATION OPERATIONAL ENGINES (208) -->
+  <g transform="translate(60, 595)">
+    <rect x="0" y="0" width="980" height="190" class="layer-box" />
+    <text x="965" y="-6" class="ref-num">208</text>
+    <text x="15" y="22" class="text-title" text-anchor="start">LAYER 4: PROGRESSIVE WEB APPLICATION (PWA) OPERATIONAL ENGINES</text>
+
+    <!-- Guard Engine 222 -->
+    <g transform="translate(20, 35)">
+      <rect x="0" y="0" width="215" height="135" class="box" />
+      <text x="200" y="-4" class="ref-num">222</text>
+      <text x="107" y="25" class="text-title">GUARD ENGINE</text>
+      <text x="107" y="45" class="text-sub">Identity &amp; Device Reg.</text>
+      <text x="107" y="68" class="text-sub">• WebAuthn / Token Pass</text>
+      <text x="107" y="86" class="text-sub">• Device Fingerprinting</text>
+      <text x="107" y="104" class="text-sub">• TLS Client Validation</text>
+      <text x="107" y="122" class="text-sub">• Anti-Spoofing Rules</text>
+    </g>
+
+    <!-- Input Engine 224 -->
+    <g transform="translate(260, 35)">
+      <rect x="0" y="0" width="215" height="135" class="box" stroke-width="2" />
+      <text x="200" y="-4" class="ref-num">224</text>
+      <text x="107" y="25" class="text-title">INPUT ENGINE</text>
+      <text x="107" y="45" class="text-sub">Biometric Consent Gate</text>
+      <text x="107" y="68" class="text-sub">• In-Browser Landmark Neural</text>
+      <text x="107" y="86" class="text-sub">• 128-D Vector Embedding</text>
+      <text x="107" y="104" class="text-sub">• Liveness Check (4/5 frames)</text>
+      <text x="107" y="122" class="text-sub">• Anti-Hoarding Gate</text>
+    </g>
+
+    <!-- Intelligence Engine 226 -->
+    <g transform="translate(500, 35)">
+      <rect x="0" y="0" width="215" height="135" class="box" />
+      <text x="200" y="-4" class="ref-num">226</text>
+      <text x="107" y="25" class="text-title">INTELLIGENCE ENGINE</text>
+      <text x="107" y="45" class="text-sub">Dashboard &amp; Quality Index</text>
+      <text x="107" y="68" class="text-sub">• Real-Time QI Display</text>
+      <text x="107" y="86" class="text-sub">• Remaining Shelf-Life (Days)</text>
+      <text x="107" y="104" class="text-sub">• Predictive Spoilage Curves</text>
+      <text x="107" y="122" class="text-sub">• Community Allocation Map</text>
+    </g>
+
+    <!-- Command Engine 228 -->
+    <g transform="translate(740, 35)">
+      <rect x="0" y="0" width="220" height="135" class="box" />
+      <text x="205" y="-4" class="ref-num">228</text>
+      <text x="110" y="25" class="text-title">COMMAND ENGINE</text>
+      <text x="110" y="45" class="text-sub">Admin &amp; Override Controls</text>
+      <text x="110" y="68" class="text-sub">• Remote Lock Command</text>
+      <text x="110" y="86" class="text-sub">• ADMIN_UNLOCK Protocol</text>
+      <text x="110" y="104" class="text-sub">• Spoilage Audit Clearing</text>
+      <text x="110" y="122" class="text-sub">• System Diagnostics</text>
+    </g>
+  </g>
+
+</svg>

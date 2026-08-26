@@ -1,0 +1,36 @@
+{
+  "rules": {
+    "telemetry": {
+      "$lockerId": {
+        ".read": true,
+        ".write": "auth != null || root.child('devices/' + $lockerId).exists()"
+      }
+    },
+    "commands": {
+      "$lockerId": {
+        ".read": true,
+        ".write": "auth != null || root.child('devices/' + $lockerId).exists()"
+      }
+    },
+    "status": {
+      "$lockerId": {
+        ".read": true,
+        ".write": "auth != null || root.child('devices/' + $lockerId).exists()"
+      }
+    },
+    "devices": {
+      "$lockerId": {
+        ".read": true,
+        ".write": "auth != null"
+      }
+    },
+    "test_connection": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "data_collection": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
