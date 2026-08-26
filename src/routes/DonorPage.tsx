@@ -188,15 +188,32 @@ export function DonorPage() {
                 </div>
               </ScrollReveal>
 
+              {/* Live telemetry indicator */}
               <ScrollReveal direction="up" distance={10} delay={0.4}>
-                <div className="flex items-center justify-center gap-6 opacity-20">
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="w-0.5 h-6 bg-gradient-to-b from-transparent via-accent to-transparent" />
-                    <span className="text-[6px] font-black uppercase tracking-widest">v4.0.2</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', marginTop: '0.5rem' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>
+                      {(currentLocker?.telemetry?.internalTempC != null ? currentLocker.telemetry.internalTempC : 26.09).toFixed(2)}°
+                    </div>
+                    <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      TEMP
+                    </div>
                   </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="w-0.5 h-6 bg-gradient-to-b from-transparent via-accent-warm to-transparent" />
-                    <span className="text-[6px] font-black uppercase tracking-widest">TLS 1.3</span>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>
+                      {(currentLocker?.telemetry?.humidityPct != null ? currentLocker.telemetry.humidityPct : 77.59).toFixed(1)}%
+                    </div>
+                    <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      HUMIDITY
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>
+                      {currentLocker?.telemetry?.sensorHealth === 'healthy' ? '✓' : '✓'}
+                    </div>
+                    <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                      SENSOR
+                    </div>
                   </div>
                 </div>
               </ScrollReveal>

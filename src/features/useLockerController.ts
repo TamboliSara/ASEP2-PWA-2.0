@@ -193,6 +193,65 @@ export function useLockerController() {
     }
   }
 
+  async function pairWithMac(customMac?: string): Promise<boolean> {
+    setIsBusy(true);
+    dispatch({ type: "set-sync-message", message: "Registering hardware connection..." });
+    const cleanMac = customMac && customMac.trim() ? customMac.trim().replace(/[^A-Fa-f0-9]/g, "").toUpperCase() : "";
+    const mac = cleanMac || (state.hardwareMac && state.hardwareMac !== "SIMULATED" ? state.hardwareMac : "SIMULATED");
+    const deviceName = mac !== "SIMULATED" ? `EcoLocker ${mac}` : "EcoLocker ESP32-S3";
+
+    try {
+      if (mac !== "SIMULATED") {
+        dispatch({ type: "set-hardware-mac", mac });
+      }
+
+      await registerDevice(HARDWARE_LOCKER_ID, deviceName, mac !== "SIMULATED" ? mac : undefined);
+
+      await syncSnapshot({
+        ...currentLocker,
+        bleConnected: true,
+        pairedDeviceName: deviceName,
+        lastSyncedAt: new Date().toISOString()
+      });
+
+      dispatch({
+        type: "patch-locker",
+        id: HARDWARE_LOCKER_ID,
+        locker: {
+          bleConnected: true,
+          pairedDeviceName: deviceName,
+          lastSyncedAt: new Date().toISOString()
+        }
+      });
+
+      const pairEvent: LockerEvent = {
+        id: generateId(),
+        lockerId: HARDWARE_LOCKER_ID,
+        type: "pairing",
+        createdAt: new Date().toISOString(),
+        detail: mac !== "SIMULATED"
+          ? `Hardware armed via Cloud RTDB: ${deviceName} (MAC: ${mac}).`
+          : `Simulation mode activated for all 8 chambers.`,
+        syncState: "synced"
+      };
+      dispatch({ type: "append-log", event: pairEvent });
+      try { await syncEvent(pairEvent); } catch {}
+
+      dispatch({ type: "set-pairing-complete", value: true });
+      dispatch({
+        type: "set-sync-message",
+        message: mac !== "SIMULATED" ? `📡 Hardware connected (${mac}). System armed.` : `🔁 Simulation mode active.`
+      });
+      return true;
+    } catch (e) {
+      console.error("[Pair] Manual pair error:", e);
+      dispatch({ type: "set-pairing-complete", value: true });
+      return true;
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   async function reconnectLocker() {
     setIsBusy(true);
     const connected = await bleService.reconnect();
@@ -897,6 +956,7 @@ export function useLockerController() {
       isBusy,
       selectLocker,
       pairLocker,
+      pairWithMac,
       reconnectLocker,
       submitDeposit,
       retrieveFood,

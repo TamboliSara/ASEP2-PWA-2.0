@@ -3,7 +3,7 @@ import type { PropsWithChildren } from "react";
 import { AppContextProvider } from "./AppContext";
 import { appReducer, initialAppState, HARDWARE_LOCKER_ID } from "./appState";
 import { syncInitialState } from "../services/initialSync";
-import { subscribeStatus, subscribeTelemetry, rtdbToDomainTelemetry } from "../services/rtdb";
+import { subscribeStatus, subscribeTelemetry, subscribeAllTelemetry, rtdbToDomainTelemetry } from "../services/rtdb";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../services/firebase";
 import type { DonationRecord } from "../types/domain";
@@ -18,7 +18,14 @@ export function AppProviders({ children }: PropsWithChildren) {
     const hasPaired = localStorage.getItem(PAIRING_KEY) === "true";
     const savedMac  = localStorage.getItem(HARDWARE_MAC_KEY) ?? "";
 
-    if (!saved) return { ...defaultState, hasCompletedPairing: hasPaired, hardwareMac: savedMac };
+    if (!saved) {
+      return {
+        ...defaultState,
+        hasCompletedPairing: hasPaired,
+        hardwareMac: savedMac,
+        lockers: defaultState.lockers.map(l => l.lockerId === HARDWARE_LOCKER_ID ? { ...l, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : l.pairedDeviceName } : l)
+      };
+    }
 
     try {
       const parsed = JSON.parse(saved) as Partial<typeof defaultState>;
@@ -33,10 +40,16 @@ export function AppProviders({ children }: PropsWithChildren) {
         donationHistory:  parsed.donationHistory ?? defaultState.donationHistory,
         hasCompletedPairing: hasPaired,
         hardwareMac:      savedMac,
+        lockers: defaultState.lockers.map(l => l.lockerId === HARDWARE_LOCKER_ID ? { ...l, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : l.pairedDeviceName } : l),
         isAdminAuthenticated: false
       };
     } catch {
-      return { ...defaultState, hasCompletedPairing: hasPaired, hardwareMac: savedMac };
+      return {
+        ...defaultState,
+        hasCompletedPairing: hasPaired,
+        hardwareMac: savedMac,
+        lockers: defaultState.lockers.map(l => l.lockerId === HARDWARE_LOCKER_ID ? { ...l, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : l.pairedDeviceName } : l)
+      };
     }
   });
 
@@ -83,25 +96,35 @@ export function AppProviders({ children }: PropsWithChildren) {
     });
   }, [state.lockers]);
 
-  // Mock telemetry jitter — only for mock lockers (2-8), never for hardware Safe 1
+  // Live telemetry pulse & jitter for mock chambers only (2-8) — Chamber 1 uses 100% real ESP32 hardware telemetry
   useEffect(() => {
     const interval = setInterval(() => {
       stateRef.current.lockers.forEach(locker => {
-        if (locker.lockerId === HARDWARE_LOCKER_ID) return; // Safe 1 gets real telemetry from RTDB
+        if (locker.lockerId === HARDWARE_LOCKER_ID) return; // Chamber 1 is backed by physical ESP32
+        const curTel = locker.telemetry;
+        const baseTemp = (curTel.internalTempC && curTel.internalTempC > 0) ? curTel.internalTempC : 4.8;
+        const baseHum  = (curTel.humidityPct && curTel.humidityPct > 0) ? curTel.humidityPct : 61.0;
+        const baseGas  = (curTel.gasResistanceOhms && curTel.gasResistanceOhms > 0) ? curTel.gasResistanceOhms : 18230;
+        const basePres = (curTel.pressureHpa && curTel.pressureHpa > 500) ? curTel.pressureHpa : 1013.2;
+
         if (!locker.activeDonation) {
           const jitterTemp = (Math.random() * 0.4) - 0.2;
           const jitterHum  = (Math.random() * 2) - 1;
           const jitterGas  = (Math.random() * 500) - 250;
+          const jitterPres = (Math.random() * 0.6) - 0.3;
+
           dispatch({
             type: "patch-locker",
             id: locker.lockerId,
             locker: {
               telemetry: {
-                ...locker.telemetry,
-                internalTempC:     Number((locker.telemetry.internalTempC + jitterTemp).toFixed(1)),
-                humidityPct:       Number((locker.telemetry.humidityPct + jitterHum).toFixed(1)),
-                gasResistanceOhms: Number((locker.telemetry.gasResistanceOhms + jitterGas).toFixed(0)),
-                timestamp: new Date().toISOString()
+                ...curTel,
+                internalTempC:     Number(Math.max(1, baseTemp + jitterTemp).toFixed(1)),
+                humidityPct:       Number(Math.max(10, Math.min(99, baseHum + jitterHum)).toFixed(1)),
+                gasResistanceOhms: Number(Math.max(1000, baseGas + jitterGas).toFixed(0)),
+                pressureHpa:       Number((basePres + jitterPres).toFixed(1)),
+                distanceCm:        curTel.distanceCm != null && curTel.distanceCm > 0 ? curTel.distanceCm : 32.4,
+                timestamp:         new Date().toISOString()
               }
             }
           });
@@ -207,48 +230,24 @@ export function AppProviders({ children }: PropsWithChildren) {
     };
   }, []); // mount-only — uses stateRef for fresh reads
 
-  // ── RTDB: Live hardware status + telemetry for Safe 1 only ──────────────────
-  // Gated strictly on pairing being complete AND having a real MAC address.
-  // RTDB is the hardware ground truth — its "empty" signal overrides Firestore
-  // and prevents ghost donations from showing on the dashboard.
+  // ── RTDB: Live hardware status + telemetry for Safe 1 (Continuous) ─────────
   useEffect(() => {
-    const mac = state.hardwareMac;
-    if (!mac || mac === "SIMULATED" || mac === "" || !state.hasCompletedPairing) return;
-
-    console.log(`[AppProviders] 📡 Safe 1 RTDB subscriptions active (MAC: ${mac})`);
-
-    // Status subscription — drives occupancy / lock / door state
-    const unsubStatus = subscribeStatus(mac, (rtdbStatus) => {
-      if (!rtdbStatus) return;
-
-      const occState: "occupied" | "empty" | "processing" | "spoiled" =
-        rtdbStatus.occupancy === "occupied"   ? "occupied"   :
-        rtdbStatus.occupancy === "spoiled"    ? "spoiled"    :
-        rtdbStatus.occupancy === "processing" ? "processing" :
-        "empty";
-
-      dispatch({
-        type: "patch-locker",
-        id: HARDWARE_LOCKER_ID,
-        locker: {
-          lockState:      rtdbStatus.lock_state === "unlocked" ? "unlocked" : "locked",
-          doorState:      rtdbStatus.door_state === "open"     ? "open"     : "closed",
-          occupancyState: occState,
-          bleConnected:   true,
-          // Ghost-donation guard: RTDB "empty" is the hardware truth — wipe donation from dashboard
-          ...(occState === "empty" ? { activeDonation: undefined } : {})
-        }
-      });
-    });
-
-    // Telemetry subscription — drives metrics panel with live sensor readings
-    const unsubTelemetry = subscribeTelemetry(mac, (rtdbTelemetry) => {
+    // 1. Subscribe to all telemetry nodes on RTDB so any live ESP32 stream is captured
+    const unsubAll = subscribeAllTelemetry((mac, rtdbTelemetry) => {
       if (!rtdbTelemetry) return;
       const domainTel = rtdbToDomainTelemetry(rtdbTelemetry);
+      console.log(`[AppProviders] 📡 Live RTDB Telemetry from ${mac}: ${domainTel.internalTempC}°C, ${domainTel.humidityPct}%, ${domainTel.gasResistanceOhms}Ω`);
 
-      const patchData: any = { telemetry: domainTel };
+      const patchData: any = { 
+        telemetry: domainTel,
+        bleConnected: true,
+        lastSyncedAt: new Date().toISOString()
+      };
 
-      // If the edge-ML pipeline pushed predictions, update quality + deadline
+      if (mac && mac !== "chamber-1" && mac !== "SIMULATED" && !stateRef.current.hardwareMac) {
+        dispatch({ type: "set-hardware-mac", mac });
+      }
+
       if (rtdbTelemetry.daysRemaining !== undefined && rtdbTelemetry.safetyClass !== undefined) {
         const hoursLeft    = rtdbTelemetry.daysRemaining * 24.0;
         const qualityScore = rtdbTelemetry.safetyClass === 0 ? "fresh"
@@ -265,7 +264,6 @@ export function AppProviders({ children }: PropsWithChildren) {
           patchData.telemetry = { ...domainTel, safetyScore: rtdbTelemetry.safetyScore };
         }
 
-        // Propagate quality/deadline into the active donation record too
         const cur = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
         if (cur?.activeDonation) {
           patchData.activeDonation = {
@@ -279,11 +277,35 @@ export function AppProviders({ children }: PropsWithChildren) {
       dispatch({ type: "patch-locker", id: HARDWARE_LOCKER_ID, locker: patchData });
     });
 
+    // 2. Status subscription for physical door and lock states
+    const targetMac = state.hardwareMac && state.hardwareMac !== "SIMULATED" ? state.hardwareMac : HARDWARE_LOCKER_ID;
+    const unsubStatus = subscribeStatus(targetMac, (rtdbStatus) => {
+      if (!rtdbStatus) return;
+
+      const occState: "occupied" | "empty" | "processing" | "spoiled" =
+        rtdbStatus.occupancy === "occupied"   ? "occupied"   :
+        rtdbStatus.occupancy === "spoiled"    ? "spoiled"    :
+        rtdbStatus.occupancy === "processing" ? "processing" :
+        "empty";
+
+      dispatch({
+        type: "patch-locker",
+        id: HARDWARE_LOCKER_ID,
+        locker: {
+          lockState:      rtdbStatus.lock_state === "unlocked" ? "unlocked" : "locked",
+          doorState:      rtdbStatus.door_state === "open"     ? "open"     : "closed",
+          occupancyState: occState,
+          bleConnected:   true,
+          ...(occState === "empty" ? { activeDonation: undefined } : {})
+        }
+      });
+    });
+
     return () => {
+      unsubAll();
       unsubStatus();
-      unsubTelemetry();
     };
-  }, [state.hardwareMac, state.hasCompletedPairing]);
+  }, [state.hardwareMac]);
 
   const value = useMemo(() => ({ state, dispatch }), [state]);
 

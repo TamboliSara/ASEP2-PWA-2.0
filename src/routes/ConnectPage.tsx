@@ -13,10 +13,12 @@ type PairingStep = "idle" | "ble_discovery" | "cloud_register" | "state_sync" | 
 export function ConnectPage() {
   const navigate = useNavigate();
   const { state } = useAppContext();
-  const { currentLocker, pairLocker, isBusy } = useLockerController();
+  const { currentLocker, pairLocker, pairWithMac, isBusy } = useLockerController();
   const { t } = useTranslation();
   const [pairingStep, setPairingStep] = useState<PairingStep>("idle");
   const [pairingCancelled, setPairingCancelled] = useState(false);
+  const [customMacInput, setCustomMacInput] = useState("");
+  const [showAdvancedMac, setShowAdvancedMac] = useState(false);
 
   const isRealHardwarePaired = !!state.hardwareMac && state.hardwareMac !== "SIMULATED" && state.hardwareMac !== "";
 
@@ -34,7 +36,7 @@ export function ConnectPage() {
 
     if (success) {
       setPairingStep("complete");
-      setTimeout(() => navigate("/", { replace: true }), 1800);
+      setTimeout(() => navigate("/", { replace: true }), 1500);
     } else {
       // Check if cancelled vs error
       if (state.syncMessage.includes("cancelled")) {
@@ -46,12 +48,22 @@ export function ConnectPage() {
     }
   }, [pairLocker, navigate, state.syncMessage]);
 
+  const handleQuickPair = useCallback(async (mac?: string) => {
+    setPairingCancelled(false);
+    setPairingStep("cloud_register");
+    const success = await pairWithMac(mac);
+    if (success) {
+      setPairingStep("complete");
+      setTimeout(() => navigate("/", { replace: true }), 1200);
+    }
+  }, [pairWithMac, navigate]);
+
   const getCurrentStepIndex = (): number => {
     const msg = state.syncMessage.toLowerCase();
-    if (msg.includes("cloud connected") || msg.includes("offline mode") || msg.includes("pair")) return 3;
+    if (msg.includes("cloud connected") || msg.includes("offline mode") || msg.includes("pair") || msg.includes("system armed")) return 3;
     if (msg.includes("syncing")) return 2;
     if (msg.includes("registering")) return 1;
-    if (msg.includes("initiating")) return 0;
+    if (msg.includes("initiating") || msg.includes("searching")) return 0;
     if (pairingStep === "complete") return 3;
     return -1;
   };
@@ -122,25 +134,108 @@ export function ConnectPage() {
               }}
             >
               <AlertCircle size={14} style={{ color: "#f59e0b" }} />
-              Bluetooth pairing cancelled. Click "Connect" to try again.
+              Bluetooth pairing cancelled. You can try again or use Quick Connect below.
             </motion.div>
           )}
           
-          <div className="connect-actions-luxe">
-            <button 
-              className={`btn-premium ${isBusy ? 'is-loading' : ''}`} 
-              type="button" 
-              onClick={handlePair} 
-              disabled={isBusy}
-            >
-              <div className="btn-shine" />
-              {isBusy ? (
-                <Loader2 className="btn-icon animate-spin" size={22} />
-              ) : (
-                <Bluetooth className="btn-icon" size={22} />
+          <div className="connect-actions-luxe" style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "flex-start" }}>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", width: "100%" }}>
+              <button 
+                className={`btn-premium ${isBusy ? 'is-loading' : ''}`} 
+                type="button" 
+                onClick={handlePair} 
+                disabled={isBusy}
+              >
+                <div className="btn-shine" />
+                {isBusy ? (
+                  <Loader2 className="btn-icon animate-spin" size={22} />
+                ) : (
+                  <Bluetooth className="btn-icon" size={22} />
+                )}
+                <span>{isBusy ? t("pairingBusy") : "Pair Hardware (BLE)"}</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn-outline-luxe"
+                onClick={() => handleQuickPair(customMacInput || state.hardwareMac || undefined)}
+                disabled={isBusy}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "12px 18px",
+                  borderRadius: "12px",
+                  fontSize: "0.88rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background: "rgba(var(--accent-rgb), 0.1)",
+                  border: "1px solid rgba(var(--accent-rgb), 0.3)",
+                  color: "var(--text-main)"
+                }}
+              >
+                <ShieldCheck size={18} style={{ color: "var(--accent)" }} />
+                <span>Instant Pair & Fix</span>
+              </button>
+            </div>
+
+            {/* Optional MAC Address input for custom ESP32 MAC */}
+            <div style={{ marginTop: "4px", width: "100%" }}>
+              <button
+                type="button"
+                onClick={() => setShowAdvancedMac(!showAdvancedMac)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-muted)",
+                  fontSize: "0.76rem",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  padding: "0 2px"
+                }}
+              >
+                {showAdvancedMac ? "Hide Manual MAC Option" : "Enter ESP32 MAC Address manually"}
+              </button>
+
+              {showAdvancedMac && (
+                <div style={{ marginTop: "8px", display: "flex", gap: "8px", alignItems: "center" }}>
+                  <input
+                    type="text"
+                    placeholder="e.g. 3485188C08A4"
+                    value={customMacInput}
+                    onChange={(e) => setCustomMacInput(e.target.value)}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(255,255,255,0.15)",
+                      background: "rgba(0,0,0,0.2)",
+                      color: "var(--text-main)",
+                      fontSize: "0.8rem",
+                      fontFamily: "monospace",
+                      flex: 1,
+                      maxWidth: "240px"
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPair(customMacInput)}
+                    disabled={isBusy || !customMacInput.trim()}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: "8px",
+                      border: "none",
+                      background: "var(--accent)",
+                      color: "white",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      cursor: customMacInput.trim() ? "pointer" : "not-allowed"
+                    }}
+                  >
+                    Bind MAC & Pair
+                  </button>
+                </div>
               )}
-              <span>{isBusy ? t("pairingBusy") : t("connectAction")}</span>
-            </button>
+            </div>
             
             {state.syncMessage && (
               <motion.div 

@@ -10,9 +10,9 @@ import { connectFunctionsEmulator } from "firebase/functions";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "demo-api-key",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDM-U0nzfK9P3PYu8OHx_49XtHIROtd_Cg",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "asep-10fe3.firebaseapp.com",
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://asep-10fe3.firebaseio.com",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://asep-10fe3-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "asep-10fe3",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "asep-10fe3.appspot.com",
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789",
@@ -29,23 +29,25 @@ export const rtdb = getDatabase(app);
 export const functions = getFunctions(app);
 export const storage = getStorage(app);
 
-// ── Connect to Emulators in Development ──────────────────────────
-// To use real cloud Firebase instead of emulators, add VITE_USE_CLOUD=true to .env.local
-const useCloud = import.meta.env.VITE_USE_CLOUD === "true";
+// ── Connect to Emulators vs Cloud ──────────────────────────────────
+const useEmulators = import.meta.env.VITE_USE_EMULATORS === "true";
 
-if (import.meta.env.DEV && !useCloud) {
+if (import.meta.env.DEV && useEmulators) {
   try {
     connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
     connectFirestoreEmulator(db, "127.0.0.1", 8081);
     connectDatabaseEmulator(rtdb, "127.0.0.1", 9001);
-    // connectFunctionsEmulator(functions, "127.0.0.1", 5001); // FORCE CLOUD FOR VOICE ASSISTANT
     connectStorageEmulator(storage, "127.0.0.1", 9199);
     console.log("[Firebase] Connected to local emulators");
   } catch (e) {
     console.error("[Firebase] Emulator connection failed:", e);
   }
-} else if (useCloud) {
-  console.log("[Firebase] Using Real-Time Cloud Database");
+} else {
+  console.log("[Firebase] Using Live Cloud Realtime Database & Firestore");
+  // Sign in anonymously to authenticate with Cloud Firebase
+  signInAnonymously(auth).catch((err) => {
+    console.warn("[Firebase] Anonymous auth notice:", err.message);
+  });
 }
 
 // ── Cloud Functions ──────────────────────────────────────────────
