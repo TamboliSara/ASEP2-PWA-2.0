@@ -131,7 +131,7 @@ graph TD
     AlertCreated --> IsCritical{"Is it a Critical Spoilage Risk?"}
     
     IsCritical -- Yes --> Quarantine[Write "LOCK" command to RTDB]
-    Quarantine --> UIUpdate[UI forces 'Safety Lockdown / Restricted' state]
+    Quarantine --> UIUpdate["UI forces Safety Lockdown / Restricted state"]
     IsCritical -- No --> Warning[Log warning, continue standard operations]
     
     CheckSpoilage -- No --> SaveSnapshot[Periodic: Save snapshot to Firestore for analysis]

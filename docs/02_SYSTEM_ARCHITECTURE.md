@@ -9,18 +9,18 @@ The **SAFE (Sustainable Accessible Food Ecosystem)** system is built upon a **De
 
 ```mermaid
 graph TB
-    subgraph Layer1 [Layer 1: Physical Edge Hardware Node]
-        BME688[Bosch BME688 Sensor<br/>VOC, Temp, Humidity, Pressure]
-        DS18B20[Dallas DS18B20 Probe<br/>Food Surface Temp]
-        HCSR04[HC-SR04 Ultrasonic<br/>Occupancy & Depth]
-        ESP32[ESP32-S3 Microcontroller<br/>Dual-Core 240MHz, 8MB PSRAM]
-        Relay[5V Optoisolated Relays]
-        Solenoid[12V Solenoid Lock<br/>Fail-Secure]
-        UVC[12V UV-C Sterilization LED]
-        Buck[LM2596 Buck Converter<br/>12V to 5V/3.3V]
+    subgraph Layer1 ["Layer 1: Physical Edge Hardware Node"]
+        BME688["Bosch BME688 Sensor<br/>VOC, Temp, Humidity, Pressure"]
+        DS18B20["Dallas DS18B20 Probe<br/>Food Surface Temp"]
+        HCSR04["HC-SR04 Ultrasonic<br/>Occupancy and Depth"]
+        ESP32["ESP32-S3 Microcontroller<br/>Dual-Core 240MHz, 8MB PSRAM"]
+        Relay["5V Optoisolated Relays"]
+        Solenoid["12V Solenoid Lock<br/>Fail-Secure"]
+        UVC["12V UV-C Sterilization LED"]
+        Buck["LM2596 Buck Converter<br/>12V to 5V/3.3V"]
         
-        BME688 -- "I2C (SDA:8, SCL:9)" --> ESP32
-        DS18B20 -- "1-Wire (GPIO 4)" --> ESP32
+        BME688 -- "I2C SDA:8 SCL:9" --> ESP32
+        DS18B20 -- "1-Wire GPIO 4" --> ESP32
         HCSR04 -- "GPIO Trigger/Echo" --> ESP32
         ESP32 -- "GPIO 12" --> Relay
         Relay --> Solenoid
@@ -28,10 +28,10 @@ graph TB
         Buck --> ESP32
     end
 
-    subgraph Layer2 [Layer 2: Edge Firmware & FreeRTOS Dual-Core Engine]
-        Core0[FreeRTOS Core 0: Compute Engine<br/>INT8 TinyML Spoilage Classifier<br/>Residual Shelf-Life Regressor<br/>spoilLocked Hardware Flag]
-        Core1[FreeRTOS Core 1: I/O & Comms<br/>Sensor Polling Loop (10s)<br/>WiFi / BLE Stack<br/>RTDB WebSocket Bridge]
-        PSRAM[8MB Octal PSRAM<br/>TensorFlow Arena & Static Weights]
+    subgraph Layer2 ["Layer 2: Edge Firmware and FreeRTOS Dual-Core Engine"]
+        Core0["FreeRTOS Core 0: Compute Engine<br/>INT8 TinyML Spoilage Classifier<br/>Residual Shelf-Life Regressor<br/>spoilLocked Hardware Flag"]
+        Core1["FreeRTOS Core 1: IO and Comms<br/>Sensor Polling Loop 10s<br/>WiFi / BLE Stack<br/>RTDB WebSocket Bridge"]
+        PSRAM["8MB Octal PSRAM<br/>TensorFlow Arena and Static Weights"]
         
         ESP32 --> Core0
         ESP32 --> Core1
@@ -39,11 +39,11 @@ graph TB
         Core1 <--> Core0
     end
 
-    subgraph Layer3 [Layer 3: Communication & Sync Layer]
-        BLE[Web Bluetooth BLE 5.0<br/>Direct Local PWA Bridge]
-        RTDB[Firebase Realtime Database<br/>Sub-500ms IoT Telemetry & Commands]
-        Firestore[Cloud Firestore<br/>Persistent Immutable Audit Trail]
-        Functions[Cloud Function API Bridge<br/>Serverless Orchestration]
+    subgraph Layer3 ["Layer 3: Communication and Sync Layer"]
+        BLE["Web Bluetooth BLE 5.0<br/>Direct Local PWA Bridge"]
+        RTDB["Firebase Realtime Database<br/>Sub-500ms IoT Telemetry and Commands"]
+        Firestore["Cloud Firestore<br/>Persistent Immutable Audit Trail"]
+        Functions["Cloud Function API Bridge<br/>Serverless Orchestration"]
         
         Core1 <== "BLE GATT" ==> BLE
         Core1 <== "WiFi WebSocket" ==> RTDB
@@ -51,14 +51,14 @@ graph TB
         Functions <--> Firestore
     end
 
-    subgraph Layer4 [Layer 4: Progressive Web Application PWA]
-        Guard[Guard Engine<br/>Pairing & Auth Guards]
-        Input[Input Engine<br/>DepositForm & Face-ID Consent]
-        Intel[Intelligence Engine<br/>Live Gauges & Quality Index]
-        Cmd[Command Engine<br/>Fleet Map & PDF Audit Reports]
-        Biometrics[In-Browser Face-API AI<br/>128-d Vector Anti-Hoarding]
-        Voice[Multilingual Voice AI<br/>EN / HI / MR Speech Synthesis]
-        Visualizer[Three.js 3D Visualizer<br/>WebGL Physical Digital Twin]
+    subgraph Layer4 ["Layer 4: Progressive Web Application PWA"]
+        Guard["Guard Engine<br/>Pairing and Auth Guards"]
+        Input["Input Engine<br/>DepositForm and Face-ID Consent"]
+        Intel["Intelligence Engine<br/>Live Gauges and Quality Index"]
+        Cmd["Command Engine<br/>Fleet Map and PDF Audit Reports"]
+        Biometrics["In-Browser Face-API AI<br/>128-d Vector Anti-Hoarding"]
+        Voice["Multilingual Voice AI<br/>EN / HI / MR Speech Synthesis"]
+        Visualizer["Three.js 3D Visualizer<br/>WebGL Physical Digital Twin"]
         
         BLE <--> Guard
         RTDB <--> Intel
@@ -104,18 +104,18 @@ The core compute node is an **Espressif ESP32-S3-WROOM-1** microcontroller:
 
 ```mermaid
 graph LR
-    subgraph PowerSystem [Isolated Power Distribution]
-        PSU[12V 3A DC Wall Adapter] --> LM2596[LM2596 Buck Converter]
-        LM2596 -- "5.0V Rail" --> RelayVCC[Relay Module VCC]
-        LM2596 -- "5.0V Rail" --> ESP32VCC[ESP32 5V Vin]
-        LM2596 -- "5.0V Rail" --> UltrasonicVCC[HC-SR04 VCC]
-        ESP32LDO[ESP32 Internal 3.3V LDO] -- "3.3V Rail" --> BME688VCC[BME688 VCC]
-        ESP32LDO -- "3.3V Rail" --> DS18B20VCC[DS18B20 VCC]
+    subgraph PowerSystem ["Isolated Power Distribution"]
+        PSU["12V 3A DC Wall Adapter"] --> LM2596["LM2596 Buck Converter"]
+        LM2596 -- "5.0V Rail" --> RelayVCC["Relay Module VCC"]
+        LM2596 -- "5.0V Rail" --> ESP32VCC["ESP32 5V Vin"]
+        LM2596 -- "5.0V Rail" --> UltrasonicVCC["HC-SR04 VCC"]
+        ESP32LDO["ESP32 Internal 3.3V LDO"] -- "3.3V Rail" --> BME688VCC["BME688 VCC"]
+        ESP32LDO -- "3.3V Rail" --> DS18B20VCC["DS18B20 VCC"]
         
-        PSU -- "12V Muscle Rail" --> SolenoidCOM[Relay 1 COM]
-        PSU -- "12V Muscle Rail" --> UVCCOM[Relay 2 COM]
-        SolenoidCOM --> Diode[1N4007 Flyback Diode] --> Solenoid[12V Solenoid Lock]
-        UVCCOM --> UVCLED[12V UV-C LED Strip]
+        PSU -- "12V Muscle Rail" --> SolenoidCOM["Relay 1 COM"]
+        PSU -- "12V Muscle Rail" --> UVCCOM["Relay 2 COM"]
+        SolenoidCOM --> Diode["1N4007 Flyback Diode"] --> Solenoid["12V Solenoid Lock"]
+        UVCCOM --> UVCLED["12V UV-C LED Strip"]
     end
 ```
 
@@ -250,33 +250,33 @@ The frontend is implemented in **React 18 + Vite + TypeScript + Tailwind CSS v4*
 
 ```mermaid
 graph TD
-    App[PWA Core Application / AppContext]
+    App["PWA Core Application / AppContext"]
     
-    subgraph Engine1 [Guard Engine]
-        PairGuard[Pairing Token Guard]
-        AuthGuard[Admin Auth Guard]
-        RouteGuard[Dynamic Route Guard]
+    subgraph Engine1 ["Guard Engine"]
+        PairGuard["Pairing Token Guard"]
+        AuthGuard["Admin Auth Guard"]
+        RouteGuard["Dynamic Route Guard"]
     end
     
-    subgraph Engine2 [Input Engine]
-        Deposit[DepositForm Module]
-        CatPicker[Category & Diet Tagging]
-        FaceCapture[In-Browser Face Scanner]
+    subgraph Engine2 ["Input Engine"]
+        Deposit["DepositForm Module"]
+        CatPicker["Category and Diet Tagging"]
+        FaceCapture["In-Browser Face Scanner"]
     end
     
-    subgraph Engine3 [Intelligence Engine]
-        QI[Quality Index Calculator]
-        Gauges[Real-Time SVG Gauges]
-        Chart[Chart.js Telemetry Stream]
-        VoiceAI[Neural Voice Assistant]
-        Twin[Three.js 3D Visualizer]
+    subgraph Engine3 ["Intelligence Engine"]
+        QI["Quality Index Calculator"]
+        Gauges["Real-Time SVG Gauges"]
+        Chart["Chart.js Telemetry Stream"]
+        VoiceAI["Neural Voice Assistant"]
+        Twin["Three.js 3D Visualizer"]
     end
     
-    subgraph Engine4 [Command Engine]
-        Fleet[Leaflet Geospatial Map]
-        Diags[Low-Level Terminal Diagnostics]
-        PDF[jsPDF Telemetry Report Generator]
-        Emergency[System Wipe & BLE Reset]
+    subgraph Engine4 ["Command Engine"]
+        Fleet["Leaflet Geospatial Map"]
+        Diags["Low-Level Terminal Diagnostics"]
+        PDF["jsPDF Telemetry Report Generator"]
+        Emergency["System Wipe and BLE Reset"]
     end
 
     App --> Engine1

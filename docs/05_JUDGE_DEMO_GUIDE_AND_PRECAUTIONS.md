@@ -30,15 +30,15 @@ Execute these checks before the judges arrive at your station:
 
 ```mermaid
 graph TD
-    A[T-30m: Power Supply Check] -->|12V 3A Adapter Connected| B[Check 5V & 3.3V Rails via Multimeter]
-    B --> C[T-20m: Turn ON Mobile Hotspot 2.4GHz]
-    C --> D[T-15m: Power On ESP32 & Open Serial Monitor 115200]
-    D --> E{Check Boot Logs}
-    E -- "WiFi:OK & BME688:OK & READY" --> F[T-10m: Launch PWA on Laptop / Tablet]
-    E -- "WiFi:FAIL" --> G[Verify Hotspot SSID & 2.4GHz Band]
+    A["T-30m: Power Supply Check<br/>12V 3A Adapter Connected"] --> B["Check 5V and 3.3V Rails via Multimeter"]
+    B --> C["T-20m: Turn ON Mobile Hotspot 2.4GHz"]
+    C --> D["T-15m: Power On ESP32 and Open Serial Monitor 115200"]
+    D --> E{"Check Boot Logs"}
+    E -- "WiFi:OK and BME688:OK and READY" --> F["T-10m: Launch PWA on Laptop / Tablet"]
+    E -- "WiFi:FAIL" --> G["Verify Hotspot SSID and 2.4GHz Band"]
     G --> D
-    F --> H[T-5m: Connect Hardware via /connect]
-    H --> I[T-0m: READY FOR JUDGES]
+    F --> H["T-5m: Connect Hardware via /connect"]
+    H --> I["T-0m: READY FOR JUDGES"]
 ```
 
 ### Critical Hardware Precautions

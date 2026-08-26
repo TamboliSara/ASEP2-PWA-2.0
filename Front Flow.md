@@ -65,7 +65,7 @@ graph TD
     Init --> CheckPairing{Is Paired?}
     
     CheckPairing -- No --> Connect[Connect Page]
-    Connect --> BLEScan[BLE Scan & Handshake]
+    Connect --> BLEScan["BLE Scan and Handshake"]
     BLEScan --> PairSuccess[Set hasCompletedPairing: true]
     PairSuccess --> Hub
     
@@ -75,8 +75,8 @@ graph TD
     Hub -- "Donor" --> DonorCheck{Chamber Empty?}
     DonorCheck -- No --> Occupied[Show Occupied Screen]
     DonorCheck -- Yes --> DepositForm[Enter Asset Details]
-    DepositForm --> hardwareCmd[BLE Unlock -> Lock -> Sanitize]
-    hardwareCmd --> CloudSync[Firebase Sync & Sensor Snapshot]
+    DepositForm --> hardwareCmd["BLE Unlock -> Lock -> Sanitize"]
+    hardwareCmd --> CloudSync["Firebase Sync and Sensor Snapshot"]
     CloudSync --> AutoNav[900ms Redirect to Kiosk]
     AutoNav --> Kiosk
     
@@ -85,11 +85,11 @@ graph TD
     Kiosk --> LiveTele[Poll Live Sensors: Temp, Hum, VOC]
     LiveTele --> CalcQI[Calculate Quality Index %]
     
-    CalcQI --> QualityGuard{QI < 30?}
+    CalcQI --> QualityGuard{"QI < 30%?"}
     
     QualityGuard -- No (Safe) --> StdRetrieve[Standard Retrieval Enabled]
     StdRetrieve --> SlideAction[User Slides to Open]
-    SlideAction --> CycleEnd[Unlock -> Reset State -> Sanitize]
+    SlideAction --> CycleEnd["Unlock -> Reset State -> Sanitize"]
     
     QualityGuard -- Yes (Spoiled) --> Lockdown[Safety Lockdown Active]
     Lockdown --> RestrictedUI[Block User Retrieval]
@@ -102,8 +102,8 @@ graph TD
     Verify --> AdminAuth
     
     AdminAuth -- Yes --> AdminDash[Admin Dashboard V2]
-    AdminDash --> FleetOps[Fleet Map / Registry / Diagnostics]
-    AdminDash --> ForceAction[Force Open / System Wipe / Export PDF]
+    AdminDash --> FleetOps["Fleet Map / Registry / Diagnostics"]
+    AdminDash --> ForceAction["Force Open / System Wipe / Export PDF"]
 ```
 
 ---

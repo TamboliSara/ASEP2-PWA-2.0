@@ -31,110 +31,110 @@ The following diagram illustrates every transitional state, decision branch, err
 
 ```mermaid
 graph TD
-    %% 1. Initialization & Pairing
-    Start((App Launch)) --> Init[Initialize AppContext]
-    Init --> CheckPairing{Is Paired Device<br/>in LocalStorage?}
+    %% 1. Initialization and Pairing
+    Start(["App Launch"]) --> Init["Initialize AppContext"]
+    Init --> CheckPairing{"Is Paired Device in LocalStorage?"}
     
-    CheckPairing -- "No" --> ConnectPage[Connect Page /connect]
-    ConnectPage --> BLEScan[Initiate BLE Scan or Enter MAC]
-    BLEScan --> Handshake[Security Handshake & Cloud Registration]
-    Handshake --> InitialSync[Initial Telemetry & State Sync]
-    InitialSync --> ModeHub[Mode Selection Hub /]
+    CheckPairing -- "No" --> ConnectPage["Connect Page /connect"]
+    ConnectPage --> BLEScan["Initiate BLE Scan or Enter MAC"]
+    BLEScan --> Handshake["Security Handshake and Cloud Registration"]
+    Handshake --> InitialSync["Initial Telemetry and State Sync"]
+    InitialSync --> ModeHub["Mode Selection Hub /"]
     CheckPairing -- "Yes" --> ModeHub
 
     %% 2. Role Path Selection
-    ModeHub --> SelectRole{Select Action}
+    ModeHub --> SelectRole{"Select Action"}
     
     %% 3. DONOR WORKFLOW
-    SelectRole -- "Donate Food" --> CheckOcc{Selected Chamber<br/>Empty?}
-    CheckOcc -- "Occupied" --> OccupiedScreen[Display 'Chamber Occupied'<br/>Select Another Chamber]
+    SelectRole -- "Donate Food" --> CheckOcc{"Selected Chamber Empty?"}
+    CheckOcc -- "Occupied" --> OccupiedScreen["Display Chamber Occupied<br/>Select Another Chamber"]
     OccupiedScreen --> CheckOcc
     
-    CheckOcc -- "Empty" --> ShowSafety[Display Food Safety Guidelines<br/>& Prohibited Items Modal]
-    ShowSafety --> OpenDepositForm[Open DepositForm Interface]
-    OpenDepositForm --> InputDetails[Input Food Name, Category, Allergens, Diet Tag]
-    InputDetails --> BiometricConsent[Capture Donor Face via WebGL<br/>Extract 128-d Facial Embedding]
-    BiometricConsent --> SubmitDeposit[Dispatch Deposit Payload to Cloud]
-    SubmitDeposit --> BLEUnlock[Send BLE / RTDB UNLOCK Command]
-    BLEUnlock --> PhysicalOpen[12V Solenoid Energizes: Door Opens]
-    PhysicalOpen --> PlaceFood[Donor Places Food inside Chamber]
-    PlaceFood --> AutoRelock[5-Second Auto-Relock Timer Expires]
-    AutoRelock --> UltrasonicCheck[ESP32 HC-SR04 Fires 3 Ultrasonic Pings]
+    CheckOcc -- "Empty" --> ShowSafety["Display Food Safety Guidelines<br/>and Prohibited Items Modal"]
+    ShowSafety --> OpenDepositForm["Open DepositForm Interface"]
+    OpenDepositForm --> InputDetails["Input Food Name, Category, Allergens, Diet Tag"]
+    InputDetails --> BiometricConsent["Capture Donor Face via WebGL<br/>Extract 128-d Facial Embedding"]
+    BiometricConsent --> SubmitDeposit["Dispatch Deposit Payload to Cloud"]
+    SubmitDeposit --> BLEUnlock["Send BLE / RTDB UNLOCK Command"]
+    BLEUnlock --> PhysicalOpen["12V Solenoid Energizes: Door Opens"]
+    PhysicalOpen --> PlaceFood["Donor Places Food inside Chamber"]
+    PlaceFood --> AutoRelock["5-Second Auto-Relock Timer Expires"]
+    AutoRelock --> UltrasonicCheck["ESP32 HC-SR04 Fires 3 Ultrasonic Pings"]
     
-    UltrasonicCheck --> FoodPresent{Distance < 30cm?<br/>Food Detected?}
+    UltrasonicCheck --> FoodPresent{"Distance under 22cm?<br/>Food Detected?"}
     
     %% Ghost Donation Branch
-    FoodPresent -- "NO (Ghost Deposit)" --> AcousticAlarm[Synthesize Local Acoustic Alarm]
-    AcousticAlarm --> ShowWarningModal[Display 'No Food Detected' Alert]
-    ShowWarningModal --> RollbackDB[Revoke Cloud Donation Record]
-    RollbackDB --> LogForensic[Log Forensic Anomaly in Firestore]
+    FoodPresent -- "NO (Ghost Deposit)" --> AcousticAlarm["Synthesize Local Acoustic Alarm"]
+    AcousticAlarm --> ShowWarningModal["Display No Food Detected Alert"]
+    ShowWarningModal --> RollbackDB["Revoke Cloud Donation Record"]
+    RollbackDB --> LogForensic["Log Forensic Anomaly in Firestore"]
     LogForensic --> ModeHub
     
     %% Confirmed Deposit Branch
-    FoodPresent -- "YES (Real Food)" --> ConfirmDeposit[Set Status: OCCUPIED]
-    ConfirmDeposit --> AutoRedirect[900ms Auto-Redirect to Kiosk]
-    AutoRedirect --> KioskPage[Kiosk Dashboard /receive]
+    FoodPresent -- "YES (Real Food)" --> ConfirmDeposit["Set Status: OCCUPIED"]
+    ConfirmDeposit --> AutoRedirect["900ms Auto-Redirect to Kiosk"]
+    AutoRedirect --> KioskPage["Kiosk Dashboard /receive"]
 
     %% 4. CONTINUOUS MONITORING & QUALITY STATE MACHINE
-    KioskPage --> PollSensors[ESP32 Polls BME688 & DS18B20 every 10s]
-    PollSensors --> EdgeTinyML[Core 0 Executes INT8 TinyML Inference]
-    EdgeTinyML --> ComputeQI[Calculate Quality Index QI 0-100%]
+    KioskPage --> PollSensors["ESP32 Polls BME688 and DS18B20 every 10s"]
+    PollSensors --> EdgeTinyML["Core 0 Executes INT8 TinyML Inference"]
+    EdgeTinyML --> ComputeQI["Calculate Quality Index QI 0-100%"]
     
-    ComputeQI --> QICheck{Quality Index Evaluation}
-    QICheck -- "QI >= 60% (FRESH)" --> SafeState[Status: FRESH / Safe<br/>Green Gauge & Full Consumption Window]
-    QICheck -- "30% <= QI < 60% (AGING)" --> CautionState[Status: AGING / Caution<br/>Yellow Gauge & Reduced Pickup Window]
-    QICheck -- "QI < 30% (SPOILED)" --> DangerState[Assert Hardware spoilLocked Flag<br/>Status: SPOILED / Quarantine]
+    ComputeQI --> QICheck{"Quality Index Evaluation"}
+    QICheck -- "QI >= 60% (FRESH)" --> SafeState["Status: FRESH / Safe<br/>Green Gauge and Full Consumption Window"]
+    QICheck -- "30% <= QI < 60% (AGING)" --> CautionState["Status: AGING / Caution<br/>Yellow Gauge and Reduced Pickup Window"]
+    QICheck -- "QI < 30% (SPOILED)" --> DangerState["Assert Hardware spoilLocked Flag<br/>Status: SPOILED / Quarantine"]
     
     %% 5. RECEIVER WORKFLOW
     SelectRole -- "Receive Food" --> KioskPage
-    KioskPage --> SelectChamber[Receiver Selects Chamber]
-    SelectChamber --> CheckSpoiled{Is Chamber<br/>Spoiled or Locked?}
+    KioskPage --> SelectChamber["Receiver Selects Chamber"]
+    SelectChamber --> CheckSpoiled{"Is Chamber Spoiled or Locked?"}
     
-    CheckSpoiled -- "YES (Spoiled)" --> BlockRetrieval[Retrieval Programmatically Blocked<br/>Display Spoilage Quarantine Notice]
-    BlockRetrieval --> AdminBypass{Admin Authentication?}
+    CheckSpoiled -- "YES (Spoiled)" --> BlockRetrieval["Retrieval Programmatically Blocked<br/>Display Spoilage Quarantine Notice"]
+    BlockRetrieval --> AdminBypass{"Admin Authentication?"}
     AdminBypass -- "No" --> ModeHub
-    AdminBypass -- "Yes" --> AdminOverride[Admin Superuser Override Unlock]
-    AdminOverride --> CompostRoute[Divert Rotten Item to Composting/Biogas]
-    CompostRoute --> ResetChamber[Reset Chamber Status to EMPTY]
+    AdminBypass -- "Yes" --> AdminOverride["Admin Superuser Override Unlock"]
+    AdminOverride --> CompostRoute["Divert Rotten Item to Composting/Biogas"]
+    CompostRoute --> ResetChamber["Reset Chamber Status to EMPTY"]
     
-    CheckSpoiled -- "NO (Safe/Aging)" --> SlideRetrieve[User Slides to Confirm Retrieval]
-    SlideRetrieve --> ReceiverBiometrics[In-Browser Face-API Verification]
-    ReceiverBiometrics --> MultiFrameCheck{Valid Centered Face<br/>in >= 4 of 5 Frames?}
-    MultiFrameCheck -- "No" --> RetakeFace[Prompt User to Re-Center Face]
+    CheckSpoiled -- "NO (Safe/Aging)" --> SlideRetrieve["User Slides to Confirm Retrieval"]
+    SlideRetrieve --> ReceiverBiometrics["In-Browser Face-API Verification"]
+    ReceiverBiometrics --> MultiFrameCheck{"Valid Centered Face<br/>in at least 4 of 5 Frames?"}
+    MultiFrameCheck -- "No" --> RetakeFace["Prompt User to Re-Center Face"]
     RetakeFace --> ReceiverBiometrics
     
-    MultiFrameCheck -- "Yes" --> ExtractVector[Extract 128-d Embedding Vector]
-    ExtractVector --> HoardingCheck{Euclidean Distance < 0.55<br/>Matches >= 2 Times Today?}
+    MultiFrameCheck -- "Yes" --> ExtractVector["Extract 128-d Embedding Vector"]
+    ExtractVector --> HoardingCheck{"Euclidean Distance below 0.55<br/>Matches 2 or more Times Today?"}
     
     %% Anti-Hoarding Denial Branch
-    HoardingCheck -- "YES (Hoarding Limit)" --> DenyHoarding[Display Daily Limit Reached Modal<br/>Max 2 Meals/Day Policy]
-    DenyHoarding --> LogDenied[Log Anomaly in Firestore Audits]
+    HoardingCheck -- "YES (Hoarding Limit)" --> DenyHoarding["Display Daily Limit Reached Modal<br/>Max 2 Meals/Day Policy"]
+    DenyHoarding --> LogDenied["Log Anomaly in Firestore Audits"]
     LogDenied --> ModeHub
     
     %% Authorized Retrieval Branch
-    HoardingCheck -- "NO (Authorized)" --> StoreDailyVector[Record 128-d Vector in Session Cache]
-    StoreDailyVector --> SendUnlock[Issue BLE / RTDB UNLOCK Command]
-    SendUnlock --> SolenoidRetract[12V Solenoid Retracts: Door Opens]
-    SolenoidRetract --> UserTakesFood[Receiver Collects Fresh Food Package]
-    UserTakesFood --> DoorCloses[Door Closes & Solenoid Re-Engages]
-    DoorCloses --> StartUVC[Engage 12V UV-C Sterilization for 20s]
-    StartUVC --> ClearState[Clear Donation Record & Mark EMPTY]
-    ClearState --> EndRetrieval((Retrieval Complete))
+    HoardingCheck -- "NO (Authorized)" --> StoreDailyVector["Record 128-d Vector in Session Cache"]
+    StoreDailyVector --> SendUnlock["Issue BLE / RTDB UNLOCK Command"]
+    SendUnlock --> SolenoidRetract["12V Solenoid Retracts: Door Opens"]
+    SolenoidRetract --> UserTakesFood["Receiver Collects Fresh Food Package"]
+    UserTakesFood --> DoorCloses["Door Closes and Solenoid Re-Engages"]
+    DoorCloses --> StartUVC["Engage 12V UV-C Sterilization for 20s"]
+    StartUVC --> ClearState["Clear Donation Record and Mark EMPTY"]
+    ClearState --> EndRetrieval(["Retrieval Complete"])
 
     %% 6. FLEET ADMINISTRATOR WORKFLOW
-    SelectRole -- "Admin Console" --> CheckAdminAuth{Is Authenticated?}
-    CheckAdminAuth -- "No" --> AdminSignIn[Admin SignIn Page /signin]
-    AdminSignIn --> EnterCreds[Enter Admin Credentials / Face-ID]
+    SelectRole -- "Admin Console" --> CheckAdminAuth{"Is Authenticated?"}
+    CheckAdminAuth -- "No" --> AdminSignIn["Admin SignIn Page /signin"]
+    AdminSignIn --> EnterCreds["Enter Admin Credentials / Face-ID"]
     EnterCreds --> CheckAdminAuth
     
-    CheckAdminAuth -- "Yes" --> AdminDashboard[Admin Command Center /admin]
+    CheckAdminAuth -- "Yes" --> AdminDashboard["Admin Command Center /admin"]
     
-    subgraph AdminControlModules [Admin Dashboard Modules]
-        AdminDashboard --> FleetMetrics[Fleet Impact & Live Utilization Metrics]
-        AdminDashboard --> GeospatialMap[Live Leaflet Geospatial Fleet Map]
-        AdminDashboard --> TerminalDiags[Low-Level Sensor & TinyML Terminal Diagnostics]
-        AdminDashboard --> PDFExport[Generate Instant Telemetry Audit PDF via jsPDF]
-        AdminDashboard --> EmergencyControls[Maintenance Actions: BLE Reset, Cloud Sync, Emergency Wipe]
+    subgraph AdminControlModules ["Admin Dashboard Modules"]
+        AdminDashboard --> FleetMetrics["Fleet Impact and Live Utilization Metrics"]
+        AdminDashboard --> GeospatialMap["Live Leaflet Geospatial Fleet Map"]
+        AdminDashboard --> TerminalDiags["Low-Level Sensor and TinyML Terminal Diagnostics"]
+        AdminDashboard --> PDFExport["Generate Instant Telemetry Audit PDF via jsPDF"]
+        AdminDashboard --> EmergencyControls["Maintenance Actions: BLE Reset, Cloud Sync, Emergency Wipe"]
     end
 ```
 

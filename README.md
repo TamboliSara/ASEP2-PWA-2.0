@@ -43,31 +43,31 @@ The complete engineering, operational, and mathematical documentation is located
 
 ```mermaid
 graph TB
-    subgraph Hardware [Edge Hardware Layer - ESP32-S3]
-        Sensors[BME688 VOC/Temp/RH + DS18B20 Temp + HC-SR04 Ultrasonic]
-        Core0[FreeRTOS Core 0: INT8 TinyML Spoilage Classifier & spoilLocked Flag]
-        Core1[FreeRTOS Core 1: Sensor Polling Loop + BLE & RTDB WebSocket]
-        Actuators[12V Solenoid Lock + 12V UV-C Sterilization LED + Relays]
+    subgraph Hardware ["Edge Hardware Layer - ESP32-S3"]
+        Sensors["BME688 VOC/Temp/RH + DS18B20 Temp + HC-SR04 Ultrasonic"]
+        Core0["FreeRTOS Core 0: INT8 TinyML Spoilage Classifier and spoilLocked Flag"]
+        Core1["FreeRTOS Core 1: Sensor Polling Loop + BLE and RTDB WebSocket"]
+        Actuators["12V Solenoid Lock + 12V UV-C Sterilization LED + Relays"]
         
         Sensors --> Core1
         Core1 <--> Core0
         Core0 --> Actuators
     end
 
-    subgraph Cloud [Hybrid Split-Database Cloud Layer]
-        RTDB[Firebase Realtime Database<br/>Sub-500ms Telemetry, Commands & Status]
-        Firestore[Cloud Firestore<br/>Immutable Persistent Audits, Donations & Retrievals]
+    subgraph Cloud ["Hybrid Split-Database Cloud Layer"]
+        RTDB["Firebase Realtime Database<br/>Sub-500ms Telemetry, Commands and Status"]
+        Firestore["Cloud Firestore<br/>Immutable Persistent Audits, Donations and Retrievals"]
         
         Core1 <== "WiFi WSS" ==> RTDB
         RTDB <--> Firestore
     end
 
-    subgraph PWA [Progressive Web App Layer - React 18]
-        BLE[Web Bluetooth Direct GATT Bridge]
-        FaceAI[In-Browser Face-API AI<br/>128-d Anti-Hoarding Gate]
-        VoiceAI[Multilingual Neural Voice Assistant<br/>EN / HI / MR Dialects]
-        Twin[Three.js 3D Visualizer Digital Twin]
-        Admin[Fleet Control Center & jsPDF Report Export]
+    subgraph PWA ["Progressive Web App Layer - React 18"]
+        BLE["Web Bluetooth Direct GATT Bridge"]
+        FaceAI["In-Browser Face-API AI<br/>128-d Anti-Hoarding Gate"]
+        VoiceAI["Multilingual Neural Voice Assistant<br/>EN / HI / MR Dialects"]
+        Twin["Three.js 3D Visualizer Digital Twin"]
+        Admin["Fleet Control Center and jsPDF Report Export"]
         
         Core1 <== "BLE 5.0" ==> BLE
         BLE <--> FaceAI
