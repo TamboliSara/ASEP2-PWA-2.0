@@ -117,8 +117,7 @@ graph TD
     SendUnlock --> SolenoidRetract["12V Solenoid Retracts: Door Opens"]
     SolenoidRetract --> UserTakesFood["Receiver Collects Fresh Food Package"]
     UserTakesFood --> DoorCloses["Door Closes and Solenoid Re-Engages"]
-    DoorCloses --> StartUVC["Engage 12V UV-C Sterilization for 20s"]
-    StartUVC --> ClearState["Clear Donation Record and Mark EMPTY"]
+    DoorCloses --> ClearState["Clear Donation Record and Mark EMPTY"]
     ClearState --> EndRetrieval(["Retrieval Complete"])
 
     %% 6. FLEET ADMINISTRATOR WORKFLOW
@@ -208,11 +207,11 @@ graph TD
      $$\text{Matches} = \sum_{k=1}^{N} \mathbb{I}\left( \|V_{\text{receiver}} - V_k\|_2 < 0.55 \right)$$
   4. **Hoarding Denial Branch**: If $\text{Matches} \ge 2$, the retrieval is aborted. The modal displays: *"Daily Community Limit Reached (2/2 meals collected today). Please return tomorrow."*
   5. **Approval Branch**: If $\text{Matches} < 2$, $V_{\text{receiver}}$ is stored in the local registry, and the unlock transaction proceeds.
-* **Step 4.4 (Physical Retrieval & Hygiene Reset)**:
+* **Step 4.4 (Physical Retrieval & State Reset)**:
   1. The PWA sends `UNLOCK` to the hardware.
   2. The door unlatches; the receiver takes their food package.
-  3. Upon door closure, the ESP32 engages the **12V UV-C germicidal LED strip** for $20\text{ seconds}$ to eliminate bacterial pathogens on chamber walls.
-  4. The compartment resets to `EMPTY` and is immediately ready for the next donation.
+  3. Upon door closure, the solenoid re-engages and locks.
+  4. The compartment state atomically resets to `EMPTY` and is immediately ready for the next donation.
 
 ---
 
@@ -235,6 +234,6 @@ graph TD
 | :--- | :--- | :--- | :--- |
 | **Internet Drop / Cloud Offline** | Local Wi-Fi or cellular network loss. | `navigator.onLine === false` + WebSocket disconnect. | PWA switches to **Direct BLE GATT Mode**; all transactions are cached in `IndexedDB` and queued for background sync. |
 | **Airtight Packaging Barrier** | Donor deposits food in completely sealed plastic container. | BME688 detects no VOC rise despite thermal progression. | Secondary **Dallas DS18B20 thermal decay slope** takes precedence in the regression formula; conservative shelf-life applied. |
-| **MOS Sensor Baseline Drift** | Chemical saturation from cleaning solvents or intense spices. | Heuristic gas profile detects out-of-bounds baseline. | Firmware executes auto-zero baseline calibration during post-cycle UV-C air-purge window. |
+| **MOS Sensor Baseline Drift** | Chemical saturation from cleaning solvents or intense spices. | Heuristic gas profile detects out-of-bounds baseline. | Firmware executes auto-zero baseline calibration during chamber idle reset window. |
 | **Power Grid Outage** | Mains 12V DC power lost. | Hardware loses power. | **Fail-Secure Solenoid Default**: Spring-loaded latch remains mechanically locked, preventing unauthorized looting. |
 | **Hoarding Spoof / Photo Attack** | Bad actor holds up a printed photo to camera. | Multi-frame liveness filter checks micro-landmark variance. | Static image lacks micro-tremor variance across 5 frames; system rejects as `unstable` or `rule_breach`. |

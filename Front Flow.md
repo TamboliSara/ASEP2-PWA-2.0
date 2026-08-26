@@ -32,7 +32,7 @@ Manages the lifecycle of a food donation.
     *   `sendCategory`: Writes asset metadata to the hardware via BLE.
     *   `unlock`: Issues a solenoid release command.
     *   `lock`: Confirms the door is sealed after deposit.
-    *   `startSanitization`: Triggers a UV-C/Ventilation cycle.
+    *   `startSanitization`: Resets chamber status to idle.
 4.  **Cloud Sync**: Simultaneously registers the donation in the Firebase Realtime Database and enqueues sensor snapshots for historical tracking.
 
 ### C. The Intelligence Engine (Quality Guard & Kiosk)

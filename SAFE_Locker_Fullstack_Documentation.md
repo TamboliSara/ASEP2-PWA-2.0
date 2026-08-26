@@ -33,7 +33,7 @@ The SAFE system operates as a hybrid PWA (Progressive Web App) integrated with a
 ### Hardware
 *   **Microcontroller**: ESP32-S3.
 *   **Sensors**: Temperature, Humidity, Pressure, VOC Gas Resistance (e.g., BME688).
-*   **Actuators**: Solenoid locks, UV-C sanitation arrays, Ventilation fans.
+*   **Actuators**: Solenoid locks, Ventilation fans.
 
 ---
 
@@ -104,7 +104,7 @@ While Firebase manages cloud sync, local, high-speed pairing is handled via Blue
     *   Cloud writes `UNLOCK` to RTDB.
     *   ESP32 detects `UNLOCK`, opens solenoid, sets `lock_state` to "unlocked".
     *   User places food, closes door.
-    *   ESP32 sets `door_state` to "closed", executes local `SANITIZE` cycle (UV-C).
+    *   ESP32 sets `door_state` to "closed", executes local `SANITIZE` cycle.
     *   ESP32 ACKs the command -> Cloud Function `onCommandAck` logs the deposit event.
 5.  **UI Switch**: PWA transitions to the real-time Kiosk dashboard.
 

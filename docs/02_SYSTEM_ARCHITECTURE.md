@@ -16,7 +16,6 @@ graph TB
         ESP32["ESP32-S3 Microcontroller<br/>Dual-Core 240MHz, 8MB PSRAM"]
         Relay["5V Optoisolated Relays"]
         Solenoid["12V Solenoid Lock<br/>Fail-Secure"]
-        UVC["12V UV-C Sterilization LED"]
         Buck["LM2596 Buck Converter<br/>12V to 5V/3.3V"]
         
         BME688 -- "I2C SDA:8 SCL:9" --> ESP32
@@ -24,7 +23,6 @@ graph TB
         HCSR04 -- "GPIO Trigger/Echo" --> ESP32
         ESP32 -- "GPIO 12" --> Relay
         Relay --> Solenoid
-        Relay --> UVC
         Buck --> ESP32
     end
 
@@ -98,7 +96,6 @@ The core compute node is an **Espressif ESP32-S3-WROOM-1** microcontroller:
 | **HC-SR04 Ultrasonic**| TRIG | **GPIO 5** | 3.3V Logic | Output trigger pulse ($10\mu\text{s}$) |
 | **HC-SR04 Ultrasonic**| ECHO | **GPIO 6** | 3.3V Logic | Input echo pulse (via $1\text{k}\Omega/2\text{k}\Omega$ voltage divider) |
 | **Optoisolated Relay 1**| IN1 | **GPIO 12** | 5V Logic | Active LOW trigger (controls 12V Solenoid Lock) |
-| **Optoisolated Relay 2**| IN2 | **GPIO 13** | 5V Logic | Active LOW trigger (controls 12V UV-C LED Strip) |
 | **Relay Module VCC** | VCC | 5V Rail | 5.0V DC | Optocoupler supply |
 | **Buzzer / Alarm** | POS | **GPIO 14** | 3.3V/5V | PWM acoustic alarm output ($880\text{ Hz}$) |
 
@@ -113,9 +110,7 @@ graph LR
         ESP32LDO -- "3.3V Rail" --> DS18B20VCC["DS18B20 VCC"]
         
         PSU -- "12V Muscle Rail" --> SolenoidCOM["Relay 1 COM"]
-        PSU -- "12V Muscle Rail" --> UVCCOM["Relay 2 COM"]
         SolenoidCOM --> Diode["1N4007 Flyback Diode"] --> Solenoid["12V Solenoid Lock"]
-        UVCCOM --> UVCLED["12V UV-C LED Strip"]
     end
 ```
 
@@ -140,7 +135,7 @@ The ESP32-S3 runs FreeRTOS with strict core pinning to prevent sensor polling or
   │  • Residual Shelf-Life Regressor       │  │  • Ultrasonic Depth Echo Task (HC-SR04)│
   │  • Humidity Cross-Sensitivity Comp.    │  │  • Firebase RTDB WebSocket Client      │
   │  • Hardware-Enforced spoilLocked Check │  │  • Web Bluetooth (BLE 5.0) Server      │
-  │  • Sub-50ms Inference Decision Cycle   │  │  • Solenoid & UV-C Timed Actuation     │
+  │  • Sub-50ms Inference Decision Cycle   │  │  • Solenoid Timed Actuation     │
   └────────────────────────────────────────┘  └────────────────────────────────────────┘
                        ▲                                           ▲
                        └───────────── Inter-Core Queue ────────────┘
@@ -316,3 +311,9 @@ The biometric engine executes entirely in the client browser using WebGL and Web
 | **Cloud Backend** | Firebase RTDB, Cloud Firestore, Cloud Functions | Streaming data sync, persistent logging, security rules | Sub-500ms sync speed |
 | **Frontend PWA** | React 18, Vite, TypeScript, Tailwind v4, Framer Motion | User interface, live telemetry, sound alerts, 3D twin | 60 FPS smooth rendering |
 | **Client Biometrics** | Face-API.js, WebGL, WebAssembly, HTML5 MediaStream | Face detection, 128-d vectors, anti-hoarding daily check | $42\text{ms}$ vector extraction |
+
+### 5.3 Interactive 3D CAD & Digital Twin Models
+The SAFE system features high-fidelity 3D spatial models accessible directly for CAD inspection and within the PWA:
+* 🧊 **[Whole Smart Fridge / Locker Array (Spline 3D)](https://app.spline.design/file/142d9f0c-1287-4696-9b02-ae598b5f2d1d)**: Complete multi-chamber locker visualizer with transparent doors, sensor bays, and kiosk chassis.
+* 📦 **[Single Sample Chamber (Spline 3D)](https://app.spline.design/file/e1997a5b-dccc-4942-9d66-b7ba6503e9d9)**: Modular single-compartment model detailing internal volume, sensor placements, and latch assembly.
+* **Three.js WebGL Digital Twin**: Embedded real-time renderer dynamically reflecting physical locker occupancy and temperature state in the PWA.

@@ -74,7 +74,7 @@ SAFE resolves every failure mode of conventional food redistribution through eig
 | **OBJ-3** | Hardware-Enforced Fail-Secure Lockdown | Firmware-level `spoilLocked` boolean flag gating solenoid actuation logic. | 100% physical isolation of spoiled food; immune to software-level unlock exploits. |
 | **OBJ-4** | In-Browser Biometric Anti-Hoarding Gate | WebGL/WASM Face-API neural network extracting 128-d facial embeddings. | Maximum 2 meal retrievals per unique individual per 24 hours; Euclidean distance $< 0.55$. |
 | **OBJ-5** | Ultrasonic Ghost-Donation Prevention | HC-SR04 sensor distance verification post-door-cycle. | Detection of empty chamber within $3\text{ seconds}$; automated acoustic alarm + cloud rollback. |
-| **OBJ-6** | Automated UV-C Sanitization | 12V UV-C germicidal LED strip engaged post-retrieval. | Neutralization of chamber surface pathogens within 15–30 seconds. |
+| **OBJ-6** | Interactive 3D CAD & Digital Twin | Spline 3D Cloud Models & Three.js WebGL twin integration ([Whole Fridge Spline](https://app.spline.design/file/142d9f0c-1287-4696-9b02-ae598b5f2d1d), [Sample Chamber Spline](https://app.spline.design/file/e1997a5b-dccc-4942-9d66-b7ba6503e9d9)). | 60 FPS real-time 3D spatial rendering & chamber transparency. |
 | **OBJ-7** | Dynamic Consumption Deadline Estimation | Time-series regression calculating remaining safe consumption hours (0–48h). | Mean Absolute Error ($\text{MAE}$) $< 0.5\text{ hours}$ in shelf-life prediction. |
 | **OBJ-8** | Zero-Waste Eco-Routing | Algorithmic diversion of locked spoiled food to composting or biogas facilities. | 100% prevention of spoiled organic waste routing to municipal landfills. |
 
@@ -161,7 +161,7 @@ To demonstrate the unique technological contribution of SAFE, the following tabl
 | **Biometric Access** | None | Expensive Kiosk Scanners | Proprietary Keypads/RFID | **In-Browser WebGL/WASM Face-API (Decentralized)** |
 | **Anti-Hoarding Control**| None | Manual Supervision | None | **Algorithmic Daily Limit ($\le 2$ meals/day)** |
 | **Ghost Deposit Defense**| None | None | None | **HC-SR04 Ultrasonic Validation + Acoustic Alarm** |
-| **Hygiene Reset** | Manual cleaning | Manual cleaning | Manual cleaning | **Automated Post-Cycle UV-C Sterilization** |
+| **3D CAD Digital Twin**| None | None | None | **Spline 3D & Three.js Real-Time Visualizer** |
 | **Hardware Cost** | Low (~$200) | Extreme ($3,000+) | High ($2,500+) | **Ultra Low-Cost ($< $65 total BOM)** |
 | **Offline Resilience** | N/A | None (Fails without Internet)| Partial | **100% Offline Capable via BLE & Edge TinyML** |
 

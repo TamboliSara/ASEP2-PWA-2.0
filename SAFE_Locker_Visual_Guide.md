@@ -24,7 +24,7 @@ graph TD
     subgraph Hardware ["SAFE Hardware Node"]
         ESP32["ESP32-S3 Microcontroller"]
         Sensors["Sensors: Temp, Hum, VOC"]
-        Actuators["Actuators: Solenoid, UV-C"]
+        Actuators["Actuators: Solenoid Relay"]
     end
 
     %% Frontend to Cloud Connections
@@ -98,8 +98,7 @@ sequenceDiagram
     RTDB->>ESP: Hardware detects new "UNLOCK" command
     ESP->>ESP: Fires Solenoid to Unlock Door
     User->>ESP: Places food, closes door
-    ESP->>ESP: Triggers UV-C Sanitation Cycle
-    ESP->>RTDB: Update lock_state: 'locked', occupancy: 'occupied'
+        ESP->>RTDB: Update lock_state: 'locked', occupancy: 'occupied'
     ESP->>RTDB: Updates command to 'acknowledged: true'
     
     RTDB->>CF: Cloud Trigger (onCommandAck)

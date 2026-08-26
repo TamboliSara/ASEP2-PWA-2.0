@@ -141,6 +141,65 @@ export const VisualizerPage: React.FC = () => {
         ))}
       </div>
 
+      {/* ── Spline 3D Cloud CAD Links ── */}
+      <div style={{
+        position: 'fixed', bottom: 28, left: 28, zIndex: 60,
+        display: 'flex', gap: 10, alignItems: 'center',
+      }}>
+        <a
+          href="https://app.spline.design/file/142d9f0c-1287-4696-9b02-ae598b5f2d1d"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            background: 'rgba(15, 23, 42, 0.75)',
+            border: '1px solid rgba(0, 243, 255, 0.3)',
+            borderRadius: 8,
+            padding: '6px 12px',
+            color: '#00f3ff',
+            fontSize: 11,
+            fontWeight: 500,
+            textDecoration: 'none',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            transition: 'all 0.2s ease',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#00f3ff'; e.currentTarget.style.boxShadow = '0 0 12px rgba(0,243,255,0.4)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(0, 243, 255, 0.3)'; e.currentTarget.style.boxShadow = 'none'; }}
+        >
+          <span>🧊</span>
+          <span>Spline 3D Fridge</span>
+        </a>
+        <a
+          href="https://app.spline.design/file/e1997a5b-dccc-4942-9d66-b7ba6503e9d9"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            background: 'rgba(15, 23, 42, 0.75)',
+            border: '1px solid rgba(148, 163, 184, 0.25)',
+            borderRadius: 8,
+            padding: '6px 12px',
+            color: 'rgba(255, 255, 255, 0.8)',
+            fontSize: 11,
+            fontWeight: 500,
+            textDecoration: 'none',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            transition: 'all 0.2s ease',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.6)'; e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(148, 163, 184, 0.25)'; e.currentTarget.style.color = 'rgba(255, 255, 255, 0.8)'; }}
+        >
+          <span>📦</span>
+          <span>Sample Chamber</span>
+        </a>
+      </div>
+
 
       {/* ── Interactive Custom Cursor / Crosshair ── */}
       <motion.div

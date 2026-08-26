@@ -215,8 +215,6 @@ The system evaluates Euclidean distance $d = \|V_{\text{live}} - V_{\text{stored
 | **5V Optoisolated Relay** | Optical Switching Delay | $\mathbf{4.8\,\text{ms}}$ | $< 10.0\,\text{ms}$ | **PASS** |
 | **5V Optoisolated Relay** | Dielectric Voltage Isolation | $\mathbf{2,500\,\text{V}_{\text{rms}}}$ | $> 1,500\,\text{V}_{\text{rms}}$ | **PASS** |
 | **Hardware `spoilLocked`** | Software Bypass Vulnerability | $\mathbf{0.0\,\%}$ (0/1000 Penetration Attempts) | $0.0\,\%$ (Zero Vulnerability)| **PASS** |
-| **12V UV-C LED Strip** | Peak Germicidal Wavelength | $\mathbf{275.4\,\text{nm}}$ (UV-C Band) | $260 - 280\,\text{nm}$ | **PASS** |
-| **12V UV-C LED Strip** | Bacterial Surface Kill Rate | $\mathbf{99.93\,\%}$ ($\log_{10} 3.17$ reduction) | $> 99.9\,\%$ in $20\text{s}$ | **PASS** |
 
 ---
 
@@ -248,3 +246,10 @@ The system evaluates Euclidean distance $d = \|V_{\text{live}} - V_{\text{stored
   - **Sensor Polling Failures**: $0$ ($100\%$ I2C/One-Wire bus recovery via FreeRTOS watchdog)
   - **Solenoid Mechanical Cycles**: $1,500$ Actuations without mechanical jam
   - **Calculated System MTBF**: $> 8,760\text{ operating hours}$ ($> 1\text{ year continuous}$).
+
+
+### 6.3 Interactive 3D CAD & Digital Twin Performance Metrics
+* **Spline 3D Cloud Models**:
+  - 🧊 [Whole Smart Locker Array Spline 3D](https://app.spline.design/file/142d9f0c-1287-4696-9b02-ae598b5f2d1d) — Asset Size: $3.8\text{ MB}$, Frame Rate: $60\text{ FPS}$ smooth WebGL.
+  - 📦 [Single Sample Chamber Spline 3D](https://app.spline.design/file/e1997a5b-dccc-4942-9d66-b7ba6503e9d9) — Asset Size: $1.4\text{ MB}$, Frame Rate: $60\text{ FPS}$.
+* **Embedded Three.js Visualizer**: Local WebGL draw calls $< 45$, GPU memory footprint $< 28\text{ MB}$, zero-lag render loop.

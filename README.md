@@ -20,10 +20,18 @@ The system combines:
 2. **Hardware-Enforced Fail-Secure Actuation**: A firmware-level `spoilLocked` boolean flag that physically cuts power to 12V solenoid lock relays when spoilage is detected, making the chamber immune to software or cloud bypass.
 3. **Decentralized In-Browser Biometric Verification**: Client-side **Face-API** running on WebGL/WASM to extract anonymous 128-dimensional facial descriptors, enforcing community anti-hoarding limits ($\le 2$ meals/person/day) without expensive kiosk scanners.
 4. **Autonomous Ultrasonic Ghost-Donation Defense**: **HC-SR04** ultrasonic depth profiling that triggers a localized acoustic alarm and revokes cloud records if an empty compartment is closed.
-5. **Post-Retrieval UV-C Sanitization**: 12V germicidal UV-C LED arrays that disinfect the chamber for 20 seconds post-retrieval.
+5. **Interactive 3D CAD & Digital Twin**: High-fidelity 3D models created in Spline 3D ([Whole Fridge Model](https://app.spline.design/file/142d9f0c-1287-4696-9b02-ae598b5f2d1d) & [Single Sample Chamber](https://app.spline.design/file/e1997a5b-dccc-4942-9d66-b7ba6503e9d9)) paired with real-time Three.js WebGL digital twin rendering.
 6. **Progressive Web Application (PWA)**: An offline-first React 18 / TypeScript application with 3D digital twin visualizer (Three.js), multilingual neural voice assistant (EN/HI/MR), and real-time geospatial fleet management (Leaflet).
 
 ---
+
+
+## 🎨 3D Interactive Spline CAD & Digital Twin Models
+
+Explore the physical industrial design and mechanical architecture in interactive 3D:
+
+* 🧊 **[Interactive Whole Smart Fridge Model (Spline 3D)](https://app.spline.design/file/142d9f0c-1287-4696-9b02-ae598b5f2d1d)** — Complete multi-compartment smart exchange locker with transparent front panels, display chassis, and sensor modules.
+* 📦 **[Interactive Single Sample Chamber Model (Spline 3D)](https://app.spline.design/file/e1997a5b-dccc-4942-9d66-b7ba6503e9d9)** — Modular single locker unit showcasing the BME688/DS18B20 sensor mounts, ultrasonic transceivers, and solenoid latch positioning.
 
 ## 📄 Patent Documentation, CAD Schematics & Vision AI Prompts
 
@@ -61,7 +69,7 @@ graph TB
         Sensors["BME688 VOC/Temp/RH + DS18B20 Temp + HC-SR04 Ultrasonic"]
         Core0["FreeRTOS Core 0: INT8 TinyML Spoilage Classifier and spoilLocked Flag"]
         Core1["FreeRTOS Core 1: Sensor Polling Loop + BLE and RTDB WebSocket"]
-        Actuators["12V Solenoid Lock + 12V UV-C Sterilization LED + Relays"]
+        Actuators["12V Solenoid Lock + 5V Relay Actuation"]
         
         Sensors --> Core1
         Core1 <--> Core0
@@ -106,8 +114,7 @@ graph TB
   │ HC-SR04 Ultrasonic│ TRIG         │ GPIO 6      │ 3.3V Output Pulse     │
   │ HC-SR04 Ultrasonic│ ECHO         │ GPIO 7      │ Via 10k/20k Divider   │
   │ 12V Solenoid Relay│ IN1          │ GPIO 12     │ Active HIGH (Unlock)  │
-  │ 12V UV-C LED Relay│ IN2          │ GPIO 13     │ Active HIGH (Sanitize)│
-  │ Acoustic Buzzer   │ POS          │ GPIO 14     │ 880 Hz PWM Alarm      │
+    │ Acoustic Buzzer   │ POS          │ GPIO 14     │ 880 Hz PWM Alarm      │
   └───────────────────┴──────────────┴─────────────┴───────────────────────┘
 ```
 
