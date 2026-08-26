@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 1100" width="100%" height="100%" style="background-color: #ffffff; font-family: Arial, sans-serif;">
+  <style>
+    .patent-title { font-size: 18px; font-weight: bold; fill: #000000; text-anchor: middle; }
+    .box { fill: #ffffff; stroke: #000000; stroke-width: 1.8; }
+    .diamond { fill: #ffffff; stroke: #000000; stroke-width: 1.8; }
+    .text-title { font-size: 12px; font-weight: bold; fill: #000000; text-anchor: middle; }
+    .text-sub { font-size: 10.5px; fill: #000000; text-anchor: middle; }
+    .text-formula { font-size: 11px; font-family: "Courier New", monospace; font-weight: bold; fill: #000000; text-anchor: middle; }
+    .line-arrow { stroke: #000000; stroke-width: 1.5; fill: none; marker-end: url(#arrow3); }
+    .ref-num { font-size: 12px; font-weight: bold; fill: #000000; }
+  </style>
+
+  <defs>
+    <marker id="arrow3" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000000" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="475" y="30" class="patent-title">FIG. 3</text>
+  <text x="475" y="52" class="text-sub" font-style="italic">TINEML PREPROCESSING &amp; DUAL-MODEL INFERENCE PIPELINE</text>
+
+  <!-- 300 ML PIPELINE CONTAINER -->
+  <text x="40" y="80" class="ref-num">300</text>
+
+  <!-- Node 302: RAW SENSOR INGESTION -->
+  <g transform="translate(275, 75)">
+    <rect x="0" y="0" width="400" height="65" class="box" />
+    <text x="385" y="-4" class="ref-num">302</text>
+    <text x="200" y="25" class="text-title">RAW MULTI-PARAMETER SENSOR INGESTION</text>
+    <text x="200" y="45" class="text-sub">BME688 (VOC Gas Resistance R_raw, RH, Temp, Pressure) + DS18B20 (T_food)</text>
+  </g>
+
+  <path d="M 475 140 L 475 170" class="line-arrow" />
+
+  <!-- Node 304: RANGE VALIDATION & OUTLIER FILTER -->
+  <g transform="translate(275, 170)">
+    <rect x="0" y="0" width="400" height="60" class="box" />
+    <text x="385" y="-4" class="ref-num">304</text>
+    <text x="200" y="25" class="text-title">RANGE VALIDATION &amp; OUTLIER FILTERING</text>
+    <text x="200" y="45" class="text-sub">Physical Sensor Limits Check &amp; Moving Average Noise Reduction</text>
+  </g>
+
+  <path d="M 475 230 L 475 260" class="line-arrow" />
+
+  <!-- Node 306: HUMIDITY CROSS-SENSITIVITY COMPENSATION -->
+  <g transform="translate(200, 260)">
+    <rect x="0" y="0" width="550" height="80" class="box" stroke-width="2" />
+    <text x="535" y="-4" class="ref-num">306</text>
+    <text x="275" y="25" class="text-title">HUMIDITY CROSS-SENSITIVITY COMPENSATION ALGORITHM</text>
+    <text x="275" y="48" class="text-formula">G_comp = G_raw / (1.0 - 0.02 * (RH - 55.0))</text>
+    <text x="275" y="68" class="text-sub">Removes ambient relative humidity baseline drift from VOC gas sensor</text>
+  </g>
+
+  <path d="M 475 340 L 475 370" class="line-arrow" />
+
+  <!-- Node 308: FEATURE ENGINEERING PROCESSOR -->
+  <g transform="translate(250, 370)">
+    <rect x="0" y="0" width="450" height="70" class="box" />
+    <text x="435" y="-4" class="ref-num">308</text>
+    <text x="225" y="25" class="text-title">FEATURE ENGINEERING PROCESSOR</text>
+    <text x="225" y="45" class="text-sub">10-Feature Vector Extraction (Temp Delta T_food - T_ambient,</text>
+    <text x="225" y="60" class="text-sub">VOC Rate of Change dG/dt, Dew Point, Pressure Gradient)</text>
+  </g>
+
+  <path d="M 475 440 L 475 470" class="line-arrow" />
+
+  <!-- Node 310: STANDARD SCALER NORMALIZATION -->
+  <g transform="translate(275, 470)">
+    <rect x="0" y="0" width="400" height="60" class="box" />
+    <text x="385" y="-4" class="ref-num">310</text>
+    <text x="200" y="25" class="text-title">STANDARD SCALER NORMALIZATION</text>
+    <text x="200" y="45" class="text-sub">Zero-Mean Unit-Variance Scaling: Z = (X - μ) / σ</text>
+  </g>
+
+  <path d="M 475 530 L 475 560" class="line-arrow" />
+
+  <!-- Node 312: DUAL-MODEL TINYML INFERENCE ENGINE -->
+  <g transform="translate(180, 560)">
+    <rect x="0" y="0" width="590" height="85" class="box" stroke-width="2.5" />
+    <text x="575" y="-4" class="ref-num">312</text>
+    <text x="295" y="25" class="text-title">ON-DEVICE INT8 QUANTIZED TINEML TFLITE MICRO INFERENCE ENGINE</text>
+    <text x="295" y="45" class="text-sub">Dual-Model Parallel Execution on ESP32-S3 SRAM (&lt;50ms latency)</text>
+    <text x="295" y="65" class="text-sub" font-style="italic">Fully offline, zero cloud API dependency during evaluation</text>
+  </g>
+
+  <!-- PATH SPLIT TO PARALLEL MODELS -->
+  <path d="M 330 645 L 330 685" class="line-arrow" />
+  <path d="M 620 645 L 620 685" class="line-arrow" />
+
+  <!-- Node 314: MLP SPOILAGE CLASSIFIER -->
+  <g transform="translate(180, 685)">
+    <rect x="0" y="0" width="300" height="85" class="box" />
+    <text x="285" y="-4" class="ref-num">314</text>
+    <text x="150" y="25" class="text-title">MLP FOOD SAFETY CLASSIFIER</text>
+    <text x="150" y="45" class="text-sub">3-Layer Quantized Multi-Layer Perceptron</text>
+    <text x="150" y="65" class="text-sub" font-weight="bold">Output: 0 (SAFE), 1 (CAUTION), 2 (DANGER)</text>
+  </g>
+
+  <!-- Node 316: RESIDUAL MLP SHELF-LIFE REGRESSOR -->
+  <g transform="translate(520, 685)">
+    <rect x="0" y="0" width="300" height="85" class="box" />
+    <text x="285" y="-4" class="ref-num">316</text>
+    <text x="150" y="25" class="text-title">RESIDUAL MLP SHELF-LIFE REGRESSOR</text>
+    <text x="150" y="45" class="text-sub">Continuous Regression Neural Net</text>
+    <text x="150" y="65" class="text-sub" font-weight="bold">Output: Remaining Shelf Life (Days)</text>
+  </g>
+
+  <path d="M 330 770 L 330 805" class="line-arrow" />
+
+  <!-- Node 318: SPOILAGE COMPARATOR DIAMOND -->
+  <g transform="translate(330, 855)">
+    <polygon points="0,-50 140,0 0,50 -140,0" class="diamond" />
+    <text x="125" y="-35" class="ref-num">318</text>
+    <text x="0" y="-5" class="text-title">CLASSIFICATION == 2?</text>
+    <text x="0" y="15" class="text-sub">(Critical DANGER State)</text>
+  </g>
+
+  <!-- PATH YES -> ASSERT spoilLocked FLAG (320) -->
+  <path d="M 190 855 L 120 855 L 120 940" class="line-arrow" />
+  <text x="150" y="845" class="text-sub" font-weight="bold">YES</text>
+
+  <g transform="translate(30, 940)">
+    <rect x="0" y="0" width="280" height="80" class="box" stroke-width="2.5" />
+    <text x="265" y="-4" class="ref-num">320</text>
+    <text x="140" y="25" class="text-title">ASSERT spoilLocked FLAG</text>
+    <text x="140" y="45" class="text-sub">Firmware Hardware Interlock Lockout</text>
+    <text x="140" y="62" class="text-sub" font-weight="bold">Blocks Solenoid Unlock Code Path</text>
+  </g>
+
+  <!-- PATH NO -> ALLOW PWA ACTUATION (322) -->
+  <path d="M 470 855 L 530 855 L 530 940" class="line-arrow" />
+  <text x="490" y="845" class="text-sub" font-weight="bold">NO</text>
+
+  <g transform="translate(430, 940)">
+    <rect x="0" y="0" width="280" height="80" class="box" />
+    <text x="265" y="-4" class="ref-num">322</text>
+    <text x="140" y="25" class="text-title">ALLOW PWA ACTUATION</text>
+    <text x="140" y="45" class="text-sub">Permits Solenoid Unlock Trigger</text>
+    <text x="140" y="62" class="text-sub">If PWA Biometric Gate Passes</text>
+  </g>
+
+  <!-- Connector from Regressor to Cloud Sync -->
+  <path d="M 670 770 L 670 940" class="line-arrow" stroke-dasharray="4,3"/>
+  <text x="760" y="860" class="text-sub" font-style="italic">Telemetry to Cloud Firestore (220)</text>
+
+</svg>

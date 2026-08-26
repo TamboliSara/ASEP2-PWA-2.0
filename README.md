@@ -25,6 +25,20 @@ The system combines:
 
 ---
 
+## 📄 Patent Documentation, CAD Schematics & Vision AI Prompts
+
+The complete set of formal CAD schematics, system architecture diagrams, reference numeral legends, Mermaid diagrams, and Gemini AI prompts for patent submission are available:
+
+- 📘 **[Patent Diagrams & Gemini Prompts Guide](docs/patent/patent_diagrams_and_prompts.md)**
+- 📐 **Figure 1 (Circuit & Hardware Schematic)**: [SVG](docs/patent/figures/patent_figure_1_circuit_diagram.svg) | [PNG](docs/patent/figures/patent_figure_1_circuit_diagram.png) | [PDF](docs/patent/figures/patent_figure_1_circuit_diagram.pdf)
+- 🏗️ **Figure 2 (Four-Layer System Architecture)**: [SVG](docs/patent/figures/patent_figure_2_system_architecture.svg) | [PNG](docs/patent/figures/patent_figure_2_system_architecture.png) | [PDF](docs/patent/figures/patent_figure_2_system_architecture.pdf)
+- 🧠 **Figure 3 (TinyML Preprocessing & Dual-Model Inference Pipeline)**: [SVG](docs/patent/figures/patent_figure_3_tinyml_pipeline.svg)
+- 🔒 **Figure 4 (Biometric Consent Gate & Ghost-Donation Flowchart)**: [SVG](docs/patent/figures/patent_figure_4_biometric_ghost_flowchart.svg)
+- 🌐 **[Master All-in-One System Vision AI Prompt](docs/patent/patent_diagrams_and_prompts.md#prompt-5-master-all-in-one-system-vision--integrated-architecture)**
+- 🐍 **[Python Schematic Generator Script](docs/patent/scripts/generate_patent_diagrams.py)**
+
+---
+
 ## 📚 Complete Technical Documentation Suite
 
 The complete engineering, operational, and mathematical documentation is located in the [`docs/`](./docs) folder:
@@ -138,7 +152,15 @@ ASEP2-PWA-2.0/
 │   ├── 02_SYSTEM_ARCHITECTURE.md
 │   ├── 03_USER_FLOW.md
 │   ├── 04_ACCURACY_AND_MATRIX_REPORT.md
-│   └── 05_JUDGE_DEMO_GUIDE_AND_PRECAUTIONS.md
+│   ├── 05_JUDGE_DEMO_GUIDE_AND_PRECAUTIONS.md
+│   └── patent/                              # Formal patent schematics, figures & Python generator
+│       ├── figures/
+│       │   ├── patent_figure_1_circuit_diagram.pdf / .png / .svg
+│       │   ├── patent_figure_2_system_architecture.pdf / .png / .svg
+│       │   ├── patent_figure_3_tinyml_pipeline.svg
+│       │   └── patent_figure_4_biometric_ghost_flowchart.svg
+│       ├── patent_diagrams_and_prompts.md
+│       └── scripts/generate_patent_diagrams.py
 ├── firmware/                                # Latest ESP32-S3 bare-metal C++ firmware
 │   └── SAFE_Locker_Firmware.ino
 ├── public/                                  # Static assets, Web App Manifest & 3D models
