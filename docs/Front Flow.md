@@ -32,7 +32,7 @@ Manages the lifecycle of a food donation.
     *   `sendCategory`: Writes asset metadata to the hardware via BLE.
     *   `unlock`: Issues a solenoid release command.
     *   `lock`: Confirms the door is sealed after deposit.
-    *   `startSanitization`: Resets chamber status to idle.
+    *   `verifyOccupancy`: Confirms food presence via ultrasonic sensing and seals chamber.
 4.  **Cloud Sync**: Simultaneously registers the donation in the Firebase Realtime Database and enqueues sensor snapshots for historical tracking.
 
 ### C. The Intelligence Engine (Quality Guard & Kiosk)
@@ -53,6 +53,18 @@ The fleet management interface (`AdminPageV2`).
 *   **Administrative Overrides**:
     *   **Force Open**: Bypasses the Quality Guard (QI < 30%) for maintenance or cleaning. Requires a separate Admin Auth handshake.
     *   **System Actions**: Force Sync, BLE Reset, and Emergency System Wipe.
+
+### E. The Verification Engine (Mobile QR & Client-IP Guard)
+Contactless donor onboarding via phone camera and cellular authentication.
+*   **Dynamic QR Tokens**: Kiosk creates a cryptographic session in Firestore (`qr_sessions`).
+*   **Multi-Tier Client-IP**: Resolves edge IP through `/api/client-ip` and Cloudflare/Ipify traces for anti-spoofing and network consistency.
+*   **Mobile Scan (`/qr-scan`)**: Donor scans the QR with their smartphone camera, enters their phone number, and receives an SMS OTP (Fast2SMS).
+*   **Real-time Handshake**: Kiosk observes verification via Firestore snapshot and automatically unlocks the assigned chamber.
+
+### F. The Guidance & Accessibility Engine (Website Tour & Voice Assistant)
+Interactive assistance and hands-free vocal control.
+*   **Dual-Track Guided Tour (`WebsiteTour.tsx`)**: Offers interactive walkthroughs for Donors and Receivers with spotlight element cutouts, route auto-transitions, and celebration modals.
+*   **Neural Voice Assistant (`VoiceAssistant.tsx`)**: Web Speech recognition and multilingual synthesis (EN/HI/MR) with phonetic text normalization (`cleanTextForSpeech`) and hands-free query navigation.
 
 ---
 
@@ -75,7 +87,7 @@ graph TD
     Hub -- "Donor" --> DonorCheck{Chamber Empty?}
     DonorCheck -- No --> Occupied[Show Occupied Screen]
     DonorCheck -- Yes --> DepositForm[Enter Asset Details]
-    DepositForm --> hardwareCmd["BLE Unlock -> Lock -> Sanitize"]
+    DepositForm --> hardwareCmd["BLE Unlock -> Verify Occupancy -> Lock"]
     hardwareCmd --> CloudSync["Firebase Sync and Sensor Snapshot"]
     CloudSync --> AutoNav[900ms Redirect to Kiosk]
     AutoNav --> Kiosk
@@ -89,7 +101,7 @@ graph TD
     
     QualityGuard -- No (Safe) --> StdRetrieve[Standard Retrieval Enabled]
     StdRetrieve --> SlideAction[User Slides to Open]
-    SlideAction --> CycleEnd["Unlock -> Reset State -> Sanitize"]
+    SlideAction --> CycleEnd["Unlock -> Retrieve Asset -> Seal & Reset"]
     
     QualityGuard -- Yes (Spoiled) --> Lockdown[Safety Lockdown Active]
     Lockdown --> RestrictedUI[Block User Retrieval]
