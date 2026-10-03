@@ -96,11 +96,7 @@ export function SignInPageV2() {
                     {t("signIn")}
                   </h2>
                 </TextReveal>
-                <TextReveal direction="left" distance={15} delay={0.7}>
-                  <p className="text-sm text-text-muted font-medium leading-relaxed max-w-xs">
-                    {t("signInBody")}
-                  </p>
-                </TextReveal>
+                
               </div>
 
               <form className="space-y-5" onSubmit={handleSubmit}>
@@ -153,13 +149,7 @@ export function SignInPageV2() {
                 </div>
               </form>
               
-              <div className="pt-4 flex flex-col items-center gap-3">
-                <div className="flex items-center gap-4 w-full opacity-10">
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent to-text" />
-                  <div className="h-px flex-1 bg-gradient-to-l from-transparent to-text" />
-                </div>
-                <span className="text-[8px] font-black tracking-[0.4em] uppercase opacity-40 text-text">Encrypted Session</span>
-              </div>
+              
             </ScrollReveal>
           </section>
         </div>

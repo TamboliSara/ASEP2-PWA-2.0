@@ -1,3 +1,9 @@
+/**
+ * @deprecated
+ * PRESERVED FOR FUTURE USE / REFERENCE
+ * Superseded by AdminPageV2.tsx (canonical enterprise admin dashboard).
+ * DO NOT DELETE — Can be reactivated if requested.
+ */
 import { Link } from "react-router-dom";
 import { StatusPill } from "../components/StatusPill";
 import { SurfaceCard } from "../components/layout/SurfaceCard";
@@ -16,7 +22,7 @@ export function AdminPage() {
       <section className="hero-panel glass-panel compact">
         <p className="eyebrow">{t("adminAuthRequired")}</p>
         <h2>{t("signIn")}</h2>
-        <p>{t("adminSignInBody")}</p>
+        
         <Link className="primary-button inline-link" to="/admin/sign-in">
           {t("continueSignIn")}
         </Link>

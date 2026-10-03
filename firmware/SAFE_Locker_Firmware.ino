@@ -24,6 +24,8 @@
 #include <BLEServer.h>
 #include <BLE2902.h>
 #include <Preferences.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 // ── Wi-Fi & Database Configurations ────────────────────────────────
 #define WIFI_SSID       "..."
@@ -61,7 +63,7 @@ unsigned long lastWiFiCheckMs = 0;
 
 BLECharacteristic* pChr = nullptr;
 bool bleConnected = false;
-volatile bool pendingUnlock = false, pendingAdmin = false;
+volatile bool pendingUnlock = false, pendingAdmin = false, pendingLock = false;
 
 // ── Helper: Clean String Quotes from Firebase REST Response ─────────
 String cleanValue(String val) {
@@ -244,9 +246,19 @@ bool foodPresent() {
 
 void unlockCycle(bool admin) {
   Serial.println(admin ? F("CMD:ADMIN_UNLOCK") : F("CMD:UNLOCK"));
-  doUnlock(); pushStatus("unlocked","open","processing"); notifyBLE("UNLOCKED"); ackCmd();
-  delay(5000);
-  doLock(); notifyBLE("LOCKED");
+  doUnlock(); 
+  notifyBLE("UNLOCKED");
+  pushStatus("unlocked","open","processing"); 
+  ackCmd();
+  
+  // Non-blocking yield: allows FreeRTOS BLE tasks to service keep-alive packets during unlock window
+  unsigned long unlockStart = millis();
+  while (millis() - unlockStart < 5000) {
+    delay(20);
+  }
+  
+  doLock(); 
+  notifyBLE("LOCKED");
   
   bool food = foodPresent();
   pushStatus("locked", "closed", food ? "occupied" : "empty");
@@ -275,15 +287,26 @@ void lockCmd() {
 
 // ── BLE Callbacks ──────────────────────────────────────────────────
 class SvrCB : public BLEServerCallbacks {
-  void onConnect(BLEServer*)      override { bleConnected = true;  }
-  void onDisconnect(BLEServer* s) override { bleConnected = false; s->startAdvertising(); }
+  void onConnect(BLEServer* pServer) override { 
+    bleConnected = true; 
+    Serial.println(F("[BLE] Client connected"));
+  }
+  void onDisconnect(BLEServer* s) override { 
+    bleConnected = false; 
+    Serial.println(F("[BLE] Client disconnected, restarting advertising..."));
+    s->startAdvertising(); 
+  }
 };
+
 class ChrCB : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* c) override {
     String v = String(c->getValue().c_str()); v.trim();
+    // Do NOT perform blocking network calls inside onWrite callback!
+    // Defer to loop() using atomic/volatile flags to prevent FreeRTOS BT task stack overflow
     if      (v == "UNLOCK")       { if (spoilLocked) { notifyBLE("SPOILAGE_LOCKED"); } else { pendingUnlock = true; } }
     else if (v == "ADMIN_UNLOCK") { spoilLocked = false; pendingAdmin = true; }
-    else if (v == "LOCK")         { lockCmd(); spoilLocked = true; }
+    else if (v == "LOCK")         { pendingLock = true; }
+    else if (v == "SPOIL_LOCK")   { spoilLocked = true; pendingLock = true; }
     else if (v == "PING")         { String p = "PONG:" + mac; notifyBLE(p.c_str()); }
   }
 };
@@ -302,6 +325,9 @@ void checkWiFi() {
 
 // ── Setup ──────────────────────────────────────────────────────────
 void setup() {
+  // Disable hardware brownout detector to prevent restart when relay/solenoid draws surge current
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+
   Serial.begin(115200); delay(1000);
   Serial.println(F("SAFE LOCKER v3.2 (REST API BYPASS)"));
 
@@ -338,6 +364,7 @@ void setup() {
   BLEService* svc = srv->createService(BLE_SVC_UUID);
   pChr = svc->createCharacteristic(BLE_CHR_UUID,
     BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE |
+    BLECharacteristic::PROPERTY_WRITE_NR |
     BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_INDICATE);
   pChr->setCallbacks(new ChrCB()); pChr->addDescriptor(new BLE2902()); pChr->setValue("READY");
   svc->start();
@@ -361,6 +388,7 @@ void setup() {
 void loop() {
   if (pendingAdmin)  { pendingAdmin  = false; spoilLocked = false; unlockCycle(true);  }
   if (pendingUnlock) { pendingUnlock = false;                      unlockCycle(false); }
+  if (pendingLock)   { pendingLock   = false;                      lockCmd();          }
 
   checkWiFi();
 

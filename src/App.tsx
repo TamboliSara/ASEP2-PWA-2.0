@@ -1,16 +1,28 @@
-import { useEffect, useRef } from "react";
+import React, { Suspense, lazy, useEffect, useRef } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
-import { AdminPageV2 } from "./routes/AdminPageV2";
 import { ConnectPage } from "./routes/ConnectPage";
-import { DonorPage } from "./routes/DonorPage";
-import { KioskPage } from "./routes/KioskPage";
 import { ModeSelectPage } from "./routes/ModeSelectPage";
-import { SignInPageV2 } from "./routes/SignInPageV2";
-import { LandingPage } from "./routes/LandingPage";
-import { VisualizerPage } from "./routes/VisualizerPage";
-import { DemoOne } from "./components/demo";
-import AlertDemo from "./components/ui/alert-demo";
+
+const AdminPageV2 = lazy(() => import("./routes/AdminPageV2").then(m => ({ default: m.AdminPageV2 })));
+const DonorPage = lazy(() => import("./routes/DonorPage").then(m => ({ default: m.DonorPage })));
+const KioskPage = lazy(() => import("./routes/KioskPage").then(m => ({ default: m.KioskPage })));
+const SignInPageV2 = lazy(() => import("./routes/SignInPageV2").then(m => ({ default: m.SignInPageV2 })));
+const LandingPage = lazy(() => import("./routes/LandingPage").then(m => ({ default: m.LandingPage })));
+const VisualizerPage = lazy(() => import("./routes/VisualizerPage").then(m => ({ default: m.VisualizerPage })));
+const QrScanPage = lazy(() => import("./routes/QrScanPage").then(m => ({ default: m.QrScanPage })));
+const DemoOne = lazy(() => import("./components/demo").then(m => ({ default: m.DemoOne })));
+const AlertDemo = lazy(() => import("./components/ui/alert-demo"));
+
+function PageLoader() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh', gap: '0.75rem', color: '#10b981' }}>
+      <div style={{ width: '24px', height: '24px', border: '3px solid rgba(16,185,129,0.2)', borderTopColor: '#10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <span style={{ fontSize: '0.85rem', fontWeight: 600, letterSpacing: '0.05em', opacity: 0.8 }}>LOADING...</span>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
 
 import { useAppContext } from "./store/AppContext";
 import { syncNavigationEvent } from "./services/initialSync";
@@ -27,7 +39,8 @@ export default function App() {
       "/receive": "SAFE — Receiver Dashboard",
       "/admin": "SAFE — Admin Panel",
       "/admin/sign-in": "SAFE — Sign In",
-      "/connect": "SAFE — Connect"
+      "/connect": "SAFE — Connect",
+      "/qr-scan": "SAFE — Donor Verification"
     };
     document.title = titles[location.pathname] || "SAFE";
 
@@ -61,20 +74,24 @@ export default function App() {
 
   return (
     <AppShell>
-      <Routes>
-        <Route path="/connect" element={<ConnectPage />} />
-        <Route path="/" element={state.hasCompletedPairing ? <ModeSelectPage /> : <Navigate to="/connect" replace />} />
-        <Route path="/donate" element={state.hasCompletedPairing ? <DonorPage /> : <Navigate to="/connect" replace />} />
-        <Route path="/receive" element={<KioskPage />} />
-        <Route path="/public" element={<Navigate to="/receive" replace />} />
-        <Route path="/admin" element={state.hasCompletedPairing ? <AdminPageV2 /> : <Navigate to="/connect" replace />} />
-        <Route path="/admin/sign-in" element={state.hasCompletedPairing ? <SignInPageV2 /> : <Navigate to="/connect" replace />} />
-        <Route path="/welcome" element={state.hasCompletedPairing ? <LandingPage /> : <Navigate to="/connect" replace />} />
-        <Route path="/demo" element={<DemoOne />} />
-        <Route path="/visualizer" element={<VisualizerPage />} />
-        <Route path="/demo/alerts" element={<AlertDemo />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/connect" element={<ConnectPage />} />
+          <Route path="/" element={<ModeSelectPage />} />
+          <Route path="/donate" element={<DonorPage />} />
+          <Route path="/receive" element={<KioskPage />} />
+          <Route path="/public" element={<Navigate to="/receive" replace />} />
+          <Route path="/admin" element={<AdminPageV2 />} />
+          <Route path="/admin/sign-in" element={<SignInPageV2 />} />
+          <Route path="/welcome" element={<LandingPage />} />
+          {/* QR Scan landing — accessible without pairing (phone opens this) */}
+          <Route path="/qr-scan" element={<QrScanPage />} />
+          <Route path="/demo" element={<DemoOne />} />
+          <Route path="/visualizer" element={<VisualizerPage />} />
+          <Route path="/demo/alerts" element={<AlertDemo />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </AppShell>
   );
 }

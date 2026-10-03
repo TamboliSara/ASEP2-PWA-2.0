@@ -1,3 +1,8 @@
+/**
+ * @deprecated v1 Translations Dictionary
+ * Preserved for historical/fallback reference. Superseded by translationsV3.ts.
+ * DO NOT DELETE — Zero deletion policy.
+ */
 import type { LocaleCode } from "../types/domain";
 
 export type TranslationDictionary = Record<string, string>;
@@ -29,7 +34,7 @@ export const translations: Record<LocaleCode, TranslationDictionary> = {
     reconnect: "Reconnect",
     slideToRetrieve: "Slide to Retrieve",
     donorName: "Donor Name",
-    donorContact: "Email or Phone",
+    donorContact: "Phone Number",
     foodName: "Food Item",
     allergensNotes: "Allergens / Notes",
     submitDeposit: "Open Locker and Deposit",
@@ -71,7 +76,7 @@ export const translations: Record<LocaleCode, TranslationDictionary> = {
     reconnect: "फिर से कनेक्ट करें",
     slideToRetrieve: "प्राप्ति के लिए स्लाइड करें",
     donorName: "दाता का नाम",
-    donorContact: "ईमेल या फ़ोन",
+    donorContact: "फ़ोन नंबर",
     foodName: "भोजन का नाम",
     allergensNotes: "एलर्जेन / नोट्स",
     submitDeposit: "लॉकर खोलें और जमा करें",
@@ -113,7 +118,7 @@ export const translations: Record<LocaleCode, TranslationDictionary> = {
     reconnect: "पुन्हा कनेक्ट करा",
     slideToRetrieve: "घेण्यासाठी स्लाइड करा",
     donorName: "दात्याचे नाव",
-    donorContact: "ईमेल किंवा फोन",
+    donorContact: "फोन नंबर",
     foodName: "अन्नाचे नाव",
     allergensNotes: "अॅलर्जन्स / नोंदी",
     submitDeposit: "लॉकर उघडा आणि जमा करा",

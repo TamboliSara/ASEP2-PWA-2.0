@@ -38,7 +38,8 @@ export const defaultDonationDraft: DonationDraft = {
   donorName: "",
   donorContact: "",
   allergensNotes: "",
-  dietTag: "veg"
+  dietTag: "veg",
+  isPhoneVerified: false
 };
 
 export const sampleDonation: DonationRecord = {

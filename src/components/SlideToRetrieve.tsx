@@ -1,5 +1,5 @@
-import { SlideConfirm } from "./SlideConfirm";
-
-export function SlideToRetrieve({ disabled, onConfirm }: { disabled?: boolean; onConfirm: () => void }) {
-  return <SlideConfirm disabled={disabled} label="Slide to retrieve" completedLabel="Receiver acknowledged" onConfirm={onConfirm} />;
-}
+/**
+ * @deprecated Moved to components/controls/SlideToRetrieve.tsx
+ * Preserved for backward compatibility — zero deletion policy.
+ */
+export * from "./controls/SlideToRetrieve";

@@ -37,6 +37,7 @@ export type AppAction =
   | { type: "set-pairing-complete"; value: boolean }
   | { type: "set-hardware-mac"; mac: string }
   | { type: "patch-locker"; id: string; locker: Partial<LockerState> }
+  | { type: "batch-jitter-mock-telemetry"; patches: Record<string, Partial<LockerState>> }
   | { type: "select-locker"; id: string }
   | { type: "set-donation-draft"; draft: Partial<DonationDraft> }
   | { type: "record-donation"; donation: DonationRecord }
@@ -55,15 +56,15 @@ export const initialAppState: AppState = {
   locale: "en",
   themeMode: "light",
   themePalette: "luxury",
-  hasCompletedPairing: false,
+  hasCompletedPairing: true,
   hardwareMac: "",  // Set during pairing from BLE device name
     lockers: [
       // chamber-1 is real hardware — always starts empty; RTDB+Firestore subscriptions populate it
       { ...sampleLockerState, lockerId: "chamber-1", occupancyState: "empty", activeDonation: undefined },
       { ...sampleLockerState, lockerId: "chamber-2", occupancyState: "empty" },
-      { ...sampleLockerState, lockerId: "chamber-3", occupancyState: "occupied", foodQualityScore: "aging", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(Date.now() + 20 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c3", lockerId: "chamber-3", donorName: "Amit Sharma", donorContact: "amit@ecolocker.local", foodName: "Mixed Fruit Bowl", categoryLabel: "Raw Produce", dietTag: "veg", latestQualityScore: "aging", allergensNotes: "Freshly cut fruits", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(Date.now() + 20 * 3600000).toISOString() } } },
-      { ...sampleLockerState, lockerId: "chamber-4", occupancyState: "occupied", foodQualityScore: "spoilt", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(Date.now() + 2 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c4", lockerId: "chamber-4", donorName: "Rahul Desai", donorContact: "rahul@ecolocker.local", foodName: "Chicken Biryani", categoryLabel: "Cooked Meal", dietTag: "non_veg", latestQualityScore: "spoilt", allergensNotes: "Contains spices and nuts. Packed at 8:00 PM.", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(Date.now() + 2 * 3600000).toISOString() } } },
-      { ...sampleLockerState, lockerId: "chamber-5", occupancyState: "occupied", foodQualityScore: "fresh", deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(Date.now() + 48 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c5", lockerId: "chamber-5", donorName: "Vikram Singh", donorContact: "v.singh@ecolocker.local", foodName: "Bread", categoryLabel: "Baked Goods", dietTag: "veg", latestQualityScore: "fresh", allergensNotes: "Contains gluten", deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(Date.now() + 48 * 3600000).toISOString() } } },
+      { ...sampleLockerState, lockerId: "chamber-3", occupancyState: "occupied", foodQualityScore: "aging", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(Date.now() + 20 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c3", lockerId: "chamber-3", donorName: "Amit Sharma", donorContact: "amit@ecolocker.local", foodName: "Mixed Fruit Bowl", categoryLabel: "Raw Produce", dietTag: "veg", latestQualityScore: "aging", allergensNotes: "No common allergens • Fresh seasonal fruits (Apples, Oranges, Melons)", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(Date.now() + 20 * 3600000).toISOString() } } },
+      { ...sampleLockerState, lockerId: "chamber-4", occupancyState: "occupied", foodQualityScore: "spoilt", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(Date.now() + 2 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c4", lockerId: "chamber-4", donorName: "Rahul Desai", donorContact: "rahul@ecolocker.local", foodName: "Chicken Biryani", categoryLabel: "Cooked Meal", dietTag: "non_veg", latestQualityScore: "spoilt", allergensNotes: "Contains tree nuts (Cashews) & dairy (Ghee) • Spiced meal", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(Date.now() + 2 * 3600000).toISOString() } } },
+      { ...sampleLockerState, lockerId: "chamber-5", occupancyState: "occupied", foodQualityScore: "fresh", deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(Date.now() + 48 * 3600000).toISOString() }, activeDonation: { ...sampleDonation, id: "donation-c5", lockerId: "chamber-5", donorName: "Vikram Singh", donorContact: "v.singh@ecolocker.local", foodName: "Bread", categoryLabel: "Baked Goods", dietTag: "veg", latestQualityScore: "fresh", allergensNotes: "Contains gluten & wheat • Freshly baked artisan loaf", deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(Date.now() + 48 * 3600000).toISOString() } } },
       { ...sampleLockerState, lockerId: "chamber-6", occupancyState: "empty" },
       { ...sampleLockerState, lockerId: "chamber-7", occupancyState: "empty" },
       { ...sampleLockerState, lockerId: "chamber-8", occupancyState: "empty" },
@@ -88,13 +89,13 @@ export const initialAppState: AppState = {
         { ...sampleLockerState, lockerId: "chamber-2", occupancyState: "empty" },
         { ...sampleLockerState, lockerId: "chamber-3", occupancyState: "occupied", foodQualityScore: "aging",
           deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(now + 20 * 3600000).toISOString() },
-          activeDonation: { ...sampleDonation, id: "donation-c3", lockerId: "chamber-3", donorName: "Amit Sharma", donorContact: "amit@ecolocker.local", foodName: "Mixed Fruit Bowl", categoryLabel: "Raw Produce", dietTag: "veg", latestQualityScore: "aging", allergensNotes: "Freshly cut fruits", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(now + 20 * 3600000).toISOString() } } },
+          activeDonation: { ...sampleDonation, id: "donation-c3", lockerId: "chamber-3", donorName: "Amit Sharma", donorContact: "amit@ecolocker.local", foodName: "Mixed Fruit Bowl", categoryLabel: "Raw Produce", dietTag: "veg", latestQualityScore: "aging", allergensNotes: "No common allergens • Fresh seasonal fruits (Apples, Oranges, Melons)", deadlineEstimate: { hoursRemaining: 20, absoluteIso: new Date(now + 20 * 3600000).toISOString() } } },
         { ...sampleLockerState, lockerId: "chamber-4", occupancyState: "occupied", foodQualityScore: "spoilt",
           deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(now + 2 * 3600000).toISOString() },
-          activeDonation: { ...sampleDonation, id: "donation-c4", lockerId: "chamber-4", donorName: "Rahul Desai", donorContact: "rahul@ecolocker.local", foodName: "Chicken Biryani", categoryLabel: "Cooked Meal", dietTag: "non_veg", latestQualityScore: "spoilt", allergensNotes: "Contains spices and nuts.", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(now + 2 * 3600000).toISOString() } } },
+          activeDonation: { ...sampleDonation, id: "donation-c4", lockerId: "chamber-4", donorName: "Rahul Desai", donorContact: "rahul@ecolocker.local", foodName: "Chicken Biryani", categoryLabel: "Cooked Meal", dietTag: "non_veg", latestQualityScore: "spoilt", allergensNotes: "Contains tree nuts (Cashews) & dairy (Ghee) • Spiced meal", deadlineEstimate: { hoursRemaining: 2, absoluteIso: new Date(now + 2 * 3600000).toISOString() } } },
         { ...sampleLockerState, lockerId: "chamber-5", occupancyState: "occupied", foodQualityScore: "fresh",
           deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(now + 48 * 3600000).toISOString() },
-          activeDonation: { ...sampleDonation, id: "donation-c5", lockerId: "chamber-5", donorName: "Vikram Singh", donorContact: "v.singh@ecolocker.local", foodName: "Bread", categoryLabel: "Baked Goods", dietTag: "veg", latestQualityScore: "fresh", allergensNotes: "Contains gluten", deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(now + 48 * 3600000).toISOString() } } },
+          activeDonation: { ...sampleDonation, id: "donation-c5", lockerId: "chamber-5", donorName: "Vikram Singh", donorContact: "v.singh@ecolocker.local", foodName: "Bread", categoryLabel: "Baked Goods", dietTag: "veg", latestQualityScore: "fresh", allergensNotes: "Contains gluten & wheat • Freshly baked artisan loaf", deadlineEstimate: { hoursRemaining: 48, absoluteIso: new Date(now + 48 * 3600000).toISOString() } } },
         { ...sampleLockerState, lockerId: "chamber-6", occupancyState: "empty" },
         { ...sampleLockerState, lockerId: "chamber-7", occupancyState: "empty" },
         { ...sampleLockerState, lockerId: "chamber-8", occupancyState: "empty" },
@@ -129,6 +130,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
               }
             : l
         )
+      };
+    case "batch-jitter-mock-telemetry":
+      return {
+        ...state,
+        lockers: state.lockers.map((l) => {
+          const patch = action.patches[l.lockerId];
+          if (!patch) return l;
+          return {
+            ...l,
+            ...patch,
+            telemetry: {
+              ...l.telemetry,
+              ...(patch.telemetry ?? {})
+            }
+          };
+        })
       };
     case "select-locker":
       return { ...state, selectedLockerId: action.id };

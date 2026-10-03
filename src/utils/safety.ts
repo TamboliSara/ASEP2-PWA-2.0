@@ -41,23 +41,23 @@ export function getRecommendedActions(locker: LockerState): string[] {
 export function getRecommendedActionsForQuality(score: FoodQualityScore): string[] {
   if (score === "spoilt") {
     return [
-      "Notify admin and cleaning authorities immediately.",
-      "Divert rotten produce to composting or organic waste processing.",
-      "Locker restricted: Administrative override required for removal."
+      "Immediate action: Notify facilities and sanitation teams for safe removal.",
+      "Sustainable diversion: Direct expired items to organic composting or bio-waste recovery.",
+      "Access restricted: Solenoid locked to prevent distribution; admin override required."
     ];
   }
 
   if (score === "aging") {
     return [
-      "Prioritize pickup within the next collection window.",
-      "Promote rapid reuse through meal sharing or supervised reheating.",
-      "Monitor unit humidity and gas buildup before the next cycle."
+      "Prioritize prompt pickup within the upcoming collection window.",
+      "Promote rapid reuse through community meal sharing or supervised reheating above 75°C.",
+      "Maintain unit climate: Monitor chamber humidity and VOC gas buildup before the next cycle."
     ];
   }
 
   return [
-    "Locker is within the normal safe-use window.",
-    "Keep the door sealed until retrieval to preserve freshness.",
-    "Continue sensor logging for traceability and fleet history."
+    "Optimal storage window: Safe preservation parameters actively maintained.",
+    "Preservation seal: Keep door sealed until retrieval to maximize freshness.",
+    "Continuous monitoring: Live sensor telemetry logged for food safety traceability."
   ];
 }

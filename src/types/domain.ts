@@ -57,6 +57,9 @@ export interface DonationRecord {
   donorImageBase64?: string;
   donorImageUrl?: string;
   faceDescriptor?: number[];
+  isPhoneVerified?: boolean;
+  otpVerifiedAt?: string;
+  phoneIp?: string;
 }
 
 export interface LockerEvent {
@@ -176,4 +179,7 @@ export interface DonationDraft {
   donorContact: string;
   allergensNotes: string;
   dietTag: DietTag;
+  isPhoneVerified?: boolean;
+  otpVerifiedAt?: string;
+  phoneIp?: string;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MoveRight, ShieldCheck, Zap, Globe, Heart } from "lucide-react";
+import { MoveRight, Zap, Globe, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -34,22 +34,7 @@ function Hero() {
       <div className="container mx-auto relative z-10 px-6">
         <div className="flex gap-6 items-center justify-center flex-col text-center">
           
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="rounded-full bg-panel/40 backdrop-blur-md border-line hover:border-accent/40 px-6 py-5 gap-3 group transition-all duration-300"
-              onClick={() => window.dispatchEvent(new CustomEvent('open-help-widget'))}
-            >
-              <ShieldCheck className="w-4 h-4 text-accent" />
-              <span className="text-xs font-bold tracking-widest uppercase opacity-80 text-text">Explore Safety Guidelines</span>
-              <MoveRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-accent" />
-            </Button>
-          </motion.div>
+
 
           <div className="flex gap-4 flex-col max-w-2xl">
             <h1 className="text-4xl md:text-6xl tracking-tight font-black leading-[1.1]">
