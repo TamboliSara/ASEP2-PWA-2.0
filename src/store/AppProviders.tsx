@@ -11,16 +11,22 @@ import type { DonationRecord } from "../types/domain";
 const STORAGE_KEY      = "ecolocker-preferences";
 const PAIRING_KEY      = "ecolocker-pairing-done";
 const HARDWARE_MAC_KEY = "ecolocker-hardware-mac";
+const MAIN_THEME_KEY   = "safe_main_system_theme";
 
 export function AppProviders({ children }: PropsWithChildren) {
   const [state, dispatch] = useReducer(appReducer, initialAppState, (defaultState) => {
-    const saved     = localStorage.getItem(STORAGE_KEY);
-    const hasPaired = localStorage.getItem(PAIRING_KEY) === "true";
-    const savedMac  = localStorage.getItem(HARDWARE_MAC_KEY) ?? "";
+    const saved        = localStorage.getItem(STORAGE_KEY);
+    const hasPaired    = localStorage.getItem(PAIRING_KEY) === "true";
+    const savedMac     = localStorage.getItem(HARDWARE_MAC_KEY) ?? "";
+    const isVisualizer = typeof window !== "undefined" && window.location.pathname === "/visualizer";
 
     if (!saved) {
+      if (isVisualizer) {
+        localStorage.setItem(MAIN_THEME_KEY, defaultState.themeMode);
+      }
       return {
         ...defaultState,
+        themeMode: isVisualizer ? "dark" : defaultState.themeMode,
         hasCompletedPairing: hasPaired,
         hardwareMac: savedMac,
         lockers: defaultState.lockers.map(l => l.lockerId === HARDWARE_LOCKER_ID ? { ...l, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : l.pairedDeviceName } : l)
@@ -29,10 +35,14 @@ export function AppProviders({ children }: PropsWithChildren) {
 
     try {
       const parsed = JSON.parse(saved) as Partial<typeof defaultState>;
+      const userTheme = parsed.themeMode ?? defaultState.themeMode;
+      if (isVisualizer) {
+        localStorage.setItem(MAIN_THEME_KEY, userTheme);
+      }
       return {
         ...defaultState,
         locale:           parsed.locale         ?? defaultState.locale,
-        themeMode:        parsed.themeMode       ?? defaultState.themeMode,
+        themeMode:        isVisualizer ? "dark" : userTheme,
         themePalette:     parsed.themePalette    ?? defaultState.themePalette,
         selectedLockerId: parsed.selectedLockerId ?? defaultState.selectedLockerId,
         // NOTE: Lockers are NOT restored from localStorage — always use fresh defaultState.
@@ -46,6 +56,7 @@ export function AppProviders({ children }: PropsWithChildren) {
     } catch {
       return {
         ...defaultState,
+        themeMode: isVisualizer ? "dark" : defaultState.themeMode,
         hasCompletedPairing: hasPaired,
         hardwareMac: savedMac,
         lockers: defaultState.lockers.map(l => l.lockerId === HARDWARE_LOCKER_ID ? { ...l, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : l.pairedDeviceName } : l)
@@ -70,35 +81,56 @@ export function AppProviders({ children }: PropsWithChildren) {
     }
   }, []);
 
-  // Persist preferences (but NOT lockers — they are always rebuilt from initialAppState + RTDB)
+  // Persist preferences (only when theme, locale, or pairing actually change)
   useEffect(() => {
     document.documentElement.dataset.themeMode   = state.themeMode;
     document.documentElement.dataset.themePalette = state.themePalette;
+    document.documentElement.classList.toggle("dark", state.themeMode === "dark");
     document.documentElement.lang = state.locale;
 
     localStorage.setItem(PAIRING_KEY, String(state.hasCompletedPairing));
     if (state.hardwareMac) localStorage.setItem(HARDWARE_MAC_KEY, state.hardwareMac);
 
-    // Exclude lockers & auth from persisted state — lockers are always rebuilt fresh
-    const { isAdminAuthenticated, hardwareMac, lockers, ...persistedState } = state;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
-  }, [state]);
+    const isVisualizer = typeof window !== "undefined" && window.location.pathname === "/visualizer";
+    if (!isVisualizer) {
+      localStorage.setItem(MAIN_THEME_KEY, state.themeMode);
+    }
+
+    const persistedPrefs = {
+      locale: state.locale,
+      themeMode: isVisualizer 
+        ? ((localStorage.getItem(MAIN_THEME_KEY) as typeof state.themeMode) || "light")
+        : state.themeMode,
+      themePalette: state.themePalette,
+      selectedLockerId: state.selectedLockerId,
+      donationHistory: state.donationHistory
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedPrefs));
+  }, [state.themeMode, state.themePalette, state.locale, state.hasCompletedPairing, state.hardwareMac, state.selectedLockerId, state.donationHistory]);
 
   // Automatic sanitization timer
   useEffect(() => {
+    const timers: NodeJS.Timeout[] = [];
     state.lockers.forEach(locker => {
       if (locker.sanitizationState === "running") {
         const timer = setTimeout(() => {
           dispatch({ type: "patch-locker", id: locker.lockerId, locker: { sanitizationState: "complete" } });
         }, 5000);
-        return () => clearTimeout(timer);
+        timers.push(timer);
       }
     });
+    return () => timers.forEach(t => clearTimeout(t));
   }, [state.lockers]);
 
   // Live telemetry pulse & jitter for mock chambers only (2-8) — Chamber 1 uses 100% real ESP32 hardware telemetry
+  // Batched into a single dispatch every 6s, and pauses when tab is hidden
   useEffect(() => {
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+
+      const patches: Record<string, any> = {};
+      let hasChanges = false;
+
       stateRef.current.lockers.forEach(locker => {
         if (locker.lockerId === HARDWARE_LOCKER_ID) return; // Chamber 1 is backed by physical ESP32
         const curTel = locker.telemetry;
@@ -113,24 +145,25 @@ export function AppProviders({ children }: PropsWithChildren) {
           const jitterGas  = (Math.random() * 500) - 250;
           const jitterPres = (Math.random() * 0.6) - 0.3;
 
-          dispatch({
-            type: "patch-locker",
-            id: locker.lockerId,
-            locker: {
-              telemetry: {
-                ...curTel,
-                internalTempC:     Number(Math.max(1, baseTemp + jitterTemp).toFixed(1)),
-                humidityPct:       Number(Math.max(10, Math.min(99, baseHum + jitterHum)).toFixed(1)),
-                gasResistanceOhms: Number(Math.max(1000, baseGas + jitterGas).toFixed(0)),
-                pressureHpa:       Number((basePres + jitterPres).toFixed(1)),
-                distanceCm:        curTel.distanceCm != null && curTel.distanceCm > 0 ? curTel.distanceCm : 32.4,
-                timestamp:         new Date().toISOString()
-              }
+          patches[locker.lockerId] = {
+            telemetry: {
+              ...curTel,
+              internalTempC:     Number(Math.max(1, baseTemp + jitterTemp).toFixed(1)),
+              humidityPct:       Number(Math.max(10, Math.min(99, baseHum + jitterHum)).toFixed(1)),
+              gasResistanceOhms: Number(Math.max(1000, baseGas + jitterGas).toFixed(0)),
+              pressureHpa:       Number((basePres + jitterPres).toFixed(1)),
+              distanceCm:        curTel.distanceCm != null && curTel.distanceCm > 0 ? curTel.distanceCm : 32.4,
+              timestamp:         new Date().toISOString()
             }
-          });
+          };
+          hasChanges = true;
         }
       });
-    }, 3000);
+
+      if (hasChanges) {
+        dispatch({ type: "batch-jitter-mock-telemetry", patches });
+      }
+    }, 6000);
     return () => clearInterval(interval);
   }, []); // stateRef — never needs to re-register
 

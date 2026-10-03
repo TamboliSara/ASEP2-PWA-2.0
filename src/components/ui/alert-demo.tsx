@@ -1,3 +1,9 @@
+/**
+ * @debug
+ * PRESERVED FOR UI COMPONENT SHOWCASE
+ * Visual testing playground for alert-1 components.
+ * DO NOT DELETE — Zero deletion policy.
+ */
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert-1';
 import { Bell, CircleAlert, CircleCheck, MessageSquareWarning, ShieldAlert, TriangleAlert } from 'lucide-react';
 

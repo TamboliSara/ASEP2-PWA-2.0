@@ -23,39 +23,42 @@ function phase(progress: number, start: number, end: number) {
 function makeLabel(text: string, color = '#00f3ff'): THREE.Sprite {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
-  const w = 1024; const h = 128; // Higher resolution for crisp text
+  const w = 1024; const h = 128;
   canvas.width = w; canvas.height = h;
   
   const labelText = text.toUpperCase();
-  ctx.font = '600 42px "Space Grotesk", Inter, sans-serif';
+  ctx.font = '600 38px "Space Grotesk", Inter, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
   const metrics = ctx.measureText(labelText);
-  const textW = metrics.width + 80;
+  const textW = metrics.width + 60;
   
-  // Dark HUD-style background for extreme readability
-  ctx.fillStyle = 'rgba(0, 8, 12, 0.9)';
-  ctx.fillRect(w / 2 - textW / 2, h / 2 - 45, textW, 90);
+  // Dark glass HUD-style background
+  ctx.fillStyle = 'rgba(5, 12, 18, 0.88)';
+  ctx.beginPath();
+  ctx.roundRect(w / 2 - textW / 2, h / 2 - 40, textW, 80, 10);
+  ctx.fill();
   
   // Cyber-style border
   ctx.strokeStyle = color;
-  ctx.lineWidth = 4;
-  ctx.strokeRect(w / 2 - textW / 2, h / 2 - 45, textW, 90);
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(w / 2 - textW / 2, h / 2 - 40, textW, 80, 10);
+  ctx.stroke();
 
   // Text with subtle glow
   ctx.shadowColor = '#ffffff';
-  ctx.shadowBlur = 2;
+  ctx.shadowBlur = 4;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(labelText, w / 2, h / 2 - 2);
+  ctx.fillText(labelText, w / 2, h / 2);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.minFilter = THREE.LinearFilter;
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
   const sprite = new THREE.Sprite(mat);
   
-  // Dramatically reduce the scale to avoid giant overlapping text
-  sprite.scale.set(1.1, 1.1 * (h / w), 1);
+  sprite.scale.set(0.95, 0.95 * (h / w), 1);
   sprite.visible = false;
   return sprite;
 }
@@ -67,7 +70,7 @@ function makeLeaderLine(from: THREE.Vector3, to: THREE.Vector3): THREE.Group {
   const line = new THREE.Line(geo, mat);
   group.add(line);
   
-  const sphereGeo = new THREE.SphereGeometry(0.025, 8, 8);
+  const sphereGeo = new THREE.SphereGeometry(0.02, 8, 8);
   const sphereMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
   const sphere = new THREE.Mesh(sphereGeo, sphereMat);
   sphere.position.copy(from);
@@ -77,42 +80,167 @@ function makeLeaderLine(from: THREE.Vector3, to: THREE.Vector3): THREE.Group {
   return group;
 }
 
-/* ── Hinge helper: wraps an object so it rotates around its edge ── */
-function createHinge(obj: THREE.Object3D, side: 'left' | 'right'): THREE.Group {
-  // Ensure world matrices are current
-  obj.updateWorldMatrix(true, true);
+/* ── Generate realistic Kiosk UI texture for the door touchscreen ── */
+function createScreenTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 768; // 2:3 vertical kiosk display
+  const ctx = canvas.getContext('2d')!;
 
-  // Get world-space bounding box
+  // 1. Dark obsidian background
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, 768);
+  bgGrad.addColorStop(0, '#060f17');
+  bgGrad.addColorStop(1, '#020609');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, 512, 768);
+
+  // 2. Subtle grid scanlines
+  ctx.strokeStyle = 'rgba(0, 243, 255, 0.05)';
+  ctx.lineWidth = 1;
+  for (let y = 0; y < 768; y += 14) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(512, y);
+    ctx.stroke();
+  }
+
+  // 3. Cyber outer frame
+  ctx.strokeStyle = 'rgba(0, 243, 255, 0.6)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(12, 12, 488, 744);
+
+  // Corner accents
+  ctx.fillStyle = '#00f3ff';
+  const cSize = 16;
+  ctx.fillRect(12, 12, cSize, 4);
+  ctx.fillRect(12, 12, 4, cSize);
+  ctx.fillRect(488, 12, cSize, 4);
+  ctx.fillRect(496, 12, 4, cSize);
+  ctx.fillRect(12, 752, cSize, 4);
+  ctx.fillRect(12, 740, 4, cSize);
+  ctx.fillRect(488, 752, cSize, 4);
+  ctx.fillRect(496, 740, 4, cSize);
+
+  // 4. Header Bar
+  ctx.fillStyle = 'rgba(0, 243, 255, 0.12)';
+  ctx.fillRect(20, 20, 472, 60);
+  ctx.strokeStyle = 'rgba(0, 243, 255, 0.35)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(20, 20, 472, 60);
+
+  ctx.font = 'bold 20px "Space Grotesk", sans-serif';
+  ctx.fillStyle = '#00f3ff';
+  ctx.textAlign = 'left';
+  ctx.fillText('SAFE // KIOSK OS', 36, 56);
+
+  ctx.font = 'bold 13px monospace';
+  ctx.fillStyle = '#10b981';
+  ctx.textAlign = 'right';
+  ctx.fillText('● BLE ONLINE', 472, 56);
+
+  // 5. Environmental Metrics Card
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  ctx.fillRect(24, 96, 464, 116);
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+  ctx.strokeRect(24, 96, 464, 116);
+
+  ctx.font = '11px "Inter", sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.textAlign = 'left';
+  ctx.fillText('ENVIRONMENTAL METRICS (BME688 AI)', 38, 122);
+
+  ctx.font = 'bold 30px monospace';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('4.2°C', 38, 166);
+
+  ctx.font = 'bold 18px monospace';
+  ctx.fillStyle = '#00f3ff';
+  ctx.fillText('62% RH', 190, 166);
+
+  ctx.font = 'bold 15px monospace';
+  ctx.fillStyle = '#10b981';
+  ctx.fillText('VOC: OPTIMAL', 320, 166);
+
+  // 6. Compartment Status Grid (8 Safes)
+  ctx.font = '11px "Inter", sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.fillText('STORAGE COMPARTMENTS (8 AUTONOMOUS SAFES)', 38, 246);
+
+  const startY = 264;
+  const cardW = 224;
+  const cardH = 78;
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 2; c++) {
+      const idx = r * 2 + c + 1;
+      const x = 24 + c * (cardW + 16);
+      const y = startY + r * (cardH + 12);
+
+      ctx.fillStyle = 'rgba(14, 24, 34, 0.9)';
+      ctx.fillRect(x, y, cardW, cardH);
+      ctx.strokeStyle = idx === 1 ? 'rgba(234, 179, 8, 0.5)' : 'rgba(0, 243, 255, 0.3)';
+      ctx.strokeRect(x, y, cardW, cardH);
+
+      ctx.font = 'bold 15px monospace';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.fillText(`SAFE ${idx}`, x + 16, y + 32);
+
+      ctx.font = '11px monospace';
+      ctx.fillStyle = idx === 1 ? '#eab308' : '#10b981';
+      ctx.fillText(idx === 1 ? 'OCCUPIED' : 'READY', x + 16, y + 54);
+
+      // Status indicator light
+      ctx.fillStyle = idx === 1 ? '#eab308' : '#00f3ff';
+      ctx.beginPath();
+      ctx.arc(x + cardW - 22, y + 38, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 7. Bottom CTA banner
+  ctx.fillStyle = 'rgba(0, 243, 255, 0.12)';
+  ctx.fillRect(24, 664, 464, 68);
+  ctx.strokeStyle = '#00f3ff';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(24, 664, 464, 68);
+
+  ctx.font = 'bold 16px "Space Grotesk", sans-serif';
+  ctx.fillStyle = '#00f3ff';
+  ctx.textAlign = 'center';
+  ctx.fillText('SCAN QR CODE OR TAP CARD TO UNLOCK', 256, 705);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/* ── Hinge helper: wraps an object so it rotates around its outer edge ── */
+function createHinge(obj: THREE.Object3D, side: 'left' | 'right'): THREE.Group {
+  obj.updateWorldMatrix(true, true);
   const box = new THREE.Box3().setFromObject(obj);
   const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
 
-  // Hinge point in world space: at the outer vertical edge and front depth
   const hingeWorld = new THREE.Vector3(
     side === 'left' ? box.min.x : box.max.x,
     center.y,
-    box.max.z // Pivot from the front of the door thickness
+    box.max.z
   );
 
   const parent = obj.parent!;
-
-  // Create hinge group in parent's local space
   const hinge = new THREE.Group();
   parent.add(hinge);
   
-  // Convert world hinge point to parent local
   const hingeLocal = parent.worldToLocal(hingeWorld.clone());
   hinge.position.copy(hingeLocal);
-
-  // Reparent the object under the hinge (preserves world transform)
   hinge.attach(obj);
-
-  console.log('[Hinge]', obj.name, '| side:', side, '| bbox size:', size, '| hinge world:', hingeWorld);
 
   return hinge;
 }
 
-interface Props { onProgressChange?: (p: number) => void; onPhaseChange?: (phase: number) => void; }
+interface Props { 
+  onProgressChange?: (p: number) => void; 
+  onPhaseChange?: (phase: number) => void; 
+}
 
 const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -120,7 +248,7 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
   const { state: appState } = useAppContext();
   const theme = appState.themeMode;
 
-  // Scene refs for real-time theme updates
+  // Scene refs
   const sceneRef = useRef<THREE.Scene | null>(null);
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
   const directionalLightRef = useRef<THREE.DirectionalLight | null>(null);
@@ -133,25 +261,24 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
   useEffect(() => {
     const isLight = theme === 'light';
     if (sceneRef.current) {
-      sceneRef.current.background = new THREE.Color(isLight ? '#f1f5f9' : '#050a08');
-      sceneRef.current.environmentIntensity = isLight ? 0.3 : 0.6;
+      sceneRef.current.environmentIntensity = isLight ? 0.35 : 0.6;
     }
     if (ambientLightRef.current) ambientLightRef.current.intensity = isLight ? 0.6 : 0.7;
-    if (directionalLightRef.current) directionalLightRef.current.intensity = isLight ? 0.7 : 3.0;
+    if (directionalLightRef.current) directionalLightRef.current.intensity = isLight ? 0.7 : 2.8;
     if (gridRef.current) {
-      (gridRef.current.material as any).color.set(isLight ? '#cbd5e1' : '#1e293b');
-      (gridRef.current.material as any).opacity = isLight ? 0.3 : 0.15;
+      (gridRef.current.material as any).color.set(isLight ? '#cbd5e1' : '#00f3ff');
+      (gridRef.current.material as any).opacity = isLight ? 0.25 : 0.08;
     }
     if (groundRef.current) {
-      (groundRef.current.material as any).color.set(isLight ? '#e2e8f0' : '#050a08');
-      (groundRef.current.material as any).opacity = isLight ? 0.3 : 0.5;
+      (groundRef.current.material as any).color.set(isLight ? '#e2e8f0' : '#030806');
+      (groundRef.current.material as any).opacity = isLight ? 0.25 : 0.4;
     }
     if (bloomRef.current) {
-      bloomRef.current.threshold = isLight ? 1.0 : 0.85;
-      bloomRef.current.strength = isLight ? 0.08 : 0.25;
+      bloomRef.current.threshold = isLight ? 0.95 : 0.85;
+      bloomRef.current.strength = isLight ? 0.05 : 0.18;
     }
     if (rendererRef.current) {
-      rendererRef.current.toneMappingExposure = isLight ? 0.8 : 1.0;
+      rendererRef.current.toneMappingExposure = isLight ? 0.85 : 1.1;
     }
   }, [theme]);
 
@@ -159,32 +286,44 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
     if (!mountRef.current) return;
     const el = mountRef.current;
 
-    /* ── Scene ── */
+    /* ── Scene (Transparent background to let CSS radial gradient shine through) ── */
     const scene = new THREE.Scene();
     sceneRef.current = scene;
-    scene.background = new THREE.Color(theme === 'light' ? '#f8fafc' : '#050a08');
+    scene.background = null;
 
-    const camera = new THREE.PerspectiveCamera(40, el.clientWidth / el.clientHeight, 0.1, 1000);
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
     camera.position.set(5, 3, 6);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true, 
+      alpha: true, 
+      powerPreference: 'high-performance' 
+    });
     rendererRef.current = renderer;
-    renderer.setSize(el.clientWidth, el.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = theme === 'light' ? 0.8 : 1.2;
+    renderer.toneMappingExposure = theme === 'light' ? 0.85 : 1.1;
+    
+    // Ensure canvas fills its parent cleanly
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+    renderer.domElement.style.display = 'block';
     el.appendChild(renderer.domElement);
 
-    // Environment Lighting for hyper-realistic PBR reflections
+    // Environment Lighting
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
     scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environmentIntensity = theme === 'light' ? 0.3 : 0.6;
+    scene.environmentIntensity = theme === 'light' ? 0.35 : 0.6;
 
-    // Post processing with Anti-Aliasing support via WebGLRenderTarget
-    const renderTarget = new THREE.WebGLRenderTarget(el.clientWidth, el.clientHeight, {
+    // Post processing
+    const renderTarget = new THREE.WebGLRenderTarget(width, height, {
       samples: renderer.getPixelRatio() === 1 ? 4 : 2,
       type: THREE.HalfFloatType,
     });
@@ -192,8 +331,8 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
     composer.addPass(new RenderPass(scene, camera));
     
     const bloom = new UnrealBloomPass(
-      new THREE.Vector2(el.clientWidth, el.clientHeight), 
-      theme === 'light' ? 0.05 : 0.15, 
+      new THREE.Vector2(width, height), 
+      theme === 'light' ? 0.05 : 0.18, 
       0.8, 
       theme === 'light' ? 0.95 : 0.85
     );
@@ -205,77 +344,173 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
 
     /* ── Lights ── */
     const isLight = theme === 'light';
-    const ambientLight = new THREE.AmbientLight(0xffffff, isLight ? 0.8 : 0.7);
+    const ambientLight = new THREE.AmbientLight(0xffffff, isLight ? 0.9 : 1.1);
     ambientLightRef.current = ambientLight;
     scene.add(ambientLight);
 
     const key = new THREE.DirectionalLight(0xffffff, isLight ? 0.8 : 3.0);
     directionalLightRef.current = key;
-    key.position.set(6, 10, 6); key.castShadow = true; 
-    key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0005;
+    key.position.set(6, 10, 6); 
+    key.castShadow = true; 
+    key.shadow.mapSize.set(2048, 2048); 
+    key.shadow.bias = -0.0005;
     scene.add(key);
 
-    const rim = new THREE.DirectionalLight(0x00f3ff, isLight ? 0.4 : 1.2); rim.position.set(-5, 4, -4); scene.add(rim);
-    const fill = new THREE.PointLight(0x14b8a6, isLight ? 0.3 : 0.8, 15); fill.position.set(-3, 1, 4); scene.add(fill);
-    const top = new THREE.DirectionalLight(0xeeffee, isLight ? 0.5 : 1.0); top.position.set(0, 10, 0); scene.add(top);
-    const front = new THREE.PointLight(0xffffff, isLight ? 0.2 : 0.5, 20); front.position.set(0, 2, 8); scene.add(front);
-    // Internal light that turns on when doors open
-    const innerLight = new THREE.PointLight(0x00f3ff, 0, 6);
-    innerLight.position.set(0, 0, 0.5);
+    const rim = new THREE.DirectionalLight(0x00f3ff, isLight ? 0.5 : 1.8); 
+    rim.position.set(-6, 5, -4); 
+    scene.add(rim);
+
+    const fill = new THREE.PointLight(0x14b8a6, isLight ? 0.4 : 1.2, 16); 
+    fill.position.set(-4, 2, 5); 
+    scene.add(fill);
+
+    const top = new THREE.DirectionalLight(0xeeffee, isLight ? 0.6 : 1.2); 
+    top.position.set(0, 10, 0); 
+    scene.add(top);
+
+    const front = new THREE.DirectionalLight(0xffffff, isLight ? 0.5 : 1.4); 
+    front.position.set(2, 3, 7); 
+    scene.add(front);
+
+    // Internal lights that turn on when doors open
+    const innerLight = new THREE.PointLight(0x00f3ff, 0, 8);
+    innerLight.position.set(0, 0, 0.6);
     scene.add(innerLight);
 
-    /* ── Particle System ── */
-    const particleCount = 200;
+    const interiorStripLight = new THREE.PointLight(0xe0f2fe, 0, 6);
+    interiorStripLight.position.set(0, 1.2, 0.4);
+    scene.add(interiorStripLight);
+
+    /* ── Floating Space Dust Particles ── */
+    const particleCount = 180;
     const particlesGeo = new THREE.BufferGeometry();
     const posArray = new Float32Array(particleCount * 3);
     for(let i = 0; i < particleCount * 3; i++) {
-      posArray[i] = (Math.random() - 0.5) * 15; // 15x15x15 spread
+      posArray[i] = (Math.random() - 0.5) * 16;
     }
     particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
     const particleMat = new THREE.PointsMaterial({
       size: 0.03,
       color: theme === 'light' ? 0x88aa88 : 0x00f3ff,
       transparent: true,
-      opacity: theme === 'light' ? 0.2 : 0.4,
+      opacity: theme === 'light' ? 0.2 : 0.35,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     const particleMesh = new THREE.Points(particlesGeo, particleMat);
     scene.add(particleMesh);
 
-    /* ── Grid ── */
+    /* ── Showroom Holographic Grid Floor ── */
     const grid = new THREE.GridHelper(30, 60, isLight ? '#cbd5e1' : '#00f3ff', isLight ? '#e2e8f0' : '#112222');
     gridRef.current = grid;
-    (grid.material as THREE.Material).opacity = isLight ? 0.3 : 0.08;
+    (grid.material as THREE.Material).opacity = isLight ? 0.25 : 0.08;
     (grid.material as THREE.Material).transparent = true;
-    grid.position.y = -2; scene.add(grid);
+    grid.position.y = -2; 
+    scene.add(grid);
 
     const groundGeo = new THREE.PlaneGeometry(30, 30);
     const groundMat = new THREE.MeshStandardMaterial({ 
-      color: isLight ? '#e2e8f0' : '#050a08', 
+      color: isLight ? '#e2e8f0' : '#030806', 
       roughness: 0.8, 
       metalness: 0.2, 
       transparent: true, 
-      opacity: isLight ? 0.3 : 0.5 
+      opacity: isLight ? 0.25 : 0.4 
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     groundRef.current = ground;
-    ground.rotation.x = -Math.PI / 2; ground.position.y = -2; ground.receiveShadow = true;
+    ground.rotation.x = -Math.PI / 2; 
+    ground.position.y = -2; 
+    ground.receiveShadow = true;
     scene.add(ground);
 
-    /* ── Animation state ── */
+    /* ── Animation & Interaction State ── */
     const INIT_ANGLE = Math.PI * 0.28;
-    const st = { progress: 0, target: 0, time: 0, angle: INIT_ANGLE };
+    const st = { 
+      progress: 0, 
+      target: 0, 
+      time: 0, 
+      angle: INIT_ANGLE,
+      dragRotX: 0,
+      dragRotY: 0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
     let modelWrapperGroup: THREE.Group | null = null;
 
-    /* ── Premium Materials ── */
-    const matChassis = new THREE.MeshPhysicalMaterial({ color: 0xb0b5bc, roughness: 0.6, metalness: 0.8, clearcoat: 0.1, clearcoatRoughness: 0.5 });
-    const matMainDoor = new THREE.MeshPhysicalMaterial({ color: 0xeef7ff, metalness: 0.0, roughness: 0.08, transmission: 0.98, transparent: true, opacity: 1, ior: 1.45, thickness: 0.25, clearcoat: 0.2, clearcoatRoughness: 0.1 });
-    const matSafeDoor = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0.0, roughness: 0.1, transmission: 0.92, transparent: true, opacity: 1.0, ior: 1.45, thickness: 0.1, clearcoat: 0.2 });
-    const matSafe = new THREE.MeshPhysicalMaterial({ color: 0x12181b, roughness: 0.8, metalness: 0.4, clearcoat: 0.0 });
-    const matScreen = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x00f3ff, emissiveIntensity: 1.0, roughness: 0.5, metalness: 0.5 });
-    const matHardware = new THREE.MeshPhysicalMaterial({ color: 0x88929b, roughness: 0.4, metalness: 0.9, clearcoat: 0.0 });
-    const matBME = new THREE.MeshPhysicalMaterial({ color: 0x22cc88, roughness: 0.5, metalness: 0.7, emissive: 0x00ff88, emissiveIntensity: 0.5, clearcoat: 0.1 });
+    /* ── Screen UI Texture ── */
+    const screenTexture = createScreenTexture();
+
+    /* ── Premium Architectural & Hardware Materials ── */
+    const matChassis = new THREE.MeshPhysicalMaterial({ 
+      color: 0x364150, 
+      roughness: 0.36, 
+      metalness: 0.82, 
+      clearcoat: 0.4, 
+      clearcoatRoughness: 0.2 
+    });
+
+    // Smoked tempered architectural glass with specular highlights
+    const matMainDoor = new THREE.MeshPhysicalMaterial({ 
+      color: 0x142432, 
+      metalness: 0.08, 
+      roughness: 0.06, 
+      transmission: 0.78, 
+      transparent: true, 
+      opacity: 0.95, 
+      ior: 1.52, 
+      thickness: 0.35, 
+      clearcoat: 1.0, 
+      clearcoatRoughness: 0.05,
+      reflectivity: 0.9
+    });
+
+    // Smoked acrylic individual safe doors
+    const matSafeDoor = new THREE.MeshPhysicalMaterial({ 
+      color: 0x0a1c26, 
+      metalness: 0.05, 
+      roughness: 0.1, 
+      transmission: 0.84, 
+      transparent: true, 
+      opacity: 0.92, 
+      ior: 1.48, 
+      thickness: 0.15, 
+      clearcoat: 0.95 
+    });
+
+    const matSafe = new THREE.MeshPhysicalMaterial({ 
+      color: 0x161e28, 
+      roughness: 0.65, 
+      metalness: 0.55, 
+      clearcoat: 0.15 
+    });
+
+    // Realistic Touchscreen Display Material
+    const matScreen = new THREE.MeshStandardMaterial({ 
+      color: 0xffffff,
+      map: screenTexture,
+      emissive: 0xffffff,
+      emissiveMap: screenTexture,
+      emissiveIntensity: 0.85,
+      roughness: 0.15, 
+      metalness: 0.2 
+    });
+
+    const matHardware = new THREE.MeshPhysicalMaterial({ 
+      color: 0x94a3b8, 
+      roughness: 0.25, 
+      metalness: 0.95, 
+      clearcoat: 0.4 
+    });
+
+    const matBME = new THREE.MeshPhysicalMaterial({ 
+      color: 0x10b981, 
+      roughness: 0.35, 
+      metalness: 0.6, 
+      emissive: 0x059669, 
+      emissiveIntensity: 0.45, 
+      clearcoat: 0.3 
+    });
 
     /* ── References filled on load ── */
     const mainDoorHinges: { hinge: THREE.Group; dir: number }[] = [];
@@ -283,7 +518,7 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
     const bmeObjects: THREE.Object3D[] = [];
     const labels: { group: THREE.Group; target: THREE.Object3D; anchorLocal: THREE.Vector3 }[] = [];
 
-    /* ── Load Model ── */
+    /* ── Load 3D Model ── */
     const loader = new GLTFLoader();
     loader.load('/models/asep_2_revised.glb', (gltf) => {
       const model = gltf.scene;
@@ -300,11 +535,12 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
         }
         if ((child as THREE.Mesh).isMesh) {
           const mesh = child as THREE.Mesh;
-          mesh.castShadow = true; mesh.receiveShadow = true;
+          mesh.castShadow = true; 
+          mesh.receiveShadow = true;
         }
       });
 
-      // Helper to apply material to an object and all its children
+      // Helper to apply material
       const applyMat = (obj: THREE.Object3D | undefined, mat: THREE.Material) => {
         if (!obj) return;
         obj.traverse((child) => {
@@ -314,13 +550,11 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
         });
       };
 
-      // Apply materials
+      // Apply chassis materials
       const fridgeBodyParts = [
         parts['fridge_bottom'], parts['fridge_top'], parts['fridge_left'], parts['fride_right'], parts['fridge_back']
       ];
       fridgeBodyParts.forEach(p => applyMat(p, matChassis));
-      
-      const fridgeBody = parts['fridge_left']; // Used for label attachment
 
       const mainDoor1 = parts['fridge_door_left'];
       const mainDoor2 = parts['fridge_door_right'];
@@ -365,7 +599,7 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
       const i2c = parts['i2c_multiplxer'];
       applyMat(i2c, matHardware);
 
-      // Attach components to the main door so they swing with it
+      // Attach components to the left door so they swing with it
       if (mainDoor1) {
         if (screen) mainDoor1.attach(screen);
         if (esp) mainDoor1.attach(esp);
@@ -380,19 +614,14 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
       model.position.sub(center);
       model.scale.multiplyScalar(scale);
       
-      // Wrapper for floating animation
+      // Wrapper for floating animation and user drag rotation
       const wrapper = new THREE.Group();
       wrapper.add(model);
       scene.add(wrapper);
       scene.updateMatrixWorld(true);
       modelWrapperGroup = wrapper;
 
-      // Debug: log all discovered parts
-      console.log('[LockerModel] Found parts:', Object.keys(parts));
-      console.log('[LockerModel] mainDoor1:', !!mainDoor1, 'mainDoor2:', !!mainDoor2);
-
       // ── Create hinges for main doors ──
-      // After centering, objects on the left half have world x < 0
       if (mainDoor1) {
         const box1 = new THREE.Box3().setFromObject(mainDoor1);
         const c1 = box1.getCenter(new THREE.Vector3());
@@ -408,8 +637,6 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
         mainDoorHinges.push({ hinge: h, dir: isLeft ? -1 : 1 });
       }
 
-      console.log('[LockerModel] mainDoorHinges count:', mainDoorHinges.length);
-
       // ── Create hinges for SAFE doors ──
       for (let i = 1; i <= 8; i++) {
         const dKey = i === 1 ? 'safe_1_door' : `door_safe_${i}`;
@@ -422,7 +649,7 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
         safeDoorHinges.push({ hinge: h, dir: isLeft ? -1 : 1 });
       }
 
-      // ── Labels ──
+      // ── Clean HUD Labels ──
       const addLabel = (text: string, target: THREE.Object3D, offsetY = 0.35) => {
         if (!target) return -1;
         target.updateWorldMatrix(true, false);
@@ -435,10 +662,10 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
         
         const spr = makeLabel(text);
         spr.position.set(0, topOffset, 0);
-        spr.visible = true; // visibility managed by group
+        spr.visible = true;
         group.add(spr);
 
-        const line = makeLeaderLine(new THREE.Vector3(0, 0.05, 0), new THREE.Vector3(0, topOffset - 0.12, 0));
+        const line = makeLeaderLine(new THREE.Vector3(0, 0.05, 0), new THREE.Vector3(0, topOffset - 0.1, 0));
         line.visible = true;
         group.add(line);
 
@@ -450,50 +677,15 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
         return labels.length - 1;
       };
 
-      // Main door labels
-      const lblMainDoor1 = mainDoor1 ? addLabel('MAIN DOOR (Screen Side)', mainDoor1, 0.5) : -1;
-      const lblMainDoor2 = mainDoor2 ? addLabel('MAIN DOOR 2', mainDoor2, 0.5) : -1;
-      const lblScreen = screen ? addLabel('TOUCHSCREEN DISPLAY', screen, 0.4) : -1;
-      
-      // Permanent Brand Title (not a floating label)
-      if (fridgeBody) {
-        const brandSpr = makeLabel('SAFE');
-        brandSpr.scale.set(3.5, 3.5 * (128 / 1024), 1);
-        fridgeBody.updateWorldMatrix(true, false);
-        const b = new THREE.Box3().setFromObject(fridgeBody);
-        const center = b.getCenter(new THREE.Vector3());
-        scene.add(brandSpr);
-        brandSpr.position.set(center.x, b.max.y + 0.6, center.z);
-        brandSpr.visible = true;
-      }
-      const lblFridge = -1; // Removed as it is now a permanent brand mark
-
-      // SAFE labels
-      const lblSafes: number[] = [];
-      for (let i = 1; i <= 8; i++) {
-        const safe = safeBases[i];
-        if (safe) lblSafes.push(addLabel(`SAFE ${i}`, safe, 0.25));
-      }
-
-      // SAFE door labels
-      const lblSafeDoors: number[] = [];
-      for (let i = 1; i <= 8; i++) {
-        const door = parts[i === 1 ? 'safe_1_door' : `door_safe_${i}`];
-        if (door) lblSafeDoors.push(addLabel(`SAFE ${i}`, door, 0.15));
-      }
-
-      // BME688 label (just one for focus)
-      const lblBME = bmeObjects.length > 0 ? addLabel('BME688: ENVIRONMENTAL SENSOR UNIT', bmeObjects[0], 0.15) : -1;
-
-      // Solenoid labels
-      const lblSolenoids: number[] = [];
-      for (let i = 1; i <= 8; i++) {
-        const sk = i === 1 ? 'safe_1_lock' : `lock_safe_${i}`;
-        if (parts[sk]) lblSolenoids.push(addLabel(`Solenoid Lock ${i}`, parts[sk], 0.2));
-      }
-
-      const lblESP = esp ? addLabel('ESP32-S3 Microcontroller', esp, 0.3) : -1;
-      const lblI2C = i2c ? addLabel('I²C Multiplexer', i2c, 0.3) : -1;
+      // Annotation labels
+      const lblMainDoor1 = mainDoor1 ? addLabel('TEMPERED GLASS DOOR', mainDoor1, 0.4) : -1;
+      const lblScreen = screen ? addLabel('KIOSK TOUCHSCREEN DISPLAY', screen, 0.35) : -1;
+      const lblSafe1 = safeBases[1] ? addLabel('SAFE 1 COMPARTMENT', safeBases[1], 0.12) : -1;
+      const lblSafe4 = safeBases[4] ? addLabel('SAFE 4 COMPARTMENT', safeBases[4], 0.12) : -1;
+      const lblSolenoid1 = parts['safe_1_lock'] ? addLabel('AUTONOMOUS SOLENOID LOCK', parts['safe_1_lock'], 0.18) : -1;
+      const lblESP = esp ? addLabel('ESP32-S3 CORE CONTROLLER', esp, 0.25) : -1;
+      const lblI2C = i2c ? addLabel('I²C MULTIPLEXER', i2c, 0.25) : -1;
+      const lblBME = bmeObjects.length > 0 ? addLabel('BME688 AI SENSOR UNIT', bmeObjects[0], 0.16) : -1;
 
       /* Helper to show/hide label */
       const setLabelVis = (idx: number, vis: boolean) => {
@@ -502,31 +694,34 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
       };
 
       /* ══════════════════════════════════════════════
-         SCROLL PHASES — driven every frame
-         Phase 0 (0.00–0.05): Idle hero shot
-         Phase 1 (0.05–0.30): Main doors open, labels appear
-         Phase 2 (0.30–0.55): Camera moves in, 8 SAFEs labelled
-         Phase 3 (0.55–0.80): 8 SAFE doors open
-         Phase 4 (0.80–1.00): Zoom to BME688 sensor
+         SCROLL PHASES — cinematic disassembly
+         Phase 0 (0.00–0.05): Hero Overview
+         Phase 1 (0.05–0.30): Main Doors Opening
+         Phase 2 (0.30–0.55): 8 Internal SAFEs Revealed
+         Phase 3 (0.55–0.80): SAFE Doors Opening
+         Phase 4 (0.80–1.00): BME688 Sensor Macro Focus
       ══════════════════════════════════════════════ */
       const applyAnimation = (p: number) => {
-        const p1 = easeInOut(phase(p, 0.05, 0.30)); // main doors
-        const p2 = easeInOut(phase(p, 0.30, 0.55)); // reveal SAFEs
-        const rawP3 = phase(p, 0.55, 0.80); // SAFE doors open (raw phase for staggered calculation)
+        const p1 = easeInOut(phase(p, 0.05, 0.30)); 
+        const p2 = easeInOut(phase(p, 0.30, 0.55)); 
+        const rawP3 = phase(p, 0.55, 0.80); 
         const p3 = easeInOut(rawP3); 
-        const p4 = easeInOut(phase(p, 0.80, 1.00)); // BME688 focus
+        const p4 = easeInOut(phase(p, 0.80, 1.00)); 
 
         // ── Phase 1: Main doors open ──
         mainDoorHinges.forEach(({ hinge, dir }, i) => {
-          const staggerStart = i === 0 ? 0 : 0.15;
-          const staggerEnd = i === 0 ? 0.85 : 1.0;
+          const staggerStart = i === 0 ? 0 : 0.12;
+          const staggerEnd = i === 0 ? 0.88 : 1.0;
           const localP = clamp01((phase(p, 0.05, 0.30) - staggerStart) / (staggerEnd - staggerStart));
           const p1Stagger = easeOutBack(localP);
-          hinge.rotation.y = dir * p1Stagger * (Math.PI / 2.1);
+          hinge.rotation.y = dir * p1Stagger * (Math.PI / 2.15);
         });
-        innerLight.intensity = p1 * 2.0;
 
-        // Dynamic Label Positions (sticks to moving objects)
+        // Interior illumination turns on
+        innerLight.intensity = p1 * 1.6;
+        interiorStripLight.intensity = p1 * 1.8;
+
+        // Dynamic Label Positions (sticks to moving targets)
         labels.forEach(lbl => {
           if (lbl.group.visible) {
             lbl.target.updateWorldMatrix(true, false);
@@ -534,96 +729,90 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
           }
         });
 
-        // Labels - Hide initial main door/screen labels as animation starts
-        if (lblFridge >= 0) setLabelVis(lblFridge, p < 0.2);
-        if (lblMainDoor1 >= 0) setLabelVis(lblMainDoor1, p > 0.01 && p < 0.06);
-        if (lblMainDoor2 >= 0) setLabelVis(lblMainDoor2, p > 0.01 && p < 0.06);
-        if (lblScreen >= 0) setLabelVis(lblScreen, p > 0.01 && p < 0.06);
-        
-        // Show ESP and I2C labels as the door opens, since they are attached to the back of the door
-        if (lblESP >= 0) setLabelVis(lblESP, p1 > 0.5 && p < 0.55);
-        if (lblI2C >= 0) setLabelVis(lblI2C, p1 > 0.5 && p < 0.55);
+        // Labels Choreography
+        if (lblMainDoor1 >= 0) setLabelVis(lblMainDoor1, p > 0.02 && p < 0.22);
+        if (lblScreen >= 0) setLabelVis(lblScreen, p > 0.02 && p < 0.22);
+        if (lblESP >= 0) setLabelVis(lblESP, p1 > 0.6 && p < 0.55);
+        if (lblI2C >= 0) setLabelVis(lblI2C, p1 > 0.6 && p < 0.55);
 
-        // ── Phase 2: SAFEs revealed ──
-        // Only label a couple of SAFEs to prevent text clutter
-        lblSafes.forEach((idx, i) => setLabelVis(idx, (i === 0 || i === 4) && p2 > 0.2 && p < 0.80));
+        // Phase 2: Internal Safes Revealed
+        if (lblSafe1 >= 0) setLabelVis(lblSafe1, p2 > 0.3 && p < 0.78);
+        if (lblSafe4 >= 0) setLabelVis(lblSafe4, p2 > 0.3 && p < 0.78);
 
         // ── Phase 3: SAFE doors open ──
         safeDoorHinges.forEach(({ hinge, dir }, i) => {
-          const staggerStart = safeDoorHinges.length ? (i / safeDoorHinges.length) * 0.5 : 0;
-          const staggerEnd = staggerStart + 0.5;
+          const staggerStart = safeDoorHinges.length ? (i / safeDoorHinges.length) * 0.45 : 0;
+          const staggerEnd = staggerStart + 0.55;
           const localP = clamp01((rawP3 - staggerStart) / (staggerEnd - staggerStart));
           const p3Stagger = easeOutBack(localP);
           hinge.rotation.y = dir * p3Stagger * (Math.PI / 2.3);
         });
         
-        // Label each door of the safe as safe 1, safe 2 etc. with a slight stagger
-        lblSafeDoors.forEach((idx, i) => {
-          const stagger = (i / 8) * 0.4;
-          setLabelVis(idx, p3 > (0.1 + stagger) && p < 0.95);
-        });
-        lblSolenoids.forEach((idx, i) => setLabelVis(idx, i === 0 && p3 > 0.4 && p < 0.95));
+        if (lblSolenoid1 >= 0) setLabelVis(lblSolenoid1, p3 > 0.35 && p < 0.85);
 
         // ── Phase 4: BME688 focus ──
         if (lblBME >= 0) {
-          setLabelVis(lblBME, p4 > 0.6);
-          // Aggressively scale down the label as we get closer to the macro view
-          const s = lerp(1, 0.22, p4);
+          setLabelVis(lblBME, p4 > 0.4);
+          const s = lerp(1, 0.4, p4);
           labels[lblBME].group.scale.set(s, s, s);
         }
 
         // Highlight BME688 emissive during phase 4
         bmeObjects.forEach(obj => {
           const m = (obj as THREE.Mesh).material as THREE.MeshStandardMaterial;
-          if (m.emissiveIntensity !== undefined) {
-            m.emissiveIntensity = 0.4 + p4 * 0.8;
+          if (m && m.emissiveIntensity !== undefined) {
+            m.emissiveIntensity = 0.4 + p4 * 0.4;
           }
         });
 
         // ── Cinematic Camera Choreography ──
-        let camR = 8.5;
-        let camY = 0.5;
+        let camR = 7.5;
+        let camY = 0.4;
         let lookX = 0;
-        let lookY = 0.8;
+        let lookY = 0.1;
         let lookZ = 0;
         let orbitAngle = INIT_ANGLE;
-        let camFov = 40;
+        let camFov = 38;
 
         // Move 1: Hero to Reveal (0.0 to 0.3)
         const p1_cam = clamp01(p / 0.3);
         const e1 = easeInOut(p1_cam);
-        camR = lerp(camR, 5.5, e1);
-        camY = lerp(camY, 2.5, e1);
-        lookY = lerp(lookY, 0.5, e1);
-        orbitAngle += e1 * Math.PI * 0.15; // Sweep right
+        camR = lerp(camR, 5.2, e1);
+        camY = lerp(camY, 1.4, e1);
+        lookY = lerp(lookY, 0.2, e1);
+        orbitAngle += e1 * Math.PI * 0.12;
 
         // Move 2: Push in to Safe Array (0.3 to 0.55)
         const p2_cam = clamp01((p - 0.3) / 0.25);
         const e2 = easeInOut(p2_cam);
-        camR = lerp(camR, 3.8, e2);
-        camY = lerp(camY, 1.8, e2);
-        lookY = lerp(lookY, 1.0, e2);
-        lookX = lerp(lookX, -0.3, e2); // Rule of thirds composition
-        orbitAngle -= e2 * Math.PI * 0.2; // Dramatic sweep back left
-        camFov = lerp(camFov, 32, e2); // Slight dolly zoom
+        camR = lerp(camR, 4.4, e2);
+        camY = lerp(camY, 0.8, e2);
+        lookY = lerp(lookY, 0.15, e2);
+        lookX = lerp(lookX, -0.15, e2);
+        orbitAngle -= e2 * Math.PI * 0.14;
+        camFov = lerp(camFov, 35, e2);
 
-        // Move 3: Tilt down to observe inner workings (0.55 to 0.8)
+        // Move 3: Safe Doors Open (0.55 to 0.8)
         const p3_cam = clamp01((p - 0.55) / 0.25);
         const e3 = easeInOut(p3_cam);
-        camR = lerp(camR, 2.8, e3);
-        camY = lerp(camY, 1.2, e3);
-        lookY = lerp(lookY, 0.6, e3);
-        lookX = lerp(lookX, 0.2, e3);
-        orbitAngle += e3 * Math.PI * 0.1;
-        camFov = lerp(camFov, 45, e3); // Widen back up
+        camR = lerp(camR, 3.6, e3);
+        camY = lerp(camY, 0.5, e3);
+        lookY = lerp(lookY, 0.15, e3);
+        lookX = lerp(lookX, 0.08, e3);
+        orbitAngle += e3 * Math.PI * 0.10;
+        camFov = lerp(camFov, 38, e3);
 
-        // Move 4: Macro Zoom into BME688 (0.8 to 1.0)
+        // Move 4: Crisp Macro Zoom into BME688 (0.8 to 1.0)
         const p4_cam = clamp01((p - 0.8) / 0.2);
         const e4 = easeInOut(p4_cam);
         
+        // Add interactive user drag rotation
+        orbitAngle += st.dragRotX;
+        camY += st.dragRotY;
+
         let orbitCamX = Math.cos(orbitAngle) * camR;
         let orbitCamZ = Math.sin(orbitAngle) * camR;
-        let orbitCamY = camY + Math.sin(st.time * 1.5) * 0.08;
+        let orbitCamY = camY + Math.sin(st.time * 1.5) * 0.05;
         
         let finalCamPos = new THREE.Vector3(orbitCamX, orbitCamY, orbitCamZ);
         
@@ -631,17 +820,18 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
           const bmePos = new THREE.Vector3();
           bmeObjects[0].getWorldPosition(bmePos);
           
+          // Clean macro framing that doesn't clip or blow out
           const idealCamPos = new THREE.Vector3(
-             bmePos.x + 0.12,
-             bmePos.y + 0.02,
-             bmePos.z + 0.35
+             bmePos.x + 0.28,
+             bmePos.y + 0.12,
+             bmePos.z + 0.65
           );
           
           finalCamPos.lerp(idealCamPos, e4);
           lookX = lerp(lookX, bmePos.x, e4);
           lookY = lerp(lookY, bmePos.y, e4);
           lookZ = lerp(lookZ, bmePos.z, e4);
-          camFov = lerp(camFov, 22, e4); // Macro lens effect
+          camFov = lerp(camFov, 34, e4);
         }
 
         // Apply FOV changes
@@ -653,27 +843,22 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
         // Dynamic label pulse effect
         labels.forEach(lbl => {
           if (lbl.group.visible) {
-            const scale = 1.0 + Math.sin(st.time * 3.0 + lbl.group.id) * 0.05;
+            const scale = 1.0 + Math.sin(st.time * 3.0 + lbl.group.id) * 0.04;
             if (lbl.group.id !== (lblBME >= 0 ? labels[lblBME].group.id : -1)) {
                lbl.group.scale.set(scale, scale, scale);
             }
           }
         });
 
-        // Add mouse parallax
-        mouse.lerp(targetMouse, 0.05);
-        
-        // Applying parallax offset to final camera position (WOW effect)
-        // Enhance parallax dynamically based on macro zoom phase
-        const parallaxStrength = 0.4 + (e4 * 0.4); 
+        // Mouse parallax
+        mouse.lerp(targetMouse, 0.06);
+        const parallaxStrength = 0.3;
         finalCamPos.x += mouse.x * parallaxStrength;
         finalCamPos.y += mouse.y * parallaxStrength;
 
         camera.position.copy(finalCamPos);
         camera.lookAt(lookX, lookY, lookZ);
-        
-        // Drone bank effect - slight camera roll based on interactive mouse
-        camera.rotation.z = mouse.x * -0.05;
+        camera.rotation.z = mouse.x * -0.03;
 
         // Report phase
         if (onPhaseChange) {
@@ -685,18 +870,42 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
         }
       };
 
-      // Store the animation function
       animateFn = applyAnimation;
     }, undefined, (err) => console.error('Model load error:', err));
 
-    /* ── Interaction ── */
+    /* ── Mouse & Touch Parallax / Orbit Drag ── */
     const mouse = new THREE.Vector2(0, 0);
     const targetMouse = new THREE.Vector2(0, 0);
+
     const onMouseMove = (e: MouseEvent) => {
       targetMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       targetMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      if (st.isDragging) {
+        const dx = e.clientX - st.lastMouseX;
+        const dy = e.clientY - st.lastMouseY;
+        st.dragRotX += dx * 0.005;
+        st.dragRotY = Math.max(-0.8, Math.min(0.8, st.dragRotY - dy * 0.005));
+        st.lastMouseX = e.clientX;
+        st.lastMouseY = e.clientY;
+      }
     };
+
+    const onMouseDown = (e: MouseEvent) => {
+      // Don't drag if clicking buttons
+      if ((e.target as HTMLElement)?.tagName === 'A' || (e.target as HTMLElement)?.tagName === 'BUTTON') return;
+      st.isDragging = true;
+      st.lastMouseX = e.clientX;
+      st.lastMouseY = e.clientY;
+    };
+
+    const onMouseUp = () => {
+      st.isDragging = false;
+    };
+
     window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mouseup', onMouseUp);
 
     /* ── Scroll → progress ── */
     const updateScroll = () => {
@@ -718,33 +927,41 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
     const animate = () => {
       frameId = requestAnimationFrame(animate);
       st.time += clock.getDelta();
-      st.progress += (st.target - st.progress) * 0.05; // Smoother scroll interpolation
+      st.progress += (st.target - st.progress) * 0.06;
+
+      // Smoothly return user drag rotation back to baseline when not dragging
+      if (!st.isDragging) {
+        st.dragRotX *= 0.95;
+        st.dragRotY *= 0.95;
+      }
 
       if (animateFn) animateFn(st.progress);
       if (onProgressChange) onProgressChange(st.progress);
 
-      bloom.strength = (theme === 'light' ? 0.05 : 0.15) + Math.sin(st.progress * Math.PI) * 0.05;
+      bloom.strength = (theme === 'light' ? 0.05 : 0.18) + Math.sin(st.progress * Math.PI) * 0.05;
       
       if (modelWrapperGroup) {
         // Subtle floating effect
-        modelWrapperGroup.position.y = Math.sin(st.time * 2.0) * 0.05;
+        modelWrapperGroup.position.y = Math.sin(st.time * 1.8) * 0.04;
       }
       
       if (particleMesh) {
-        particleMesh.rotation.y = st.time * 0.05;
-        particleMesh.position.y = Math.sin(st.time * 0.5) * 0.2;
+        particleMesh.rotation.y = st.time * 0.04;
+        particleMesh.position.y = Math.sin(st.time * 0.5) * 0.15;
       }
 
       composer.render();
     };
     animate();
 
-    /* ── Resize ── */
+    /* ── Responsive Resize ── */
     const onResize = () => {
-      if (!el) return;
-      const w = el.clientWidth, h = el.clientHeight;
-      camera.aspect = w / h; camera.updateProjectionMatrix();
-      renderer.setSize(w, h); composer.setSize(w, h);
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / h; 
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h); 
+      composer.setSize(w, h);
     };
     onResize();
     window.addEventListener('resize', onResize);
@@ -754,23 +971,41 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', updateScroll);
       window.removeEventListener('mousemove', onMouseMove);
-      if (el && renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
+      window.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mouseup', onMouseUp);
+      if (el && renderer.domElement.parentNode === el) {
+        el.removeChild(renderer.domElement);
+      }
       renderer.dispose();
     };
-  }, [onProgressChange, onPhaseChange]);
+  }, [onProgressChange, onPhaseChange, theme]);
 
   return (
     <>
-      <div ref={mountRef} style={{
-        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-        background: theme === 'light' 
-          ? 'radial-gradient(circle at 50% 50%, #f0fdf4 0%, #f8fafc 80%)'
-          : 'radial-gradient(circle at 50% 50%, #0c1a17 0%, #030806 80%)',
-        overflow: 'hidden', zIndex: 0,
-      }} />
-      <div ref={wrapperRef} style={{
-        position: 'relative', height: '500vh', width: '100%', pointerEvents: 'none',
-      }} />
+      <div 
+        ref={mountRef} 
+        style={{
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100vw', 
+          height: '100vh',
+          background: theme === 'light' 
+            ? 'radial-gradient(circle at 50% 45%, #f1f5f9 0%, #e2e8f0 100%)'
+            : 'radial-gradient(circle at 50% 45%, #0a1618 0%, #020706 90%)',
+          overflow: 'hidden', 
+          zIndex: 0,
+        }} 
+      />
+      <div 
+        ref={wrapperRef} 
+        style={{
+          position: 'relative', 
+          height: '450vh', 
+          width: '100%', 
+          pointerEvents: 'none',
+        }} 
+      />
     </>
   );
 };

@@ -110,7 +110,10 @@ export async function syncDonation(
         name: record.donorName,
         contact: record.donorContact,
         imageUrl: imageUrl || record.donorImageUrl || null,
-        depositedAt: record.createdAt
+        depositedAt: record.createdAt,
+        phoneIp: record.phoneIp || null,
+        isPhoneVerified: record.isPhoneVerified ?? false,
+        verifiedAt: record.otpVerifiedAt || null
       },
 
       // ─ Quality Prediction at Deposit ─

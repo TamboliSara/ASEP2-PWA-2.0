@@ -1,3 +1,9 @@
+/**
+ * @debug
+ * PRESERVED FOR UI TESTING & PROTOTYPING
+ * Test workbench for SlideButton and FoodHealthCardPremium. Not part of core user flow.
+ * DO NOT DELETE — Zero deletion policy.
+ */
 import React from "react"
 import { SlideButton } from "@/components/ui/slide-button"
 import { FoodHealthCardPremium } from "./FoodHealthCardPremium"

@@ -3,33 +3,38 @@ import {
   ShieldCheck, 
   MoveRight, 
   BarChart3, 
-  Activity, 
   Box, 
-  Settings, 
   RefreshCcw, 
-  Wifi, 
-  AlertTriangle, 
   Database,
   Map as MapIcon,
   LogOut,
   Settings2,
-  Clock,
   Layers,
   MoreHorizontal,
-  FileText,
   X,
+  Globe,
+  Wifi,
+  ScanLine,
+  Search,
+  Copy,
+  Check,
+  Smartphone,
+  Laptop,
+  Clock,
   User,
-  Mail,
-  Heart,
-  Package,
-  Droplets
+  Phone,
+  Radio,
+  QrCode,
+  Shield,
+  Activity,
+  Sparkles,
+  ArrowUpRight
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatusPill } from "../components/StatusPill";
 import { SurfaceCard } from "../components/layout/SurfaceCard";
 import { MetricCardPremium } from "../components/MetricCardPremium";
 import { Menu } from "../components/ui/fluid-menu";
-import { FleetMap } from "../components/FleetMap";
 import { useLockerController } from "../features/useLockerController";
 import { useTranslation } from "../store/useTranslation";
 import { formatDateTime, getHoursRemaining } from "../utils/format";
@@ -38,8 +43,9 @@ import { useState, useEffect, useMemo } from "react";
 import { ScrollReveal } from "../components/ScrollReveal";
 import { TextReveal } from "../components/TextReveal";
 import { generateTelemetryPDF } from "../utils/pdfGenerator";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { db } from "../services/firebase";
+import type { QrSession } from "../services/qrSessionService";
 import { subscribeTelemetry, rtdbToDomainTelemetry } from "../services/rtdb";
 import type { FleetLockerSummary, DonationRecord } from "../types/domain";
 import { ActiveCommunityCalendar } from "../components/ActiveCommunityCalendar";
@@ -65,11 +71,111 @@ function deriveFleetForPDF(lockers: any[]): FleetLockerSummary[] {
   }];
 }
 
+// Helper: Parse client User-Agent into clean device & browser telemetry
+function parseUserAgent(ua?: string): { os: string; browser: string; iconType: "mobile" | "desktop" } | null {
+  if (!ua || !ua.trim()) return null;
+  const lower = ua.toLowerCase();
+  
+  let os = "Desktop";
+  let iconType: "mobile" | "desktop" = "desktop";
+  if (lower.includes("android")) {
+    const vMatch = ua.match(/Android\s+([0-9\.]+)/i);
+    os = vMatch ? `Android ${vMatch[1]}` : "Android";
+    iconType = "mobile";
+  } else if (lower.includes("iphone") || lower.includes("ipad") || lower.includes("ios")) {
+    os = lower.includes("ipad") ? "iPadOS" : "iOS";
+    iconType = "mobile";
+  } else if (lower.includes("windows")) {
+    os = "Windows";
+  } else if (lower.includes("macintosh") || lower.includes("mac os")) {
+    os = "macOS";
+  } else if (lower.includes("linux")) {
+    os = "Linux";
+  }
+  
+  let browser = "Browser";
+  if (lower.includes("chrome") && !lower.includes("edg") && !lower.includes("opr")) browser = "Chrome";
+  else if (lower.includes("safari") && !lower.includes("chrome")) browser = "Safari";
+  else if (lower.includes("firefox")) browser = "Firefox";
+  else if (lower.includes("edg")) browser = "Edge";
+  else if (lower.includes("opera") || lower.includes("opr")) browser = "Opera";
+  
+  return { os, browser, iconType };
+}
+
 export function AdminPageV2() {
   const { t } = useTranslation();
-  const { state, dispatch, selectLocker, currentLocker, clearFault, syncNow, reconnectLocker, resetDonations, signOut } = useLockerController();
+  const { state, dispatch, currentLocker, signOut } = useLockerController();
   const fleet = deriveFleetForPDF(state.lockers);
   const [showSafeSelector, setShowSafeSelector] = useState(false);
+
+  // ── QR Session IP audit log state ──
+  const [qrSessions, setQrSessions] = useState<QrSession[]>([]);
+  const [qrSearchQuery, setQrSearchQuery] = useState("");
+  const [qrStatusFilter, setQrStatusFilter] = useState<"all" | "scanned" | "verified" | "pending">("all");
+  const [copiedIp, setCopiedIp] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string) => {
+    try {
+      navigator.clipboard.writeText(text);
+      setCopiedIp(text);
+      setTimeout(() => setCopiedIp(null), 2000);
+    } catch {
+      // fallback
+    }
+  };
+
+  const qrStats = useMemo(() => {
+    const total = qrSessions.length;
+    const scanned = qrSessions.filter(s => s.scannedAt || s.phoneIp).length;
+    const verified = qrSessions.filter(s => s.verified).length;
+    const ips = new Set(qrSessions.map(s => s.phoneIp).filter(Boolean)).size;
+    return { total, scanned, verified, ips };
+  }, [qrSessions]);
+
+  const filteredQrSessions = useMemo(() => {
+    return qrSessions.filter(s => {
+      if (qrStatusFilter === "scanned" && !(s.scannedAt || s.phoneIp)) return false;
+      if (qrStatusFilter === "verified" && !s.verified) return false;
+      if (qrStatusFilter === "pending" && (s.scannedAt || s.verified || s.phoneIp)) return false;
+
+      if (qrSearchQuery.trim()) {
+        const q = qrSearchQuery.toLowerCase().trim();
+        const matchName = s.donorName?.toLowerCase().includes(q);
+        const matchPhone = s.phone?.toLowerCase().includes(q);
+        const matchIp = s.phoneIp?.toLowerCase().includes(q);
+        const matchUa = s.userAgent?.toLowerCase().includes(q);
+        return matchName || matchPhone || matchIp || matchUa;
+      }
+      return true;
+    });
+  }, [qrSessions, qrStatusFilter, qrSearchQuery]);
+
+  useEffect(() => {
+    if (!db) return;
+    const q = query(
+      collection(db, "qr_sessions"),
+      limit(100)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const sessions: QrSession[] = [];
+      snap.forEach(d => {
+        const data = d.data() as QrSession;
+        if (!data.sessionId) data.sessionId = d.id;
+        sessions.push(data);
+      });
+      // Sort newest scans first (based on scannedAt or createdAt)
+      sessions.sort((a, b) => {
+        const timeA = new Date(a.scannedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.scannedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+      setQrSessions(sessions);
+    }, (err) => {
+      console.warn("[Admin] QR sessions listener error:", err);
+    });
+    return unsub;
+  }, [state.isAdminAuthenticated]);
 
   // ── Firestore: Live donation counts ──
   const [firestoreDonationCount, setFirestoreDonationCount] = useState<number | null>(null);
@@ -254,9 +360,7 @@ export function AdminPageV2() {
               </div>
             </div>
 
-            <p className="text-lg text-text-muted max-w-md leading-relaxed font-medium">
-              {t("adminSignInBody")}
-            </p>
+            
 
             <div className="w-full h-px bg-gradient-to-r from-transparent via-line to-transparent opacity-40" />
 
@@ -315,12 +419,7 @@ export function AdminPageV2() {
           
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="hero-copy max-w-2xl">
-              <TextReveal mode="words" direction="up" distance={15} delay={0.1}>
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-2 h-2 rounded-full bg-accent" />
-                    <p className="text-[11px] font-black tracking-widest uppercase text-accent m-0 leading-none">FLEET OVERVIEW</p>
-                  </div>
-              </TextReveal>
+              
               <TextReveal mode="words" direction="up" distance={20} delay={0.2}>
                 <h2 className="text-3xl md:text-4xl leading-[1.05] font-black tracking-tight mb-3 text-text drop-shadow-sm dark:drop-shadow-none">
                   Maintenance and<br />safety dashboard
@@ -418,369 +517,14 @@ export function AdminPageV2() {
         </ScrollReveal>
       </section>
       <div className="admin-content-layout flex flex-col gap-6 mt-6">
-        <ScrollReveal type="zoom" direction="up" distance={40} delay={0.6} parallax={0.1}>
-          <div className="obsidian-card premium-noise !p-6 rounded-[2.25rem] group border-emerald-500/20">
-            <Scanline />
-            <BotanicalDecoration />
-            
-            <div className="relative z-10">
-              <div className="luxe-card-header mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div className="luxe-card-title-stack">
-                  <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
-                    <p className="text-[11px] font-black tracking-[0.4em] uppercase text-emerald-600 dark:text-emerald-500/60 mb-2 flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                      Fleet Donation Registry
-                    </p>
-                  </TextReveal>
-                  <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
-                    <h3 className="text-3xl font-black tracking-tight text-text leading-none">
-                      Active Community Contributions
-                    </h3>
-                  </TextReveal>
-                </div>
-                <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-black text-[10px] uppercase tracking-widest">
-                  <Heart className="w-3 h-3" />
-                  {state.lockers.filter(l => l.activeDonation).length} Active SAFEs
-                </div>
-              </div>
 
-              {/* Safe 1 is always visible (hardware locker); mocks only show when occupied */}
-              {(() => {
-                const displayLockers = state.lockers.filter(l =>
-                  l.lockerId === "chamber-1" || l.activeDonation
-                );
-                return displayLockers.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {displayLockers.map((locker, idx) => (
-                    <motion.div
-                      key={locker.lockerId}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 * idx }}
-                      className={`relative p-5 rounded-[1.75rem] border transition-all duration-500 group/donation overflow-hidden cursor-pointer
-                        ${locker.lockerId === state.selectedLockerId
-                          ? 'bg-emerald-500/10 border-emerald-500/40 shadow-[0_0_40px_rgba(16,184,129,0.1)]'
-                          : locker.activeDonation
-                            ? 'bg-panel-elevated/40 dark:bg-white/5 border-line dark:border-white/10 hover:border-emerald-500/30'
-                            : 'bg-panel-elevated/20 dark:bg-white/[0.02] border-dashed border-line/60 dark:border-white/[0.06] hover:border-emerald-500/20'}`}
-                      onClick={() => selectLocker(locker.lockerId)}
-                    >
-                      {locker.activeDonation ? (
-                        /* ── OCCUPIED: real donation card ─────────────────── */
-                        <>
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="relative">
-                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-500
-                                  ${locker.lockerId === state.selectedLockerId ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-muted/10 dark:bg-white/5 border-line dark:border-white/10 group-hover/donation:border-emerald-500/50'}`}>
-                                  <User className="w-5 h-5" />
-                                </div>
-                                <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md bg-emerald-500 text-[7px] font-black text-white uppercase tracking-tighter">
-                                  {locker.lockerId.replace('chamber-', 'SAFE')}
-                                </div>
-                              </div>
-                              <div className="flex flex-col overflow-hidden">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500/60 leading-none mb-1">VERIFIED DONOR</span>
-                                <span className="text-base font-black text-text truncate leading-tight">{locker.activeDonation.donorName}</span>
-                                <div className="flex items-center gap-1 mt-0.5 opacity-60">
-                                  <Mail className="w-2.5 h-2.5 text-text-muted" />
-                                  <span className="text-[9px] font-medium text-text-muted truncate lowercase">{locker.activeDonation.donorContact}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className={`w-2 h-2 rounded-full mt-2 ${locker.activeDonation.latestQualityScore === 'fresh' ? 'bg-emerald-500 shadow-[0_0_8px_#10B981]' : locker.activeDonation.latestQualityScore === 'aging' ? 'bg-amber-500' : 'bg-rose-500'}`} />
-                          </div>
-
-                          <div className="mb-3">
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <Package className="w-3 h-3 text-emerald-500" />
-                              <span className="text-[8px] font-black uppercase tracking-widest text-text-muted opacity-60">Stored Asset</span>
-                            </div>
-                            <div className="px-3 py-1.5 rounded-lg bg-panel dark:bg-white/5 border border-line dark:border-white/5">
-                              <span className="text-sm font-black text-text tracking-tight">{locker.activeDonation.foodName}</span>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2 mb-4">
-                            <div className={`p-3 rounded-xl border flex flex-col gap-0.5
-                              ${locker.activeDonation.dietTag === 'veg' || locker.activeDonation.dietTag === 'vegan'
-                                ? 'bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-                                : 'bg-amber-500/[0.08] border-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
-                              <span className="text-[7px] font-black uppercase tracking-widest opacity-60">Dietary</span>
-                              <span className="text-[10px] font-black uppercase tracking-widest">{locker.activeDonation.dietTag || 'Standard'}</span>
-                            </div>
-                            <div className={`p-3 rounded-xl border flex flex-col gap-0.5
-                              ${locker.activeDonation.latestQualityScore === 'fresh'
-                                ? 'bg-emerald-500/[0.08] border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-                                : locker.activeDonation.latestQualityScore === 'aging'
-                                ? 'bg-amber-500/[0.08] border-amber-500/20 text-amber-700 dark:text-amber-400'
-                                : 'bg-rose-500/[0.08] border-rose-500/20 text-rose-700 dark:text-rose-400'}`}>
-                              <span className="text-[7px] font-black uppercase tracking-widest opacity-60">Quality</span>
-                              <span className="text-[10px] font-black uppercase tracking-widest">{locker.activeDonation.latestQualityScore || 'Nominal'}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-3 border-t border-line dark:border-white/5">
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="w-3 h-3 text-text-muted opacity-40" />
-                              <span className="text-[9px] font-mono font-bold text-text-muted">{formatDateTime(locker.activeDonation.createdAt)}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[8px] font-black uppercase tracking-tighter text-text-muted opacity-40">System Logged</span>
-                              <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        /* ── EMPTY: Safe 1 hardware status card ──────────── */
-                        <>
-                          <div className="flex items-start justify-between mb-5">
-                            <div className="flex items-center gap-3">
-                              <div className="relative">
-                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all duration-500
-                                  ${locker.lockerId === state.selectedLockerId ? 'bg-emerald-500/20 border-emerald-500/40' : 'bg-muted/10 dark:bg-white/5 border-line dark:border-white/10'}`}>
-                                  <Box className="w-5 h-5 text-text-muted" />
-                                </div>
-                                <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md bg-emerald-500/60 text-[7px] font-black text-white uppercase tracking-tighter">
-                                  {locker.lockerId.replace('chamber-', 'SAFE')}
-                                </div>
-                              </div>
-                              <div className="flex flex-col overflow-hidden">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500/60 leading-none mb-1">HARDWARE UNIT</span>
-                                <span className="text-base font-black text-text-muted leading-tight">Awaiting Donation</span>
-                                <span className="text-[9px] text-text-muted opacity-50 mt-0.5">Paired · Live Monitoring</span>
-                              </div>
-                            </div>
-                            <div className="w-2 h-2 rounded-full mt-2 bg-text-muted/30 animate-pulse" />
-                          </div>
-
-                          <div className="mb-4 px-3 py-3 rounded-xl bg-panel dark:bg-white/[0.03] border border-dashed border-line/60 dark:border-white/[0.06] flex items-center gap-2">
-                            <Database className="w-4 h-4 text-text-muted opacity-40" />
-                            <span className="text-[11px] font-black text-text-muted opacity-40 uppercase tracking-widest">Chamber Vacant</span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2 mb-4">
-                            <div className="p-3 rounded-xl border border-line/40 dark:border-white/[0.05] bg-panel/50 flex flex-col gap-0.5">
-                              <span className="text-[7px] font-black uppercase tracking-widest text-text-muted opacity-40">Lock</span>
-                              <span className="text-[10px] font-black uppercase tracking-widest text-text-muted opacity-60">
-                                {locker.lockState === 'unlocked' ? '🔓 Unlocked' : '🔒 Secured'}
-                              </span>
-                            </div>
-                            <div className="p-3 rounded-xl border border-line/40 dark:border-white/[0.05] bg-panel/50 flex flex-col gap-0.5">
-                              <span className="text-[7px] font-black uppercase tracking-widest text-text-muted opacity-40">Door</span>
-                              <span className="text-[10px] font-black uppercase tracking-widest text-text-muted opacity-60">
-                                {locker.doorState === 'open' ? '🚪 Open' : '🚪 Closed'}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-3 border-t border-line/40 dark:border-white/[0.05]">
-                            <div className="flex items-center gap-1.5 opacity-30">
-                              <Wifi className="w-3 h-3 text-emerald-500" />
-                              <span className="text-[9px] font-black uppercase tracking-widest text-text-muted">Ready</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 opacity-30">
-                              <span className="text-[8px] font-black uppercase tracking-tighter text-text-muted">ESP32 Online</span>
-                              <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                            </div>
-                          </div>
-                        </>
-                      )}
-
-                      {/* Selection Glow */}
-                      {locker.lockerId === state.selectedLockerId && (
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[50px] rounded-full pointer-events-none" />
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
-                ) : (
-                <div className="py-20 flex flex-col items-center justify-center text-center opacity-40 text-text-muted">
-                  <div className="w-20 h-20 rounded-full bg-panel-elevated dark:bg-white/5 border border-dashed border-line dark:border-white/20 flex items-center justify-center mb-6">
-                    <Database className="w-10 h-10" />
-                  </div>
-                  <h4 className="text-xl font-black uppercase tracking-[0.4em] mb-2">Registry Standby</h4>
-                  <p className="text-sm font-medium max-w-md mx-auto">The fleet is currently waiting for new community donations. Diagnostic streams will activate upon safe deposition.</p>
-                </div>
-                );
-              })()}
-            </div>
-          </div>
-        </ScrollReveal>
 
         <ScrollReveal type="zoom" direction="up" distance={40} delay={0.7} parallax={0.1}>
           <ActiveCommunityCalendar />
         </ScrollReveal>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ScrollReveal type="zoom" direction="left" distance={40} delay={0.6} parallax={0.1}>
-            <div className="obsidian-card premium-noise !p-6 rounded-[2.25rem] group border-emerald-500/20">
-              <Scanline />
-              <BotanicalDecoration />
-              
-              <div className="luxe-card-header flex justify-between items-start mb-10 relative z-10">
-                <div className="luxe-card-title-stack">
-                <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
-                  <p className="text-[11px] font-black tracking-[0.4em] uppercase text-emerald-600 dark:text-emerald-500/60 mb-2 flex items-center gap-2">
-                    <span className="w-1 h-1 rounded-full bg-emerald-500" />
-                    {t("currentKiosk")}
-                  </p>
-                </TextReveal>
-                <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
-                  <h3 className="text-3xl font-black tracking-tight text-text leading-none">
-                    Terminal Diagnostics
-                  </h3>
-                </TextReveal>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-emerald-500/20 shadow-lg">
-                  <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                </div>
-              </div>
-              
-              {/* Selected locker label */}
-              <div className="mb-6 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 inline-flex items-center gap-2 relative z-10">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-                  Inspecting: {currentLocker.lockerId.replace('chamber-', 'SAFE ')} {currentLocker.activeDonation ? `— ${currentLocker.activeDonation.foodName}` : '— Empty'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 relative z-10">
-                <MetricItem 
-                  label="TinyML AI Engine" 
-                  value={currentLocker.activeDonation ? "Neural Active" : "Standby"}
-                  progress={currentLocker.activeDonation ? 100 : 20}
-                  color={currentLocker.activeDonation ? "var(--accent-bright)" : "var(--text-muted)"}
-                  icon={<Settings2 className="w-4 h-4" />}
-                />
-                <MetricItem 
-                  label="VOC Sensor Profile" 
-                  value={`${(currentLocker.telemetry.gasResistanceOhms && currentLocker.telemetry.gasResistanceOhms > 0 ? currentLocker.telemetry.gasResistanceOhms : 18230).toLocaleString()} Ω`}
-                  progress={(currentLocker.telemetry.gasResistanceOhms || 18230) > 15000 ? 92 : (currentLocker.telemetry.gasResistanceOhms || 18230) > 5000 ? 60 : 25}
-                  color={(currentLocker.telemetry.gasResistanceOhms || 18230) > 15000 ? "var(--accent-bright)" : (currentLocker.telemetry.gasResistanceOhms || 18230) > 5000 ? "var(--warning)" : "var(--danger)"}
-                  icon={<Activity className="w-4 h-4" />}
-                />
-                <MetricItem 
-                  label="Atmospheric Temp" 
-                  value={`${(currentLocker.telemetry.internalTempC && currentLocker.telemetry.internalTempC > 0 ? currentLocker.telemetry.internalTempC : 4.8).toFixed(1)}°C`}
-                  progress={(currentLocker.telemetry.internalTempC || 4.8) <= 5 ? 98 : (currentLocker.telemetry.internalTempC || 4.8) <= 10 ? 70 : 30}
-                  color={(currentLocker.telemetry.internalTempC || 4.8) <= 5 ? "var(--accent-bright)" : (currentLocker.telemetry.internalTempC || 4.8) <= 10 ? "var(--warning)" : "var(--danger)"}
-                  icon={<Activity className="w-4 h-4" />}
-                />
-                <MetricItem 
-                  label="Chamber Humidity" 
-                  value={`${(currentLocker.telemetry.humidityPct && currentLocker.telemetry.humidityPct > 0 ? currentLocker.telemetry.humidityPct : 61).toFixed(0)}%`}
-                  progress={(currentLocker.telemetry.humidityPct || 61) <= 70 ? 90 : (currentLocker.telemetry.humidityPct || 61) <= 85 ? 60 : 25}
-                  color={(currentLocker.telemetry.humidityPct || 61) <= 70 ? "var(--accent-bright)" : (currentLocker.telemetry.humidityPct || 61) <= 85 ? "var(--warning)" : "var(--danger)"}
-                  icon={<Droplets className="w-4 h-4" />}
-                />
-                <MetricItem
-                  label="HC-SR04 Distance"
-                  value={`${(currentLocker.telemetry.distanceCm != null && currentLocker.telemetry.distanceCm > 0 ? currentLocker.telemetry.distanceCm : 32.4).toFixed(1)} cm`}
-                  progress={(currentLocker.telemetry.distanceCm != null && currentLocker.telemetry.distanceCm < 34) ? 88 : 75}
-                  color="var(--accent-bright)"
-                  icon={<Activity className="w-4 h-4" />}
-                />
-              </div>
-              
-              <div className="mt-10 pt-6 border-t border-line dark:border-white/5 flex items-center justify-between relative z-10">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-text-muted opacity-40 mb-1">SYSTEM SYNC</span>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3 h-3 text-emerald-500/50" />
-                    <span className="text-[11px] font-mono font-bold text-text-muted">{formatDateTime(currentLocker.lastSyncedAt)}</span>
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4].map(i => (
-                    <motion.div 
-                      key={i}
-                      animate={{ height: [8, 16, 8], opacity: [0.3, 1, 0.3] }}
-                      transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
-                      className="w-1 bg-emerald-500/40 rounded-full"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </ScrollReveal>
-
-          <ScrollReveal type="zoom" direction="right" distance={40} delay={0.8} parallax={0.1}>
-            <div className="obsidian-card premium-noise !p-6 rounded-[2.25rem] group border-emerald-500/20">
-              <Scanline />
-              <BotanicalDecoration />
-              
-              <div className="luxe-card-header flex justify-between items-start mb-10 relative z-10">
-                <div className="luxe-card-title-stack">
-                  <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
-                    <p className="text-[11px] font-black tracking-[0.4em] uppercase text-emerald-600 dark:text-emerald-500/60 mb-2">{t("systemActions")}</p>
-                  </TextReveal>
-                  <TextReveal mode="words" direction="left" distance={15} delay={0.2}>
-                    <h3 className="text-3xl font-black tracking-tight text-text leading-none">
-                      Command Center
-                    </h3>
-                  </TextReveal>
-                </div>
-                <motion.button 
-                  whileHover={{ rotate: 90, scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-12 h-12 rounded-full bg-panel-elevated/40 dark:bg-white/5 border border-line dark:border-white/10 flex items-center justify-center shadow-lg hover:bg-emerald-500 hover:text-white transition-all text-text-muted"
-                >
-                  <Settings className="w-5 h-5" />
-                </motion.button>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
-                <ActionButton 
-                  onClick={syncNow}
-                  icon={<RefreshCcw className="w-5 h-5" />}
-                  label="Force Sync"
-                  sublabel="Update Records"
-                  index={0}
-                />
-                <ActionButton 
-                  onClick={reconnectLocker}
-                  icon={<Wifi className="w-5 h-5" />}
-                  label="BLE Reset"
-                  sublabel="Reset Bridge"
-                  index={1}
-                />
-                <ActionButton 
-                  onClick={clearFault}
-                  variant="warning"
-                  icon={<AlertTriangle className="w-5 h-5" />}
-                  label="Clear Fault"
-                  sublabel="Acknowledge"
-                  index={2}
-                />
-                <ActionButton 
-                  onClick={handleGeneratePDF}
-                  icon={<FileText className="w-5 h-5" />}
-                  label="Export PDF"
-                  sublabel="Telemetry Report"
-                  index={3}
-                />
-                <div className="sm:col-span-2 mt-2">
-                  <motion.button
-                    onClick={resetDonations}
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
-                    className="w-full py-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-500 font-black text-xs uppercase tracking-[0.3em] hover:bg-rose-500 hover:text-white transition-all duration-500"
-                  >
-                    Emergency System Wipe
-                  </motion.button>
-                </div>
-              </div>
-            </div>
-          </ScrollReveal>
-        </div>
       </div>
 
-      <ScrollReveal direction="up" distance={40} delay={0.8}>
-        <div className="mt-6">
-          <FleetMap />
-        </div>
-      </ScrollReveal>
+
 
       <ScrollReveal direction="up" distance={40} delay={0.9}>
         <div className="mt-6 obsidian-card premium-noise !p-6 rounded-[2.25rem] border-emerald-500/20 relative z-10 overflow-hidden">
@@ -812,6 +556,266 @@ export function AdminPageV2() {
             )) : (
               <div className="p-8 text-center border border-dashed border-line rounded-xl">
                 <p className="text-sm font-bold text-text-muted opacity-50 uppercase tracking-widest">No Activity Recorded</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </ScrollReveal>
+
+      {/* ── QR Scan IP Audit Log — Modern & Premium (Light & Dark Theme) ───────────────────────────────────────── */}
+      <ScrollReveal direction="up" distance={30} delay={0.85}>
+        <div className="mt-8 rounded-[2rem] bg-white dark:bg-[#0c1222] border border-slate-200/90 dark:border-white/10 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.03)] dark:shadow-2xl !p-6 sm:!p-8 relative z-10 overflow-hidden">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200/80 dark:border-blue-500/25 mb-2.5 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">Security Audit Feed</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+                QR Scan — IP Audit Log
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1 max-w-xl leading-relaxed">
+                Real-time forensic ledger capturing donor mobile scans, public IP handshakes, and device telemetry.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-center">
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-50 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span><strong className="font-mono text-slate-900 dark:text-white">{qrStats.scanned}</strong> scans recorded</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Minimal Search & Segmented Filter Toolbar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
+            {/* Search Input */}
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input 
+                type="text"
+                value={qrSearchQuery}
+                onChange={(e) => setQrSearchQuery(e.target.value)}
+                placeholder="Search donor, phone, IP..."
+                className="w-full pl-10 pr-9 py-2 rounded-xl bg-slate-50 hover:bg-slate-100/70 dark:bg-white/[0.05] dark:hover:bg-white/[0.07] border border-slate-200/80 dark:border-white/10 text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:bg-white dark:focus:bg-white/[0.08] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition-all shadow-xs"
+              />
+              {qrSearchQuery && (
+                <button 
+                  onClick={() => setQrSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Segmented Filter Pills */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 overflow-x-auto">
+              {[
+                { id: "all", label: "All Logs", count: qrSessions.length },
+                { id: "scanned", label: "Scanned", count: qrStats.scanned },
+                { id: "verified", label: "Verified", count: qrStats.verified },
+                { id: "pending", label: "Pending", count: qrSessions.length - qrStats.scanned },
+              ].map(f => {
+                const active = qrStatusFilter === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setQrStatusFilter(f.id as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                      active 
+                        ? "bg-white dark:bg-blue-600 text-blue-600 dark:text-white shadow-xs font-bold border border-slate-200/60 dark:border-transparent" 
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    <span>{f.label}</span>
+                    <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md font-bold ${
+                      active 
+                        ? "bg-blue-50 dark:bg-white/20 text-blue-700 dark:text-white" 
+                        : "bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-slate-400"
+                    }`}>
+                      {f.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Table Container */}
+          <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-950/40 shadow-xs">
+            {filteredQrSessions.length === 0 ? (
+              <div className="py-12 px-4 text-center">
+                <ScanLine className="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  {qrSearchQuery ? "No matching records found" : "No QR scans recorded"}
+                </p>
+                {qrSearchQuery && (
+                  <button
+                    onClick={() => setQrSearchQuery("")}
+                    className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline font-bold"
+                  >
+                    Clear search
+                  </button>
+                )}
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200/80 dark:border-white/5 bg-slate-50/80 dark:bg-white/[0.02]">
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Time</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Donor</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Phone</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Public IP Address</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Status</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Client Device</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                  {filteredQrSessions.map((s, i) => {
+                    const rawTime = s.scannedAt || s.createdAt;
+                    const dateObj = rawTime ? new Date(rawTime) : new Date();
+                    const parsedClient = parseUserAgent(s.userAgent);
+
+                    return (
+                      <tr
+                        key={s.sessionId || `session-${i}`}
+                        className="hover:bg-blue-50/30 dark:hover:bg-white/[0.02] transition-colors duration-150 group"
+                      >
+                        {/* Time */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {rawTime
+                                ? dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+                                : "—"
+                              }
+                            </span>
+                            <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                              {rawTime
+                                ? dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                : ""
+                              }
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Donor */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-600/30 dark:to-indigo-600/30 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-200/60 dark:border-blue-500/30">
+                              {(s.donorName || "G").charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-slate-900 dark:text-white text-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                {s.donorName || "Guest Donor"}
+                              </span>
+                              {s.sessionId && (
+                                <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500">
+                                  #{s.sessionId.slice(-5)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Phone */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {s.phone ? (
+                            <span className="font-mono text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-white/[0.04] px-2.5 py-1 rounded-md border border-slate-200/60 dark:border-white/5">
+                              {s.phone.startsWith("+") ? s.phone : `+91 ${s.phone}`}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-mono text-xs">—</span>
+                          )}
+                        </td>
+
+                        {/* Public IP Address */}
+                        <td className="py-3.5 px-4 whitespace-nowrap font-mono text-xs">
+                          {s.phoneIp ? (
+                            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/50 shadow-xs font-semibold">
+                              <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                              <span>{s.phoneIp}</span>
+                              <button
+                                onClick={() => copyToClipboard(s.phoneIp!)}
+                                className="p-1 rounded text-blue-500 hover:text-blue-800 dark:hover:text-white transition-colors cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                                title="Copy IP address"
+                              >
+                                {copiedIp === s.phoneIp ? (
+                                  <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                ) : (
+                                  <Copy className="w-3 h-3 opacity-60 hover:opacity-100" />
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+                              Waiting for scan
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          {s.verified ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-800/60 shadow-xs">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              Verified
+                            </span>
+                          ) : s.scannedAt || s.phoneIp ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/90 dark:border-amber-800/60 shadow-xs">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                              </span>
+                              Scanned
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border border-slate-200/70 dark:border-slate-700">
+                              <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                              Pending
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Client Device */}
+                        <td className="py-3.5 px-4 max-w-[200px]">
+                          {parsedClient ? (
+                            <div 
+                              className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-300 max-w-[190px] cursor-help"
+                              title={s.userAgent}
+                            >
+                              {parsedClient.iconType === "mobile" ? (
+                                <Smartphone className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                              ) : (
+                                <Laptop className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+                              )}
+                              <span className="truncate">{parsedClient.os} · {parsedClient.browser}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+
+            {/* Table Footer */}
+            {filteredQrSessions.length > 0 && (
+              <div className="py-3 px-4 bg-slate-50/70 dark:bg-white/[0.01] border-t border-slate-200/80 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                <span>
+                  Showing <strong className="font-semibold text-slate-800 dark:text-slate-200">{filteredQrSessions.length}</strong> of <strong className="font-semibold text-slate-800 dark:text-slate-200">{qrSessions.length}</strong> recorded audit sessions
+                </span>
+                <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold text-[11px]">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Firestore Realtime Sync Active
+                </span>
               </div>
             )}
           </div>
@@ -987,95 +991,5 @@ function BotanicalDecoration() {
   );
 }
 
-function MetricItem({ label, value, progress, color, icon, wide = false }: any) {
-  const isHealthy = progress >= 80;
-  const isCritical = progress < 30;
-  
-  return (
-    <div className={`group/metric relative flex flex-col gap-3 ${wide ? 'w-full' : ''}`}>
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-700 border
-          bg-panel-elevated/40 dark:bg-white/5 border-line dark:border-white/5 group-hover/metric:border-emerald-500/40 group-hover/metric:shadow-[0_0_20px_rgba(16,184,129,0.1)]`}>
-          <span className="text-text-muted group-hover/metric:text-emerald-600 dark:group-hover/metric:text-emerald-400 transition-all duration-500 transform group-hover/metric:scale-110">{icon}</span>
-        </div>
-        
-        <div className="flex flex-col gap-0.5 flex-grow">
-          <div className="flex justify-between items-baseline">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted group-hover/metric:text-emerald-600/60 dark:group-hover/metric:text-emerald-500/60 transition-colors leading-none">{label}</span>
-            <span className="text-[10px] font-mono font-bold text-text-muted/40 group-hover/metric:text-emerald-600/40 dark:group-hover/metric:text-emerald-500/40">{progress}%</span>
-          </div>
-          <strong className={`text-lg font-black tracking-tight transition-colors duration-300
-            ${isHealthy ? 'text-text' : isCritical ? 'text-rose-500' : 'text-amber-500'}`}>
-            {value}
-          </strong>
-        </div>
-      </div>
-      
-      <div className="relative h-1.5 w-full bg-muted/10 dark:bg-white/5 rounded-full overflow-hidden border border-line dark:border-white/[0.02]">
-        <motion.div 
-          initial={{ width: 0 }}
-          animate={{ width: `${progress}%` }}
-          transition={{ duration: 2, ease: [0.16, 1, 0.3, 1] as const }}
-          className="h-full rounded-full relative" 
-          style={{ 
-            background: `linear-gradient(90deg, ${color}44, ${color})`,
-            boxShadow: `0 0 15px ${color}44`
-          }}
-        >
-          <motion.div 
-            animate={{ x: ['-100%', '200%'] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-          />
-        </motion.div>
-      </div>
-    </div>
-  );
-}
 
-function ActionButton({ onClick, icon, label, sublabel, variant = "default", index = 0 }: any) {
-  const isDanger = variant === "danger";
-  const isWarning = variant === "warning";
-  
-  const accents = {
-    danger: "rose-500",
-    warning: "amber-500",
-    default: "emerald-500"
-  };
-
-  const accentColor = accents[variant as keyof typeof accents] || accents.default;
-
-  return (
-    <motion.button 
-      onClick={onClick}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 * index, duration: 0.8, ease: [0.16, 1, 0.3, 1] as const }}
-      whileHover={{ scale: 1.02, y: -2 }}
-      whileTap={{ scale: 0.98 }}
-      className="relative flex items-center gap-4 w-full p-4 rounded-3xl border transition-all duration-500 group overflow-hidden
-        bg-panel-elevated/40 dark:bg-white/5 border-line dark:border-white/[0.03] hover:border-emerald-500/20 hover:bg-panel-elevated dark:hover:bg-white/[0.08] shadow-2xl"
-    >
-      <div className={`relative flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 border
-        bg-muted/5 dark:bg-white/5 border-line dark:border-white/10 group-hover:border-${accentColor}/50 group-hover:bg-${accentColor}/10`}
-      >
-        <div className={`transition-transform duration-500 group-hover:scale-110 text-text-muted group-hover:text-${accentColor}`}>
-          {icon}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-0.5 relative z-10 leading-tight text-left flex-grow">
-        <strong className="text-[14px] font-black tracking-tight text-text group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-          {label}
-        </strong>
-        <span className="text-[9px] font-black text-text-muted uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-all flex items-center gap-2">
-          {sublabel}
-        </span>
-      </div>
-
-      {/* Decorative hover glow */}
-      <div className={`absolute -right-4 -bottom-4 w-12 h-12 bg-${accentColor}/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
-    </motion.button>
-  );
-}
 

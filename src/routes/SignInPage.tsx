@@ -1,3 +1,9 @@
+/**
+ * @deprecated
+ * PRESERVED FOR FUTURE USE / REFERENCE
+ * Superseded by SignInPageV2.tsx (canonical authenticated admin sign-in).
+ * DO NOT DELETE — Can be reactivated if requested.
+ */
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../store/AppContext";

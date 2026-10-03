@@ -19,6 +19,38 @@
   --color-primary-foreground: #ffffff;
 }
 
+html {
+  zoom: 0.8;
+}
+
+html.visualizer-mode {
+  zoom: 1 !important;
+  color-scheme: dark !important;
+}
+
+html.visualizer-mode body {
+  background: #020706 !important;
+}
+
+.app-shell.app-shell-visualizer .shell-header {
+  background: rgba(6, 12, 18, 0.75) !important;
+  border-bottom: 1px solid rgba(0, 243, 255, 0.15) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+.app-shell.app-shell-visualizer .luxe-logo {
+  color: #f8fafc !important;
+}
+
+.app-shell.app-shell-visualizer .luxe-eyebrow {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.app-shell.app-shell-visualizer .nav-link-content {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
 :root {
   color-scheme: dark;
   font-family: 'Plus Jakarta Sans', 'Outfit', 'Segoe UI', sans-serif;
@@ -347,6 +379,23 @@ textarea {
   margin: 0 auto;
 }
 
+.app-shell.app-shell-visualizer {
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 100vh;
+}
+
+.app-shell.app-shell-visualizer::before {
+  display: none !important;
+}
+
+.app-shell.app-shell-visualizer .shell-content {
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+}
+
 .ambient {
   position: fixed;
   border-radius: 999px;
@@ -608,7 +657,7 @@ textarea {
   border-radius: var(--radius-lg);
   background: var(--panel);
   box-shadow: var(--shadow-lg);
-  align-items: center;
+  align-items: stretch;
   animation: revealUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -645,6 +694,9 @@ textarea {
   display: grid;
   align-content: center;
   gap: 0.75rem;
+  height: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
 }
 
 .hero-copy h2 {
@@ -3897,17 +3949,11 @@ textarea:focus {
 }
 
 :root[data-theme-mode="light"] .receiver-card-profile,
-:root[data-theme-mode="light"] .receiver-card-deadline {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--moss) 66%, white 34%), color-mix(in srgb, var(--moss-deep) 60%, white 40%));
-}
-
+:root[data-theme-mode="light"] .receiver-card-deadline,
 :root[data-theme-mode="light"] .receiver-card-telemetry,
 :root[data-theme-mode="light"] .receiver-card-retrieve,
 :root[data-theme-mode="light"] .receiver-card-logs {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--clay) 56%, white 44%), color-mix(in srgb, var(--clay-deep) 50%, white 50%));
-  color: #fff7ef;
+  background: transparent !important;
 }
 
 :root[data-theme-mode="light"] .receiver-card-gas,
@@ -4519,12 +4565,11 @@ textarea:focus {
 /* Receiver Dashboard Layout Fixes */
 .receiver-editorial-layout {
   display: grid !important;
-  grid-template-columns: repeat(2, 1fr) !important;
+  grid-template-columns: minmax(280px, 1fr) 1.65fr !important;
   grid-template-areas: 
     "chart chart"
     "profile telemetry"
-    "gas actions"
-    "retrieve logs" !important;
+    "retrieve retrieve" !important;
   gap: 3rem !important; /* Significant gap for premium breathing room */
   align-items: stretch !important;
   width: 100%;
@@ -4899,14 +4944,10 @@ textarea:focus {
   .receiver-editorial-layout {
     grid-template-columns: 1fr !important;
     grid-template-areas: 
-      "score"
       "chart"
       "profile"
       "telemetry"
-      "gas"
-      "retrieve"
-      "actions"
-      "logs" !important;
+      "retrieve" !important;
   }
 }
 
@@ -5116,6 +5157,231 @@ textarea:focus {
 .premium-input.is-textarea {
   resize: none;
   line-height: 1.6;
+}
+
+/* Compact layout for in-card donor deposit form - slightly relaxed sizing */
+.deposit-form.is-naked {
+  min-height: unset !important;
+  gap: 0.75rem !important;
+  padding: 0 !important;
+}
+
+.deposit-form.is-naked .form-header-premium {
+  margin-bottom: 0.35rem;
+}
+
+.deposit-form.is-naked .step-indicator-luxe {
+  margin-bottom: 0.45rem;
+  max-width: 260px;
+}
+
+.deposit-form.is-naked .step-dot-luxe {
+  width: 26px;
+  height: 26px;
+  font-size: 0.75rem;
+}
+
+.deposit-form.is-naked .form-heading-luxe .eyebrow-accent {
+  margin-bottom: 0.12rem;
+  font-size: 0.7rem;
+}
+
+.deposit-form.is-naked .form-heading-luxe .gradient-text-luxe {
+  margin-bottom: 0.18rem;
+  font-size: 1.4rem;
+}
+
+.deposit-form.is-naked .heading-subtext {
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.deposit-form.is-naked .form-grid-luxe {
+  gap: 0.75rem;
+}
+
+.deposit-form.is-naked .premium-field {
+  gap: 0.3rem;
+}
+
+.deposit-form.is-naked .field-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding-left: 0.2rem;
+}
+
+.deposit-form.is-naked .premium-input,
+.deposit-form.is-naked .premium-select {
+  padding: 0.58rem 0.9rem;
+  font-size: 0.92rem;
+  border-radius: 0.65rem;
+}
+
+.deposit-form.is-naked .premium-select {
+  background-position: right 0.85rem center;
+  background-size: 1.05rem;
+  padding-right: 2.3rem;
+}
+
+.step1-continue-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+
+.step1-continue-field .luxe-primary-button {
+  margin-top: auto;
+}
+
+.deposit-form.is-naked .form-actions-luxe {
+  margin-top: 0.75rem;
+}
+
+.deposit-form.is-naked .luxe-primary-button {
+  padding: 0.62rem 1.75rem;
+  font-size: 0.92rem;
+}
+
+.deposit-form.is-naked .luxe-secondary-button {
+  padding: 0.62rem 1.45rem;
+  font-size: 0.92rem;
+}
+
+/* Minimalist Phone Number Input */
+.premium-phone-input-wrap {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  padding: 0 1.15rem;
+  border-radius: var(--radius-md);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.premium-phone-input-wrap:hover {
+  border-color: rgba(var(--accent-rgb, 16, 185, 129), 0.4);
+}
+
+.premium-phone-input-wrap:focus-within {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.phone-prefix-code {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  user-select: none;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.premium-phone-input-wrap:focus-within .phone-prefix-code {
+  color: var(--text);
+}
+
+.phone-prefix-divider {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--line);
+  margin: 0 0.85rem;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.phone-number-field {
+  flex: 1;
+  min-width: 0;
+  border: none !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 1rem 0;
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  width: 100%;
+}
+
+.phone-number-field::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+/* Compact layout for in-card donor deposit form (.is-naked) */
+.deposit-form.is-naked .premium-phone-input-wrap {
+  padding: 0 0.85rem;
+  border-radius: 0.65rem;
+  min-height: 2.38rem;
+}
+
+.deposit-form.is-naked .phone-prefix-code {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.deposit-form.is-naked .phone-prefix-divider {
+  height: 1.1rem;
+  margin: 0 0.65rem;
+}
+
+.deposit-form.is-naked .phone-number-field {
+  padding: 0.58rem 0;
+  font-size: 0.92rem;
+}
+
+/* Light Mode Overrides */
+:root[data-theme-mode="light"] .premium-phone-input-wrap,
+[data-theme-mode="light"] .premium-phone-input-wrap {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+:root[data-theme-mode="light"] .premium-phone-input-wrap:hover,
+[data-theme-mode="light"] .premium-phone-input-wrap:hover {
+  border-color: #94a3b8;
+}
+
+:root[data-theme-mode="light"] .premium-phone-input-wrap:focus-within,
+[data-theme-mode="light"] .premium-phone-input-wrap:focus-within {
+  background: #ffffff;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
+}
+
+:root[data-theme-mode="light"] .phone-prefix-code,
+[data-theme-mode="light"] .phone-prefix-code {
+  color: #64748b;
+}
+
+:root[data-theme-mode="light"] .premium-phone-input-wrap:focus-within .phone-prefix-code,
+[data-theme-mode="light"] .premium-phone-input-wrap:focus-within .phone-prefix-code {
+  color: #1e293b;
+}
+
+:root[data-theme-mode="light"] .phone-prefix-divider,
+[data-theme-mode="light"] .phone-prefix-divider {
+  background: #cbd5e1;
+}
+
+:root[data-theme-mode="light"] .phone-number-field,
+[data-theme-mode="light"] .phone-number-field {
+  color: #0f172a;
+}
+
+:root[data-theme-mode="light"] .phone-number-field::placeholder,
+[data-theme-mode="light"] .phone-number-field::placeholder {
+  color: #94a3b8;
+  opacity: 0.85;
 }
 
 .premium-select {
@@ -6487,7 +6753,7 @@ textarea:focus {
     0 20px 40px rgba(0, 0, 0, 0.4),
     inset 0 0 40px rgba(16, 185, 129, 0.05) !important;
   color: #F0F6FC !important;
-  padding: 2.5rem !important;
+  padding: 1.5rem !important;
   position: relative !important;
   overflow: hidden !important;
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
@@ -6517,6 +6783,7 @@ textarea:focus {
   opacity: 0.3;
   transition: opacity 0.5s ease;
   animation: shimmer 4s linear infinite;
+  pointer-events: none;
 }
 
 @keyframes shimmer { to { background-position: 200% center; } }
