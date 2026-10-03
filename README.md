@@ -1,4 +1,4 @@
-# SAFE: Sustainable Accessible Food Ecosystem
+# SAFE: Smart Automated Food Exchange
 ### Autonomous Food Spoilage Monitoring, Biometric Accountability & Fail-Secure Hardware Actuation
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](https://opensource.org/licenses/MIT)
