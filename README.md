@@ -183,16 +183,3 @@ ASEP2-PWA-2.0/
 ├── package.json
 └── README.md
 ```
-
----
-
-## 👥 Academic & Patent Credits
-
-* **Patent Applicants**: Vishwakarma Institute of Technology (VIT), Pune, Maharashtra, India
-* **Faculty Mentors**: Prof. Dr. Anil Kadu, Prof. Dr. Amruta Patil
-* **Inventors & Student Researchers**:
-  - Sanskar Dnyaneshwar Dhonde
-  - Sara Salim Tamboli
-  - Gandharv Mahesh Sapthashwa
-  - Sarah Dighvijay Narsay
-  - M. Arsh Sarakwas
