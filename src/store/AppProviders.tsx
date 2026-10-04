@@ -17,7 +17,8 @@ export function AppProviders({ children }: PropsWithChildren) {
   const [state, dispatch] = useReducer(appReducer, initialAppState, (defaultState) => {
     const saved        = localStorage.getItem(STORAGE_KEY);
     const hasPaired    = localStorage.getItem(PAIRING_KEY) === "true";
-    const savedMac     = localStorage.getItem(HARDWARE_MAC_KEY) ?? "";
+    const rawSavedMac  = localStorage.getItem(HARDWARE_MAC_KEY) ?? "";
+    const savedMac     = (rawSavedMac && rawSavedMac !== "ECOLOCKERESP" && rawSavedMac !== "SIMULATED") ? rawSavedMac : "E8F60A893D4C";
     const isVisualizer = typeof window !== "undefined" && window.location.pathname === "/visualizer";
 
     if (!saved) {
@@ -185,15 +186,13 @@ export function AppProviders({ children }: PropsWithChildren) {
         const fsOccupancy: string = data?.occupancyState ?? "empty";
         const hasDonation = !!data?.donation?.id;
 
-        // ── RTDB is ground truth — read its current occupancy first ──────────
-        // Firestore can have stale "occupied" data from a previous session.
-        // We MUST cross-check RTDB before restoring a donation, so the physical
-        // hardware state always wins.
+        // ── RTDB & Ultrasonic Sensor is ground truth ────────────────────────
+        // Limit: 34.0 cm. Distance >= 34.0 cm indicates an empty locker.
         const rtdbLocker = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
-        const rtdbSaysOccupied = rtdbLocker?.occupancyState === "occupied" || rtdbLocker?.occupancyState === "spoiled";
+        const isDistanceEmpty = typeof rtdbLocker?.telemetry?.distanceCm === "number" && rtdbLocker.telemetry.distanceCm >= 34.0;
 
-        // ── Occupied: restore donation only if RTDB also confirms occupied ──
-        if ((fsOccupancy === "occupied" || fsOccupancy === "spoiled") && hasDonation && rtdbSaysOccupied) {
+        // ── Occupied: restore donation from Firestore ONLY if physically occupied ───
+        if (!isDistanceEmpty && (fsOccupancy === "occupied" || fsOccupancy === "spoiled") && hasDonation) {
           const qualityScore = rtdbLocker?.foodQualityScore ?? (data?.item?.latestQualityScore ?? "fresh");
           const deadline     = rtdbLocker?.deadlineEstimate ?? (data?.prediction?.deadlineEstimate ?? {
             hoursRemaining: 36,
@@ -230,18 +229,8 @@ export function AppProviders({ children }: PropsWithChildren) {
           console.log(`[AppProviders] ✅ Safe 1 donation restored from Firestore: "${restored.foodName}"`);
         }
 
-        // ── Firestore says occupied but RTDB says empty → hardware wins, clear it ──
-        else if ((fsOccupancy === "occupied" || fsOccupancy === "spoiled") && !rtdbSaysOccupied) {
-          console.log("[AppProviders] ⚠️ Firestore says occupied but RTDB says empty — trusting hardware, clearing donation.");
-          dispatch({
-            type: "patch-locker",
-            id: HARDWARE_LOCKER_ID,
-            locker: { activeDonation: undefined, occupancyState: "empty" }
-          });
-        }
-
-        // ── Empty: both agree locker is vacant ───────────────────────────────
-        else if (fsOccupancy === "empty") {
+        // ── Empty: both agree locker is vacant or sensor reads >= 34.0 cm ─────
+        else if (fsOccupancy === "empty" || isDistanceEmpty) {
           const cur = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
           if (cur?.occupancyState !== "empty" || cur?.activeDonation) {
             dispatch({
@@ -265,11 +254,12 @@ export function AppProviders({ children }: PropsWithChildren) {
 
   // ── RTDB: Live hardware status + telemetry for Safe 1 (Continuous) ─────────
   useEffect(() => {
-    // 1. Subscribe to all telemetry nodes on RTDB so any live ESP32 stream is captured
-    const unsubAll = subscribeAllTelemetry((mac, rtdbTelemetry) => {
+    const handleTelemetryUpdate = (source: string, rtdbTelemetry: any) => {
       if (!rtdbTelemetry) return;
+      if (rtdbTelemetry.internalTempC == null && rtdbTelemetry.distanceCm == null && rtdbTelemetry.humidityPct == null) return;
+
       const domainTel = rtdbToDomainTelemetry(rtdbTelemetry);
-      console.log(`[AppProviders] 📡 Live RTDB Telemetry from ${mac}: ${domainTel.internalTempC}°C, ${domainTel.humidityPct}%, ${domainTel.gasResistanceOhms}Ω`);
+      console.log(`[AppProviders] 📡 Live RTDB Telemetry from ${source}: ${domainTel.internalTempC}°C, ${domainTel.humidityPct}%, ${domainTel.distanceCm}cm`);
 
       const patchData: any = { 
         telemetry: domainTel,
@@ -277,8 +267,8 @@ export function AppProviders({ children }: PropsWithChildren) {
         lastSyncedAt: new Date().toISOString()
       };
 
-      if (mac && mac !== "chamber-1" && mac !== "SIMULATED" && !stateRef.current.hardwareMac) {
-        dispatch({ type: "set-hardware-mac", mac });
+      if (source && source !== "chamber-1" && source !== "SIMULATED" && !stateRef.current.hardwareMac) {
+        dispatch({ type: "set-hardware-mac", mac: source });
       }
 
       if (rtdbTelemetry.daysRemaining !== undefined && rtdbTelemetry.safetyClass !== undefined) {
@@ -307,12 +297,23 @@ export function AppProviders({ children }: PropsWithChildren) {
         }
       }
 
-      dispatch({ type: "patch-locker", id: HARDWARE_LOCKER_ID, locker: patchData });
-    });
+      // ── Physical Ultrasonic Occupancy Sensor Calibration ──────────────
+      // Limit: strictly 34.0 cm
+      // < 34.0 cm  => Occupied (food is physically present in chamber)
+      // >= 34.0 cm => Empty (chamber is vacant)
+      if (typeof domainTel.distanceCm === "number" && domainTel.distanceCm > 1.0) {
+        if (domainTel.distanceCm < 34.0) {
+          patchData.occupancyState = "occupied";
+        } else {
+          patchData.occupancyState = "empty";
+          patchData.activeDonation = undefined;
+        }
+      }
 
-    // 2. Status subscription for physical door and lock states
-    const targetMac = state.hardwareMac && state.hardwareMac !== "SIMULATED" ? state.hardwareMac : HARDWARE_LOCKER_ID;
-    const unsubStatus = subscribeStatus(targetMac, (rtdbStatus) => {
+      dispatch({ type: "patch-locker", id: HARDWARE_LOCKER_ID, locker: patchData });
+    };
+
+    const handleStatusUpdate = (rtdbStatus: any) => {
       if (!rtdbStatus) return;
 
       const occState: "occupied" | "empty" | "processing" | "spoiled" =
@@ -321,22 +322,36 @@ export function AppProviders({ children }: PropsWithChildren) {
         rtdbStatus.occupancy === "processing" ? "processing" :
         "empty";
 
+      const curLocker = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
+      const isDistanceEmpty = typeof curLocker?.telemetry?.distanceCm === "number" && curLocker.telemetry.distanceCm >= 34.0;
+      const isOccupiedByDonation = Boolean(curLocker?.activeDonation) && !isDistanceEmpty;
+
       dispatch({
         type: "patch-locker",
         id: HARDWARE_LOCKER_ID,
         locker: {
           lockState:      rtdbStatus.lock_state === "unlocked" ? "unlocked" : "locked",
           doorState:      rtdbStatus.door_state === "open"     ? "open"     : "closed",
-          occupancyState: occState,
-          bleConnected:   true,
-          ...(occState === "empty" ? { activeDonation: undefined } : {})
+          occupancyState: isDistanceEmpty ? "empty" : (isOccupiedByDonation ? "occupied" : occState),
+          bleConnected:   true
         }
       });
-    });
+    };
+
+    // 1. Telemetry subscriptions: listen to both chamber-1 AND physical MAC address
+    const unsubChamberTel = subscribeTelemetry("chamber-1", (tel) => handleTelemetryUpdate("chamber-1", tel));
+    const targetMac = (state.hardwareMac && state.hardwareMac !== "SIMULATED") ? state.hardwareMac : "E8F60A893D4C";
+    const unsubMacTel = (targetMac !== "chamber-1") ? subscribeTelemetry(targetMac, (tel) => handleTelemetryUpdate(targetMac, tel)) : () => {};
+
+    // 2. Status subscriptions: listen to both chamber-1 AND physical MAC address
+    const unsubChamberStatus = subscribeStatus("chamber-1", handleStatusUpdate);
+    const unsubMacStatus = (targetMac !== "chamber-1") ? subscribeStatus(targetMac, handleStatusUpdate) : () => {};
 
     return () => {
-      unsubAll();
-      unsubStatus();
+      unsubChamberTel();
+      unsubMacTel();
+      unsubChamberStatus();
+      unsubMacStatus();
     };
   }, [state.hardwareMac]);
 

@@ -87,17 +87,17 @@ export function KioskPage() {
   const [selectedDonation, setSelectedDonation] = useState(donation);
   const rawTelemetry = currentLocker?.telemetry;
   const telemetry = {
-    internalTempC: rawTelemetry?.internalTempC != null ? rawTelemetry.internalTempC : 26.09,
-    externalTempC: rawTelemetry?.externalTempC != null ? rawTelemetry.externalTempC : 26.19,
-    humidityPct: rawTelemetry?.humidityPct != null ? rawTelemetry.humidityPct : 77.59,
-    pressureHpa: rawTelemetry?.pressureHpa != null ? rawTelemetry.pressureHpa : 934.33,
-    gasResistanceOhms: rawTelemetry?.gasResistanceOhms != null ? rawTelemetry.gasResistanceOhms : 239981,
-    distanceCm: rawTelemetry?.distanceCm != null ? rawTelemetry.distanceCm : 3.6,
-    heaterStep: rawTelemetry?.heaterStep ?? 2,
+    internalTempC: rawTelemetry?.internalTempC != null ? rawTelemetry.internalTempC : 0,
+    externalTempC: rawTelemetry?.externalTempC != null ? rawTelemetry.externalTempC : 0,
+    humidityPct: rawTelemetry?.humidityPct != null ? rawTelemetry.humidityPct : 0,
+    pressureHpa: rawTelemetry?.pressureHpa != null ? rawTelemetry.pressureHpa : 0,
+    gasResistanceOhms: rawTelemetry?.gasResistanceOhms != null ? rawTelemetry.gasResistanceOhms : 0,
+    distanceCm: rawTelemetry?.distanceCm != null ? rawTelemetry.distanceCm : 0,
+    heaterStep: rawTelemetry?.heaterStep ?? 0,
     sensorHealth: rawTelemetry?.sensorHealth || "healthy",
     heuristicGasProfile: (rawTelemetry?.heuristicGasProfile && rawTelemetry.heuristicGasProfile.length > 0)
       ? rawTelemetry.heuristicGasProfile
-      : ["Live hardware telemetry stream active"]
+      : ["Awaiting live hardware sensor stream..."]
   };
   const isFaulted = currentLocker?.faultState !== "none";
   const isSanitizing = currentLocker?.sanitizationState === "running";
@@ -743,11 +743,11 @@ export function KioskPage() {
               {/* Mini telemetry hint */}
               <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', opacity: 0.9 }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{(telemetry?.internalTempC ?? 0).toFixed(1)}°</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{(telemetry?.internalTempC && telemetry.internalTempC > 0) ? `${telemetry.internalTempC.toFixed(1)}°` : "--"}</div>
                   <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Temp</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{(telemetry?.humidityPct ?? 0).toFixed(0)}%</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{(telemetry?.humidityPct && telemetry.humidityPct > 0) ? `${telemetry.humidityPct.toFixed(0)}%` : "--"}</div>
                   <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Humidity</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
@@ -903,7 +903,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">{t("internalTemp")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.internalTempC.toFixed(2)}</span>
+                    <span className="spec-value">{telemetry.internalTempC > 0 ? telemetry.internalTempC.toFixed(2) : "—"}</span>
                     <span className="spec-unit">°C</span>
                   </div>
                 </div>
@@ -913,7 +913,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">Probe Temp</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.externalTempC != null ? telemetry.externalTempC.toFixed(2) : "—"}</span>
+                    <span className="spec-value">{telemetry.externalTempC > 0 ? telemetry.externalTempC.toFixed(2) : "—"}</span>
                     <span className="spec-unit">°C</span>
                   </div>
                 </div>
@@ -923,7 +923,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">{t("humidity")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.humidityPct.toFixed(1)}</span>
+                    <span className="spec-value">{telemetry.humidityPct > 0 ? telemetry.humidityPct.toFixed(1) : "—"}</span>
                     <span className="spec-unit">%</span>
                   </div>
                 </div>
@@ -933,7 +933,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">{t("pressure")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.pressureHpa.toFixed(1)}</span>
+                    <span className="spec-value">{telemetry.pressureHpa > 0 ? telemetry.pressureHpa.toFixed(1) : "—"}</span>
                     <span className="spec-unit">hPa</span>
                   </div>
                 </div>
@@ -943,7 +943,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">{t("airQuality")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.gasResistanceOhms.toLocaleString()}</span>
+                    <span className="spec-value">{telemetry.gasResistanceOhms > 0 ? telemetry.gasResistanceOhms.toLocaleString() : "—"}</span>
                     <span className="spec-unit">Ω</span>
                   </div>
                 </div>
@@ -953,7 +953,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">Distance</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.distanceCm != null ? telemetry.distanceCm.toFixed(1) : "—"}</span>
+                    <span className="spec-value">{telemetry.distanceCm > 0 ? telemetry.distanceCm.toFixed(1) : "—"}</span>
                     <span className="spec-unit">cm</span>
                   </div>
                 </div>

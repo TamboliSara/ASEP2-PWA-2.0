@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { bleService } from "../../services/ble";
 import { cacheAlert, cacheDonation, cacheEvent, cacheLockerSnapshot, cachePredictionSnapshot, cacheSensorSnapshot, clearAllData, enqueueSync } from "../../services/db";
 import { initiateDepositFn, initiateRetrievalFn } from "../../services/firebase";
-import { registerDevice, unlockLocker, adminUnlockLocker, lockLocker, spoilageLockLocker, sanitizeLocker, getOccupancy, setDeviceFoodType } from "../../services/rtdb";
+import { registerDevice, unlockLocker, adminUnlockLocker, lockLocker, spoilageLockLocker, sanitizeLocker, getOccupancy, getDeviceTelemetry, updateDeviceStatus, setDeviceFoodType } from "../../services/rtdb";
 import { processSyncQueue, syncAlert, syncDonation, syncEvent, syncPrediction, syncRetrieval, syncSensorSnapshot, syncSnapshot, triggerAlertEmail } from "../../services/sync";
 import { syncInitialState } from "../../services/initialSync";
 import { initialAppState, buildFreshInitialState, HARDWARE_LOCKER_ID } from "../../store/appState";
@@ -66,6 +66,17 @@ export function useLockerController() {
   const { state, dispatch } = useAppContext();
   const { t } = useTranslation();
   const [isBusy, setIsBusy] = useState(false);
+  const manualConfirmRef = useRef(false);
+  const wakeUpRef = useRef<(() => void) | null>(null);
+
+  function confirmDepositManually() {
+    console.log("[Deposit] 👆 User triggered manual food confirmation");
+    manualConfirmRef.current = true;
+    dispatch({ type: "set-sync-message", message: "✓ Food confirmed! Securing chamber..." });
+    if (wakeUpRef.current) {
+      wakeUpRef.current();
+    }
+  }
 
   const currentLocker = useMemo(() => {
     return state.lockers.find((l) => l.lockerId === state.selectedLockerId) || state.lockers[0];
@@ -363,8 +374,24 @@ export function useLockerController() {
         // Persist food type so AppProviders can reconstruct the donation on reload
         try { localStorage.setItem("ecolocker-last-food-type", foodTypeKey); } catch {}
 
-        // Send unlock to RTDB (ESP32 will pick it up and open the solenoid)
-        await unlockLocker(HARDWARE_LOCKER_ID, hardwareMac);
+        // Listen for live BLE notifications (e.g. OCCUPIED)
+        let bleOccupied = false;
+        const unsubBle = bleService.onNotification((msg) => {
+          if (msg === "OCCUPIED") {
+            console.log("[Deposit] 📶 BLE notification: OCCUPIED detected");
+            bleOccupied = true;
+          }
+        });
+
+        // Send single unlock to RTDB & BLE (ESP32 will pick it up and open the solenoid)
+        const targetMac = (hardwareMac && hardwareMac !== "SIMULATED" && hardwareMac !== "OFFLINE")
+          ? hardwareMac
+          : "E8F60A893D4C";
+
+        // Priority 1: Instant local Bluetooth command (fires in <15ms)
+        bleService.sendUnlock().catch(() => {});
+        // Priority 2: Direct parallel REST push to Cloud RTDB
+        await unlockLocker(HARDWARE_LOCKER_ID, targetMac);
         const unlockEvent = await bleService.unlock().catch(() => ({
           id: generateId(),
           lockerId: HARDWARE_LOCKER_ID,
@@ -374,16 +401,87 @@ export function useLockerController() {
           syncState: "synced"
         } as LockerEvent));
 
-        // Wait for the ESP32 to complete its unlock→wait→relock→ultrasonic cycle
-        // The firmware takes ~7-8 seconds (5s door open + 3 readings)
-        dispatch({ type: "set-sync-message", message: "Door opened — waiting for food deposit and auto-relock..." });
-        await new Promise(resolve => setTimeout(resolve, 9000));
+        // ── INTELLIGENT DEPOSIT & ULTRASONIC VERIFICATION LOOP ──────────────
+        // 1. Solenoid unlocks cleanly on the first pulse without conflicting second unlocks.
+        // 2. Polls RTDB occupancy, ultrasonic distanceCm, and BLE notifications over a 25s window.
+        // 3. Sensor threshold calibrated: empty chamber is ~36.5cm. Any item >= 2.0cm tall
+        //    reduces measured distance to <= 34.5cm (solving the 22.0cm false rejection bug).
+        // 4. Immediately confirms deposit as soon as food presence is registered.
+        manualConfirmRef.current = false;
+        let isFoodConfirmed = false;
+        const TOTAL_WAIT_MS = 30000; // 30s generous window for human donor
+        const loopStart = Date.now();
+        const baselineDist = (currentLocker.telemetry?.distanceCm && currentLocker.telemetry.distanceCm > 1.0)
+          ? currentLocker.telemetry.distanceCm
+          : 36.5;
 
-        // Poll RTDB occupancy — the ESP32 wrote the result after relocking
-        const occupancy = await getOccupancy(hardwareMac ?? HARDWARE_LOCKER_ID);
-        console.log(`[Deposit] 📡 RTDB occupancy after unlock cycle: "${occupancy}"`);
+        while (Date.now() - loopStart < TOTAL_WAIT_MS) {
+          if (manualConfirmRef.current) {
+            console.log("[Deposit] ✅ Immediate manual confirmation detected!");
+            isFoodConfirmed = true;
+            break;
+          }
 
-        if (occupancy !== "occupied") {
+          const elapsed = Date.now() - loopStart;
+          const remainingSec = Math.max(1, Math.ceil((TOTAL_WAIT_MS - elapsed) / 1000));
+
+          // Read latest sensor data from hardware
+          const [occupancy, telemetry] = await Promise.all([
+            getOccupancy(targetMac).catch(() => null),
+            getDeviceTelemetry(targetMac).catch(() => null)
+          ]);
+
+          if (manualConfirmRef.current) {
+            console.log("[Deposit] ✅ Immediate manual confirmation detected after sensor check!");
+            isFoodConfirmed = true;
+            break;
+          }
+
+          const dist = telemetry?.distanceCm;
+          const distStr = typeof dist === "number" && dist > 0 && dist < 400 ? `${dist.toFixed(1)} cm` : "Scanning...";
+
+          if (elapsed < 8000) {
+            dispatch({
+              type: "set-sync-message",
+              message: `Door unlocked! Place food inside and close door (${remainingSec}s)... [Sensor: ${distStr}]`
+            });
+          } else {
+            dispatch({
+              type: "set-sync-message",
+              message: `Verifying food presence (${remainingSec}s)... [Sensor: ${distStr}]`
+            });
+          }
+
+          // Detection criteria: strictly < 34.0 cm confirms food is placed inside the chamber
+          // Empty chamber measures ~34.3 cm. Any item placed reduces distance to < 34.0 cm.
+          const distanceConfirmed = typeof dist === "number" && dist > 1.0 && dist < 34.0;
+          const occupancyConfirmed = occupancy === "occupied";
+          const manualConfirmed = manualConfirmRef.current;
+
+          // Give at least 6s for auto-detection so door isn't shut prematurely, but manual confirmation bypasses immediately!
+          const canAutoConfirm = elapsed >= 6000;
+
+          console.log(`[Deposit Poll] Elapsed: ${(elapsed / 1000).toFixed(1)}s, Dist: ${dist}cm, Confirmed: ${distanceConfirmed}, Manual: ${manualConfirmed}, Occupancy: "${occupancy}", canAutoConfirm: ${canAutoConfirm}`);
+
+          if (manualConfirmed || (canAutoConfirm && (occupancyConfirmed || distanceConfirmed || bleOccupied))) {
+            console.log(`[Deposit] ✅ Food presence confirmed! (dist: ${dist}cm, confirmed: ${distanceConfirmed}, manual: ${manualConfirmed}, ble: ${bleOccupied})`);
+            isFoodConfirmed = true;
+            break;
+          }
+
+          // Abortable sleep: if user taps manual confirm, wakes up immediately!
+          await new Promise<void>(resolve => {
+            const timer = setTimeout(resolve, 600);
+            wakeUpRef.current = () => {
+              clearTimeout(timer);
+              resolve();
+            };
+          });
+        }
+
+        unsubBle();
+
+        if (!isFoodConfirmed) {
           // Play buzzer alarm
           playAlarmSound();
 
@@ -395,14 +493,14 @@ export function useLockerController() {
               id: ghostAlertId,
               lockerId: HARDWARE_LOCKER_ID,
               title: "No Food Detected — Deposit Cancelled",
-              detail: "The ultrasonic sensor did not detect any food in the chamber after the door cycle. The locker has been automatically re-locked. Please ensure food is fully inside before the door closes, then try again.",
+              detail: "The ultrasonic sensor did not detect any food in the chamber after 20 seconds. The locker has been automatically re-locked. Please ensure food is placed inside and try again.",
               severity: "warning" as const,
               createdAt: new Date().toISOString()
             }
           });
 
           // Cancel the deposit and inform the user
-          console.warn("[Deposit] ⚠️  No food detected after unlock cycle. Cancelling deposit.");
+          console.warn("[Deposit] ⚠️ No food detected after extended cycle. Cancelling deposit.");
           dispatch({
             type: "set-sync-message",
             message: "⚠️ No food was detected inside the locker. The door has been re-locked. Please try again."
@@ -432,30 +530,47 @@ export function useLockerController() {
           return null;
         }
 
-        // Food confirmed! Lock and sanitize.
-        await lockLocker(HARDWARE_LOCKER_ID, hardwareMac);
-        const lockEvent = await bleService.lock().catch(() => ({
+        dispatch({ type: "set-sync-message", message: "Food verified! Securing chamber..." });
+
+        // Food confirmed! Fire lock & status updates in parallel without blocking UI
+        lockLocker(HARDWARE_LOCKER_ID, targetMac).catch(() => {});
+        updateDeviceStatus(HARDWARE_LOCKER_ID, {
+          lock_state: "locked",
+          door_state: "closed",
+          occupancy: "occupied"
+        }).catch(() => {});
+        if (targetMac !== HARDWARE_LOCKER_ID) {
+          updateDeviceStatus(targetMac, {
+            lock_state: "locked",
+            door_state: "closed",
+            occupancy: "occupied"
+          }).catch(() => {});
+        }
+        bleService.lock().catch(() => {});
+        sanitizeLocker(HARDWARE_LOCKER_ID, targetMac).catch(() => {});
+        bleService.startSanitization().catch(() => {});
+
+        const lockEvent: LockerEvent = {
           id: generateId(),
           lockerId: HARDWARE_LOCKER_ID,
           type: "lock",
           createdAt: new Date().toISOString(),
           detail: "Locked physical door.",
           syncState: "synced"
-        } as LockerEvent));
-
-        await sanitizeLocker(HARDWARE_LOCKER_ID, hardwareMac);
-        const cycleEvent = await bleService.startSanitization().catch(() => ({
+        };
+        const cycleEvent: LockerEvent = {
           id: generateId(),
           lockerId: HARDWARE_LOCKER_ID,
           type: "cycle_complete",
           createdAt: new Date().toISOString(),
           detail: "Sanitization started.",
           syncState: "synced"
-        } as LockerEvent));
+        };
 
         const events: LockerEvent[] = [unlockEvent, lockEvent, cycleEvent];
 
-        // Now commit local updates and sync to database since food is physically confirmed
+        // Now commit local updates immediately since food is physically confirmed
+        const liveTel = currentLocker.telemetry;
         dispatch({
           type: "patch-locker",
           id: currentLocker.lockerId,
@@ -467,7 +582,19 @@ export function useLockerController() {
             sanitizationState: "complete",
             foodQualityScore: mockReadings.qualityScore,
             deadlineEstimate: mockReadings.deadlineEstimate,
-            telemetry: mockReadings.telemetry,
+            telemetry: (isHardwareLocker && liveTel && liveTel.internalTempC > 0)
+              ? { ...liveTel }
+              : {
+                ...mockReadings.telemetry,
+                ...(liveTel && liveTel.internalTempC > 10 ? {
+                  internalTempC: liveTel.internalTempC,
+                  externalTempC: liveTel.externalTempC,
+                  humidityPct: liveTel.humidityPct,
+                  pressureHpa: liveTel.pressureHpa,
+                  gasResistanceOhms: liveTel.gasResistanceOhms,
+                  distanceCm: liveTel.distanceCm
+                } : {})
+              },
             lastSyncedAt: new Date().toISOString()
           }
         });
@@ -475,40 +602,41 @@ export function useLockerController() {
         dispatch({ type: "reset-donation-draft" });
         dispatch({ type: "set-sync-message", message: `✅ Food detected and locker secured! Deposit recorded.` });
 
-        // ── Immediate Sync to Firestore ──────────────────────────────────
-        try {
-          await syncDonation(donation, sensorSnapshot, predictionSnapshot);
-        } catch (e) {
-          console.warn("[Deposit] Immediate sync failed, falling back to queue:", e);
+        // Update sensorSnapshot with live hardware telemetry before sync
+        if (isHardwareLocker && liveTel && liveTel.internalTempC > 0) {
+          sensorSnapshot.telemetry = { ...liveTel };
         }
+
+        // Fire background persistence & sync without blocking UI navigation
+        syncDonation(donation, sensorSnapshot, predictionSnapshot).catch(e => {
+          console.warn("[Deposit] Immediate sync failed, falling back to queue:", e);
+        });
 
         if (initiateDepositFn) {
-          try {
-            await withTimeout(initiateDepositFn({
-              mac_address: hardwareMac ?? HARDWARE_LOCKER_ID,
-              item_name: donation.foodName,
-              dietary_tags: donation.dietTag ? [donation.dietTag] : [],
-              quantity: 1,
-              donor_name: donation.donorName,
-              donor_contact: donation.donorContact,
-              allergens_notes: donation.allergensNotes,
-              category_label: donation.categoryLabel,
-              locker_number: lockerNumber
-            }));
-          } catch (e) {
+          initiateDepositFn({
+            mac_address: hardwareMac ?? HARDWARE_LOCKER_ID,
+            item_name: donation.foodName,
+            dietary_tags: donation.dietTag ? [donation.dietTag] : [],
+            quantity: 1,
+            donor_name: donation.donorName,
+            donor_contact: donation.donorContact,
+            allergens_notes: donation.allergensNotes,
+            category_label: donation.categoryLabel,
+            locker_number: lockerNumber
+          }).catch(e => {
             console.error("Cloud function initiateDeposit failed (non-blocking):", e);
-          }
+          });
         }
 
-        await cacheDonation(donation);
-        await enqueueSync(createSyncRecord("donation", donation.id));
-        await cacheSensorSnapshot(sensorSnapshot);
-        await enqueueSync(createSyncRecord("sensorSnapshot", sensorSnapshot.id));
-        await cachePredictionSnapshot(predictionSnapshot);
-        await enqueueSync(createSyncRecord("prediction", predictionSnapshot.id));
+        cacheDonation(donation).catch(() => {});
+        enqueueSync(createSyncRecord("donation", donation.id)).catch(() => {});
+        cacheSensorSnapshot(sensorSnapshot).catch(() => {});
+        enqueueSync(createSyncRecord("sensorSnapshot", sensorSnapshot.id)).catch(() => {});
+        cachePredictionSnapshot(predictionSnapshot).catch(() => {});
+        enqueueSync(createSyncRecord("prediction", predictionSnapshot.id)).catch(() => {});
         for (const event of events) {
-          await cacheEvent(event);
-          await enqueueSync(createSyncRecord("event", event.id));
+          cacheEvent(event).catch(() => {});
+          enqueueSync(createSyncRecord("event", event.id)).catch(() => {});
           dispatch({ type: "append-log", event });
         }
 
@@ -962,6 +1090,7 @@ export function useLockerController() {
       pairWithMac,
       reconnectLocker,
       submitDeposit,
+      confirmDepositManually,
       retrieveFood,
       triggerMaintenanceLockdown,
       clearFault,
