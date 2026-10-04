@@ -97,17 +97,17 @@ export function KioskPage() {
   const [selectedDonation, setSelectedDonation] = useState(donation);
   const rawTelemetry = currentLocker?.telemetry;
   const telemetry = {
-    internalTempC: rawTelemetry?.internalTempC != null ? rawTelemetry.internalTempC : 26.09,
-    externalTempC: rawTelemetry?.externalTempC != null ? rawTelemetry.externalTempC : 26.19,
-    humidityPct: rawTelemetry?.humidityPct != null ? rawTelemetry.humidityPct : 77.59,
-    pressureHpa: rawTelemetry?.pressureHpa != null ? rawTelemetry.pressureHpa : 934.33,
-    gasResistanceOhms: rawTelemetry?.gasResistanceOhms != null ? rawTelemetry.gasResistanceOhms : 239981,
-    distanceCm: rawTelemetry?.distanceCm != null ? rawTelemetry.distanceCm : 3.6,
-    heaterStep: rawTelemetry?.heaterStep ?? 2,
+    internalTempC: rawTelemetry?.internalTempC != null ? rawTelemetry.internalTempC : 0,
+    externalTempC: rawTelemetry?.externalTempC != null ? rawTelemetry.externalTempC : 0,
+    humidityPct: rawTelemetry?.humidityPct != null ? rawTelemetry.humidityPct : 0,
+    pressureHpa: rawTelemetry?.pressureHpa != null ? rawTelemetry.pressureHpa : 0,
+    gasResistanceOhms: rawTelemetry?.gasResistanceOhms != null ? rawTelemetry.gasResistanceOhms : 0,
+    distanceCm: rawTelemetry?.distanceCm != null ? rawTelemetry.distanceCm : 0,
+    heaterStep: rawTelemetry?.heaterStep ?? 0,
     sensorHealth: rawTelemetry?.sensorHealth || "healthy",
     heuristicGasProfile: (rawTelemetry?.heuristicGasProfile && rawTelemetry.heuristicGasProfile.length > 0)
       ? rawTelemetry.heuristicGasProfile
-      : ["Live hardware telemetry stream active"]
+      : ["Awaiting live hardware sensor stream..."]
   };
   const isFaulted = currentLocker?.faultState !== "none";
   const isSanitizing = currentLocker?.sanitizationState === "running";
@@ -747,11 +747,11 @@ export function KioskPage() {
               {/* Mini telemetry hint */}
               <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', opacity: 0.9 }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{toLocalDigits((telemetry?.internalTempC ?? 0).toFixed(1), locale)}°</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{(telemetry?.internalTempC && telemetry.internalTempC > 0) ? `${toLocalDigits(telemetry.internalTempC.toFixed(1), locale)}°` : "--"}</div>
                   <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{t("temp", "Temp")}</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{toLocalDigits((telemetry?.humidityPct ?? 0).toFixed(0), locale)}%</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{(telemetry?.humidityPct && telemetry.humidityPct > 0) ? `${toLocalDigits(telemetry.humidityPct.toFixed(0), locale)}%` : "--"}</div>
                   <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{t("humidityLabel", "Humidity")}</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
@@ -911,9 +911,9 @@ export function KioskPage() {
               <div className="nature-spec-card">
                 <div className="spec-icon-container">🌡️</div>
                 <div className="spec-info">
-                  <span className="spec-label">{t("internalTemp")}</span>
+                  <span className="spec-label">{t("internalTemp", "Internal Temp")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{toLocalDigits(telemetry.internalTempC.toFixed(2), locale)}</span>
+                    <span className="spec-value">{telemetry.internalTempC > 0 ? toLocalDigits(telemetry.internalTempC.toFixed(2), locale) : "—"}</span>
                     <span className="spec-unit">°C</span>
                   </div>
                 </div>
@@ -921,9 +921,9 @@ export function KioskPage() {
               <div className="nature-spec-card">
                 <div className="spec-icon-container">🧪</div>
                 <div className="spec-info">
-                  <span className="spec-label">Probe Temp</span>
+                  <span className="spec-label">{t("probeTemp", "Probe Temp")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.externalTempC != null ? toLocalDigits(telemetry.externalTempC.toFixed(2), locale) : "—"}</span>
+                    <span className="spec-value">{telemetry.externalTempC != null && telemetry.externalTempC > 0 ? toLocalDigits(telemetry.externalTempC.toFixed(2), locale) : "—"}</span>
                     <span className="spec-unit">°C</span>
                   </div>
                 </div>
@@ -931,9 +931,9 @@ export function KioskPage() {
               <div className="nature-spec-card">
                 <div className="spec-icon-container">💧</div>
                 <div className="spec-info">
-                  <span className="spec-label">{t("humidity")}</span>
+                  <span className="spec-label">{t("humidity", "Humidity")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{toLocalDigits(telemetry.humidityPct.toFixed(1), locale)}</span>
+                    <span className="spec-value">{telemetry.humidityPct > 0 ? toLocalDigits(telemetry.humidityPct.toFixed(1), locale) : "—"}</span>
                     <span className="spec-unit">%</span>
                   </div>
                 </div>
@@ -941,9 +941,9 @@ export function KioskPage() {
               <div className="nature-spec-card">
                 <div className="spec-icon-container">📊</div>
                 <div className="spec-info">
-                  <span className="spec-label">{t("pressure")}</span>
+                  <span className="spec-label">{t("pressure", "Pressure")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{toLocalDigits(telemetry.pressureHpa.toFixed(1), locale)}</span>
+                    <span className="spec-value">{telemetry.pressureHpa > 0 ? toLocalDigits(telemetry.pressureHpa.toFixed(1), locale) : "—"}</span>
                     <span className="spec-unit">hPa</span>
                   </div>
                 </div>
@@ -951,9 +951,9 @@ export function KioskPage() {
               <div className="nature-spec-card">
                 <div className="spec-icon-container">✨</div>
                 <div className="spec-info">
-                  <span className="spec-label">{t("airQuality")}</span>
+                  <span className="spec-label">{t("airQuality", "Air Quality")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{toLocalDigits(telemetry.gasResistanceOhms.toLocaleString(), locale)}</span>
+                    <span className="spec-value">{telemetry.gasResistanceOhms > 0 ? toLocalDigits(telemetry.gasResistanceOhms.toLocaleString(), locale) : "—"}</span>
                     <span className="spec-unit">Ω</span>
                   </div>
                 </div>
@@ -961,9 +961,9 @@ export function KioskPage() {
               <div className="nature-spec-card">
                 <div className="spec-icon-container">📏</div>
                 <div className="spec-info">
-                  <span className="spec-label">Distance</span>
+                  <span className="spec-label">{t("distance", "Distance")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.distanceCm != null ? toLocalDigits(telemetry.distanceCm.toFixed(1), locale) : "—"}</span>
+                    <span className="spec-value">{telemetry.distanceCm != null && telemetry.distanceCm > 0 ? toLocalDigits(telemetry.distanceCm.toFixed(1), locale) : "—"}</span>
                     <span className="spec-unit">cm</span>
                   </div>
                 </div>

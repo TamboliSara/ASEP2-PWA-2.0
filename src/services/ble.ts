@@ -200,7 +200,7 @@ export class BleService {
   }
 
   // ── Hardware Commands ─────────────────────────────────────────────
-  async sendUnlock(): Promise<boolean>       { return this.writeCommand("UNLOCK"); }
+  async sendUnlock(): Promise<boolean>       { return this.writeCommand("ADMIN_UNLOCK"); }
   async sendLock(): Promise<boolean>         { return this.writeCommand("LOCK"); }
   async sendAdminUnlock(): Promise<boolean>  { return this.writeCommand("ADMIN_UNLOCK"); }
   async sendPing(): Promise<boolean>         { return this.writeCommand("PING"); }

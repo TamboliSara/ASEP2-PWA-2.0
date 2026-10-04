@@ -21,14 +21,15 @@ export const defaultDeadlineEstimate: DeadlineEstimate = {
 
 export const defaultTelemetry: SensorTelemetry = {
   timestamp: now.toISOString(),
-  internalTempC: 4.8,
-  externalTempC: 29.1,
-  humidityPct: 61,
-  pressureHpa: 1008.2,
-  gasResistanceOhms: 18230,
-  heaterStep: 2,
+  internalTempC: 0,
+  externalTempC: 0,
+  humidityPct: 0,
+  pressureHpa: 0,
+  gasResistanceOhms: 0,
+  distanceCm: 0,
+  heaterStep: 0,
   sensorHealth: "healthy",
-  heuristicGasProfile: ["Mild fermentation risk", "Low sulfur compounds", "Fresh starch profile"]
+  heuristicGasProfile: ["Awaiting live hardware sensor stream..."]
 };
 
 export const defaultDonationDraft: DonationDraft = {

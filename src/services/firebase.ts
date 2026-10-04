@@ -64,16 +64,7 @@ export function rtdbRef(path: string) {
 }
 
 function resolveLockerId(lockerId: string): string {
-  if (lockerId === "chamber-1") {
-    try {
-      const savedMac = localStorage.getItem("ecolocker-hardware-mac");
-      if (savedMac && savedMac !== "SIMULATED" && savedMac !== "") {
-        return savedMac;
-      }
-    } catch (e) {
-      console.warn("[Firebase] localStorage not available:", e);
-    }
-  }
+  // Keep canonical lockerId (e.g. chamber-1) so RTDB paths match the firmware exactly
   return lockerId;
 }
 

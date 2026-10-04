@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Package, ShieldCheck, Info, ChevronLeft, ChevronRight, Shield, AlertTriangle } from "lucide-react";
+import { ArrowRight, Package, ShieldCheck, Info, ChevronLeft, ChevronRight, Shield, AlertTriangle, Cpu } from "lucide-react";
 import { DepositForm } from "../components/forms/DepositForm";
 import { SafetyCapacityCard } from "../components/SafetyCapacityCard";
 import { useLockerController } from "../features/useLockerController";
@@ -20,8 +20,7 @@ export function DonorPage() {
   const [depositConfirmed, setDepositConfirmed] = useState(false);
   const [depositFailed, setDepositFailed] = useState(false);
   const [showSafetyCard, setShowSafetyCard] = useState(false);
-
-
+  const isHardwareChamber = currentLocker.lockerId === "chamber-1";
 
   async function handleSubmit(imageData?: string) {
     setDepositFailed(false);
@@ -76,6 +75,61 @@ export function DonorPage() {
 
 
 
+      {/* Active Deposit / Door Unlocked Progress Modal */}
+      <AnimatePresence>
+        {isBusy && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 15 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 15 }}
+              transition={{ type: "spring", damping: 26, stiffness: 320 }}
+              className="w-full max-w-md p-6 sm:p-8 rounded-[2rem] bg-panel/95 border border-accent/40 shadow-2xl flex flex-col items-center text-center space-y-5"
+            >
+              <div className="relative">
+                <div className="absolute inset-0 bg-accent/25 blur-2xl rounded-full scale-125 animate-pulse" />
+                <div className="relative w-16 h-16 rounded-2xl bg-accent/10 border border-accent/30 flex items-center justify-center text-accent">
+                  <Package className="w-8 h-8 animate-bounce" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/15 border border-accent/30">
+                  <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
+                  <span className="text-[11px] font-black uppercase tracking-widest text-accent">
+                    Solenoid Unlocked
+                  </span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-text">
+                  Place Food in Locker
+                </h3>
+                <p className="text-xs sm:text-sm text-text-muted max-w-xs mx-auto leading-relaxed">
+                  {state.syncMessage || "Open the locker door, place your food container inside, and push the door shut."}
+                </p>
+              </div>
+
+              <div className="w-full p-3.5 rounded-xl bg-surface-soft border border-line/20 flex items-center justify-between text-xs text-text-muted">
+                <span className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Ultrasonic Detection
+                </span>
+                <span className="font-mono font-bold text-accent">
+                  {currentLocker?.telemetry?.distanceCm != null && currentLocker.telemetry.distanceCm > 0
+                    ? `${currentLocker.telemetry.distanceCm} cm ${currentLocker.telemetry.distanceCm < 34.0 ? '(Food Detected)' : '(Empty / Awaiting Item)'}`
+                    : "SCANNING..."}
+                </span>
+              </div>
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Ghost-attempt failure banner — shown when hardware detects no food */}
       <AnimatePresence>
         {depositFailed && (
@@ -100,7 +154,7 @@ export function DonorPage() {
               </p>
               <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.6)", margin: 0, lineHeight: 1.55 }}>
                 The sensor did not detect food inside the chamber. The locker has been re-locked automatically.
-                Please place your food item inside and try again.
+                Please ensure your food container is placed directly under the ultrasonic sensor barrels and try again.
               </p>
             </div>
             <button
@@ -173,7 +227,9 @@ export function DonorPage() {
                 <div data-tour="donor-telemetry" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem', marginTop: isFlowStarted ? '0.6rem' : '0.75rem' }}>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--accent)' }}>
-                      {(currentLocker?.telemetry?.internalTempC != null ? currentLocker.telemetry.internalTempC : 26.09).toFixed(2)}°
+                      {(currentLocker?.telemetry?.internalTempC && currentLocker.telemetry.internalTempC > 0)
+                        ? `${currentLocker.telemetry.internalTempC.toFixed(2)}°`
+                        : "--"}
                     </div>
                     <div style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                       TEMP
@@ -181,7 +237,9 @@ export function DonorPage() {
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '1.15rem', fontWeight: 900, color: 'var(--accent)' }}>
-                      {(currentLocker?.telemetry?.humidityPct != null ? currentLocker.telemetry.humidityPct : 77.59).toFixed(1)}%
+                      {(currentLocker?.telemetry?.humidityPct && currentLocker.telemetry.humidityPct > 0)
+                        ? `${currentLocker.telemetry.humidityPct.toFixed(1)}%`
+                        : "--"}
                     </div>
                     <div style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
                       HUMIDITY
@@ -286,11 +344,27 @@ export function DonorPage() {
                         
                         <button 
                           onClick={() => setShowSafetyCard(true)}
-                          className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-line text-text-muted hover:text-accent hover:border-accent/30 transition-all font-bold text-xs uppercase tracking-widest"
+                          className="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-line text-text-muted hover:text-accent hover:border-accent/30 transition-all font-bold text-xs uppercase tracking-widest cursor-pointer"
                         >
                           <Shield className="w-3 h-3" />
                           Review Capacity & Safety
                         </button>
+
+                        {isHardwareChamber ? (
+                          <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-emerald-400 font-bold text-[11px] tracking-wider w-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>Physical Hardware Active • Cloud Synced</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => dispatch({ type: "select-locker", id: "chamber-1" })}
+                            className="flex items-center justify-center gap-2 py-2 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-all font-bold text-xs uppercase tracking-wider cursor-pointer"
+                          >
+                            <Cpu className="w-3.5 h-3.5" />
+                            <span>Switch to Physical Chamber 01 (Solenoid)</span>
+                          </button>
+                        )}
                       </div>
                     </motion.div>
                   ) : (
@@ -330,6 +404,9 @@ export function DonorPage() {
                   <span className="text-xs font-bold text-text-muted opacity-40">/</span>
                   <span className="text-xs font-bold text-text-muted opacity-40">
                     {state.lockers.length.toString().padStart(2, '0')}
+                  </span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isHardwareChamber ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                    {isHardwareChamber ? "Hardware" : "Sim"}
                   </span>
                 </div>
 
