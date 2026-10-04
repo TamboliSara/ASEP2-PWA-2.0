@@ -222,9 +222,47 @@ graph TD
 * **Step 5.4 (Instant PDF Audit Generation)**: Using `jspdf` and `jspdf-autotable`, the administrator can generate formal, timestamped compliance reports containing historical temperature traces, VOC logs, and biometric collection receipts.
 * **Step 5.5 (Emergency & Maintenance Commands)**:
   - **Admin Override Unlock**: Unlocks a spoiled chamber for cleaning and compost removal.
-  - **BLE Bridge Reset**: Re-initializes the Bluetooth Low Energy radio stack.
-  - **Force Cloud Sync**: Flushes all queued local IndexedDB records to Firestore.
-  - **Emergency System Wipe**: Wipes local cache and restores sanitized initial state.
+---
+
+### Phase 6: Contactless Mobile QR Verification & Client-IP Guard (`/qr-scan`)
+* **Step 6.1 (Kiosk Touchless Trigger)**: In `DepositForm`, donors can select *"Verify via Mobile QR"* instead of entering credentials on the kiosk screen.
+* **Step 6.2 (Session Initialization & IP Resolution)**:
+  1. The kiosk generates a secure session in Firestore (`qr_sessions`) with status `pending`.
+  2. The system resolves the client network IP via `/api/client-ip` and edge traces to establish an anti-spoofing baseline.
+  3. A high-contrast QR code pointing to `https://asep-10fe3.web.app/qr-scan?session={sessionId}` is rendered on the kiosk.
+* **Step 6.3 (Mobile Smartphone Camera Scan)**:
+  1. The donor uses their smartphone camera to scan the kiosk QR code and navigates to the mobile portal.
+  2. The donor inputs their phone number; Fast2SMS delivers a 6-digit OTP code directly to their phone.
+* **Step 6.4 (Remote Authorization & Real-Time Sync)**:
+  1. Upon valid OTP entry on the phone, the session status transitions to `verified`.
+  2. The kiosk listens via Firestore real-time snapshot (`onSnapshot`), automatically confirms donor identity, and unlatches the locker door without any physical kiosk contact.
+
+---
+
+### Phase 7: Dual-Track Interactive Website Tour (`WebsiteTour`)
+* **Step 7.1 (Tour Prompt & Selection)**:
+  First-time visitors or judges encounter a welcome prompt (`TourPromptModal`) offering two specialized guided pathways:
+  - **Donor Track**: Emphasizes food safety guidelines, chamber diagnostics, dietary tagging, and contactless verification.
+  - **Receiver Track**: Emphasizes live sensor telemetry, Quality Index (QI) freshness interpretation, Face-ID camera alignment, and anti-hoarding policies.
+* **Step 7.2 (Dynamic DOM Element Spotlighting)**:
+  The tour engine dynamically mounts an interactive viewport cutout overlay (`tour.css`), spotlighting target UI elements (e.g., telemetry pills, chamber cards, slide confirm controls) and providing concise audio/visual action hints.
+* **Step 7.3 (Automated Route Transitions)**:
+  Advancing through the tour automatically transitions the user between `/`, `/donate`, and `/receive`, allowing full situational awareness without getting lost.
+* **Step 7.4 (Celebration & Graduation)**:
+  Upon completing the final step, `TourCompletionModal` celebrates the user with milestone statistics, safety certification badges, and immediate redirection to their chosen task.
+
+---
+
+### Phase 8: Multilingual Neural Voice Assistant Interaction
+* **Step 8.1 (Activation & Audio Waves)**:
+  The user taps the glowing microphone button in the navigation shell. A high-tech voice modal opens featuring real-time audio waveform animations.
+* **Step 8.2 (Speech-to-Text Recognition)**:
+  The Web Speech API listens for natural language queries in English, Hindi, or Marathi.
+* **Step 8.3 (Phonetic Normalization & Intent Parsing)**:
+  1. `cleanTextForSpeech` normalizes technical abbreviations (e.g., expanding `SAFE_02` to *"Safe chamber 2"* and `/receive` to *"receiver kiosk"*).
+  2. Queries like *"What is in Chamber 3?"*, *"Show available lockers"*, or *"How does EcoLocker work?"* are parsed and cross-referenced with live state.
+* **Step 8.4 (Vocal Response & Automated Navigation)**:
+  The system responds with synthesized voice feedback via `SpeechSynthesis` and can autonomously navigate the UI to the requested view.
 
 ---
 

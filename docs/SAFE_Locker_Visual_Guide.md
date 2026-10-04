@@ -160,7 +160,7 @@ stateDiagram-v2
     Safe --> CloudArchiving: App invokes initiateRetrieval()
     CloudArchiving --> HardwareUnlock: Cloud writes UNLOCK to RTDB
     HardwareUnlock --> UserRetrieves: Solenoid releases
-    UserRetrieves --> ResetState: Door closes, sanitizes
+    UserRetrieves --> ResetState: Door closes, chamber resets
     ResetState --> [*]: Locker ready for new donation
 ```
 
@@ -190,6 +190,6 @@ graph LR
     RTDB_Tel -->|"Streams Sensor Health"| Diag
     
     Manual -->|"Force Unlock"| RTDB_Cmds
-    Manual -->|"Remote Sanitize"| RTDB_Cmds
+    Manual -->|"System Reset"| RTDB_Cmds
     Manual -->|"Generate PDF Report"| FS_Donations
 ```

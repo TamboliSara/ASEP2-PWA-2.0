@@ -317,3 +317,45 @@ The SAFE system features high-fidelity 3D spatial models accessible directly for
 * 🧊 **[Whole Smart Fridge / Locker Array (Spline 3D)](https://app.spline.design/file/142d9f0c-1287-4696-9b02-ae598b5f2d1d)**: Complete multi-chamber locker visualizer with transparent doors, sensor bays, and kiosk chassis.
 * 📦 **[Single Sample Chamber (Spline 3D)](https://app.spline.design/file/e1997a5b-dccc-4942-9d66-b7ba6503e9d9)**: Modular single-compartment model detailing internal volume, sensor placements, and latch assembly.
 * **Three.js WebGL Digital Twin**: Embedded real-time renderer dynamically reflecting physical locker occupancy and temperature state in the PWA.
+
+### 5.4 Dual-Track Interactive Website Tour Subsystem
+To ensure frictionless onboarding for first-time community donors, recipients, and evaluating judges, the PWA implements an interactive, multi-step guided tour engine (`WebsiteTour.tsx` & `tourConfig.ts`):
+* **Dual Exploration Paths**:
+  - **Donor Track**: Guides the user through chamber selection, live climate readiness checks, food categorization, contactless QR verification, and fail-secure physical lock confirmation.
+  - **Receiver Track**: Guides recipients through chamber browsing, Quality Index (QI) freshness interpretation, Face-ID camera alignment, and anti-hoarding retrieval authorization.
+* **Dynamic Visual Spotlight**: Uses CSS backdrop-blur and SVG/box-shadow viewport cutouts to isolate and spotlight target DOM elements, automatically scrolling and switching routes as the user advances.
+* **Celebratory Gamification**: Concludes with a themed celebratory modal (`TourCompletionModal.tsx`) featuring sound synthesis, community impact metrics, and role-appropriate calls to action.
+
+### 5.5 Contactless Mobile QR Verification & Multi-Tier Client-IP Subsystem
+To maintain hygiene and prevent fraud, donors can bypass public touchscreen keyboards using a mobile companion workflow (`QrDonorVerifier.tsx`, `QrScanPage.tsx`, and `qrSessionService.ts`):
+* **Dynamic Session QR Tokens**: The kiosk generates a time-bounded cryptographic session identifier in Cloud Firestore (`/qr_sessions/{docId}`) rendered as a high-contrast QR code on the kiosk screen.
+* **Mobile Smartphone Camera Flow**: The donor scans the QR code with their mobile device camera, opening `/qr-scan?session={sessionId}` on their phone.
+* **Multi-Tier Client-IP Verification Engine**:
+  To protect against remote replay attacks and location spoofing, the system determines the client's public IP address using a multi-tier fallback architecture:
+  1. **Tier 1 (Internal Vite / Cloudflare Tunnel)**: Queries `/api/client-ip` middleware to extract `cf-connecting-ip`, `x-forwarded-for`, or `x-real-ip`.
+  2. **Tier 2 (Parallel Edge Providers)**: In parallel, queries Cloudflare trace (`https://cloudflare.com/cdn-cgi/trace`), Ipify (`https://api64.ipify.org`), and IPWhois.
+  3. **Sanitization & Anti-Spoofing**: Strips IPv6-mapped IPv4 prefixes (`::ffff:`) and validates format before saving session metadata to Firestore.
+* **Fast2SMS Cellular OTP Integration**: Sends a 6-digit numeric OTP to the donor's mobile number. Once verified on the phone, the kiosk automatically synchronizes via real-time Firestore snapshots and unlocks the assigned chamber.
+
+### 5.6 Multilingual Neural Voice Assistant Subsystem
+The voice engine (`VoiceAssistant.tsx`) empowers hands-free accessibility for non-technical users and multiple regional language speakers:
+* **Speech-to-Text Recognition**: Employs the HTML5 Web Speech API (`webkitSpeechRecognition`) to continuously transcribe user queries in real-time.
+* **Phonetic & Text Normalization**:
+  The `cleanTextForSpeech` engine sanitizes markdown, strips technical symbols, and translates application routes and product names into clear, natural phonetics (e.g., expanding `SAFE_01` to *"Safe chamber 1"*, `/donate` to *"donor section"*, and `EcoLocker` to *"Eco Locker"*).
+* **Multilingual Natural Synthesis**: Employs the `SpeechSynthesis` API with auto-selected native neural voice profiles for English (`en-US` / `en-IN`), Hindi (`hi-IN`), and Marathi (`mr-IN`).
+* **Vocal Route & Telemetry Navigation**: Users can verbally issue queries such as *"What's in Chamber 4?"*, *"Which lockers are empty?"*, or *"I want to donate food"*, automatically driving the PWA navigation state.
+
+---
+
+## 6. End-to-End System Integration Summary
+
+| System Layer | Primary Technologies | Key Functions | Latency / Cycle Time |
+| :--- | :--- | :--- | :--- |
+| **Physical Hardware** | ESP32-S3, BME688, DS18B20, HC-SR04, 12V Solenoid | Environmental sensing, depth detection, physical locking | $10\text{s}$ telemetry cycle |
+| **Edge Firmware** | FreeRTOS, C++, TFLite Micro, ESP-NN, OneWire, Wire | Multiprocessing, TinyML inference, `spoilLocked` enforcement | $< 50\text{ms}$ inference time |
+| **Communication** | Web Bluetooth API, WebSockets, REST | Local GATT bridging, sub-second telemetry push | $180\text{ms} - 320\text{ms}$ bridge latency |
+| **Cloud Backend** | Firebase RTDB, Cloud Firestore, Cloud Functions | Streaming data sync, persistent logging, security rules | Sub-500ms sync speed |
+| **Frontend PWA** | React 18, Vite, TypeScript, Tailwind v4, Framer Motion | User interface, live telemetry, sound alerts, 3D twin | 60 FPS smooth rendering |
+| **Client Biometrics & Camera** | Face-API.js, WebGL, WebAssembly, HTML5 MediaStream | Face detection, 128-d vectors, anti-hoarding daily check | $42\text{ms}$ vector extraction |
+| **Mobile QR & IP Engine** | HTML Canvas, Cloud Firestore, Cloudflare Trace, Fast2SMS | Contactless mobile scan, Edge IP detection, SMS OTP | $< 1.5\text{s}$ session handshake |
+| **Voice Assistant** | Web Speech API, SpeechSynthesis, NLP cleaner | Multilingual vocal queries, route navigation, audio waves | Instantaneous local speech |
