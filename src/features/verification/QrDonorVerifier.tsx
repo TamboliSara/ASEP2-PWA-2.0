@@ -15,6 +15,7 @@ import {
 import {
   createQrSession,
   subscribeQrSession,
+  confirmQrPasskey,
   type QrSession
 } from "../../services/qrSessionService";
 
@@ -36,18 +37,45 @@ function makeSessionId() {
   return `qrs_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const DEFAULT_TUNNEL_URL = "https://chapter-hispanic-lobby-shown.trycloudflare.com";
+/** Permanent cloud deployment URL for mobile cameras scanning from outside local network */
+const PERMANENT_CLOUD_URL = "https://asep-10fe3.web.app";
 
 /**
  * Returns the universal base URL for QR codes.
- * Uses the active public tunnel URL (works seamlessly across mobile data 4G/5G and local Wi-Fi).
+ * - In production or when hosted: uses the actual origin (e.g. https://asep-10fe3.web.app or custom domain)
+ * - In local development: encodes the permanent cloud URL so mobile devices on 4G/5G or separate Wi-Fi
+ *   can reach the scan page and handshake via the shared cloud Firestore database.
+ * - For same-device simulation ("Test Link in Tab"): uses window.location.origin directly.
  */
-export function getQrBaseUrl() {
+export function getQrBaseUrl(forSameDevice: boolean = false): string {
+  if (typeof window !== "undefined") {
+    // If testing on the same machine/browser tab, always use the current window's origin:
+    if (forSameDevice && window.location.origin) {
+      return `${window.location.origin.replace(/\/$/, "")}/qr-scan`;
+    }
+
+    const hostname = window.location.hostname;
+    const isLocalhost =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1";
+
+    // If running on a live domain or accessible LAN IP (not localhost), use current origin:
+    if (!isLocalhost && window.location.origin) {
+      return `${window.location.origin.replace(/\/$/, "")}/qr-scan`;
+    }
+  }
+
+  // Check explicit environment variable (if user configured a custom tunnel or public URL)
   const envUrl = (import.meta.env.VITE_PUBLIC_URL as string | undefined)?.trim();
   // Protect against expired/dead trycloudflare URLs:
-  const isStale = envUrl && envUrl.includes("trycloudflare.com") && envUrl.includes("pit-promotes");
-  const publicUrl = (!isStale && envUrl) ? envUrl : DEFAULT_TUNNEL_URL;
-  return `${publicUrl.replace(/\/$/, "")}/qr-scan`;
+  const isDeadTunnel = envUrl && envUrl.includes("trycloudflare.com");
+  if (envUrl && !isDeadTunnel) {
+    return `${envUrl.replace(/\/$/, "")}/qr-scan`;
+  }
+
+  // Permanent cloud production fallback for external mobile camera scans
+  return `${PERMANENT_CLOUD_URL}/qr-scan`;
 }
 
 export function QrDonorVerifier({
@@ -71,7 +99,12 @@ export function QrDonorVerifier({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const prevPhoneRef = useRef<string>(phoneNumber);
+  const donorNameRef = useRef<string>(donorName);
   const unsubRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    donorNameRef.current = donorName;
+  }, [donorName]);
 
   const isPhoneValid = /^\d{10}$/.test(phoneNumber.replace(/\D/g, ""));
 
@@ -97,7 +130,7 @@ export function QrDonorVerifier({
 
     if (isPhoneValid) {
       // Write session to Firestore
-      await createQrSession(newSessionId, newPasskey, phoneNumber, donorName);
+      await createQrSession(newSessionId, newPasskey, phoneNumber, donorNameRef.current);
 
       // Subscribe for real-time scan events from the phone
       const unsub = subscribeQrSession(newSessionId, (session) => {
@@ -108,12 +141,15 @@ export function QrDonorVerifier({
           if (session.phoneIp) {
             setScannedIp(session.phoneIp);
           }
-          // The card strictly stays visible until the donor manually enters the 6-digit OTP.
+          // Auto-focus the first PIN input when phone scans
+          setTimeout(() => {
+            inputRefs.current[0]?.focus();
+          }, 100);
         }
       });
       unsubRef.current = unsub;
     }
-  }, [isPhoneValid, phoneNumber, donorName]);
+  }, [isPhoneValid, phoneNumber]);
 
   // Reset when phone number changes
   useEffect(() => {
@@ -133,25 +169,25 @@ export function QrDonorVerifier({
     };
   }, []);
 
-  // 60-second countdown → auto-rotate unless phone already scanned & user is typing
+  // 60-second countdown → auto-rotate unless phone already scanned
   useEffect(() => {
     if (!passkey || isVerified) return;
+    // Don't interrupt donor while their phone is actively connected
+    if (scanDetected) return;
+
     if (timerSeconds <= 0) {
-      if (scanDetected && digits.some((d) => d !== "")) {
-        return; // Don't interrupt donor while typing
-      }
       startNewSession();
       return;
     }
     const interval = setInterval(() => setTimerSeconds((s) => s - 1), 1000);
     return () => clearInterval(interval);
-  }, [timerSeconds, passkey, isVerified, scanDetected, digits, startNewSession]);
+  }, [timerSeconds, passkey, isVerified, scanDetected, startNewSession]);
 
   // Render QR code onto canvas (optimized for phone camera recognition)
   useEffect(() => {
     if (!canvasRef.current || !passkey || !sessionId || isVerified) return;
 
-    const qrUrl = `${getQrBaseUrl()}?sid=${sessionId}&code=${passkey}&phone=${encodeURIComponent(phoneNumber)}`;
+    const qrUrl = `${getQrBaseUrl(false)}?sid=${sessionId}&code=${passkey}&phone=${encodeURIComponent(phoneNumber)}`;
 
     QRCode.toCanvas(
       canvasRef.current,
@@ -208,9 +244,16 @@ export function QrDonorVerifier({
     }
     setIsVerifying(true);
     setErrorMessage(null);
+
     setTimeout(() => {
       setIsVerifying(false);
       if (toVerify === passkey) {
+        // Sync verification to Firestore so the donor's phone screen also shows Verified!
+        if (sessionId) {
+          confirmQrPasskey(sessionId, toVerify).catch((err) => {
+            console.warn("[QrDonorVerifier] confirmQrPasskey sync notice:", err);
+          });
+        }
         // ONLY verified when the donor actually enters the correct 6-digit OTP!
         onVerified(true, new Date().toISOString(), scannedIp || sessionData?.phoneIp);
       } else {
@@ -379,31 +422,65 @@ export function QrDonorVerifier({
                 <div className="p-2.5 rounded-xl bg-white shadow-xs border border-slate-200">
                   <canvas ref={canvasRef} className="block rounded-lg" style={{ width: '155px', height: '155px' }} />
                 </div>
-                {/* Countdown Timer */}
+                {/* Connection Status / Countdown Timer */}
                 <div className="flex items-center gap-1.5 mt-2.5 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-[11px] font-mono font-medium shadow-2xs">
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: timerColor }}
-                  />
-                  <span className="text-slate-600">
-                    Valid for{" "}
-                    <strong className="tabular-nums" style={{ color: timerColor }}>
-                      {timerSeconds}s
-                    </strong>
-                  </span>
+                  {scanDetected ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-emerald-700 font-semibold">
+                        Phone Connected
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: timerColor }}
+                      />
+                      <span className="text-slate-600">
+                        Valid for{" "}
+                        <strong className="tabular-nums" style={{ color: timerColor }}>
+                          {timerSeconds}s
+                        </strong>
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* 3 Step Instructions */}
+              {/* 3 Step Instructions with dynamic real-time status */}
               <div className="space-y-2.5 min-w-0">
                 {[
-                  { n: "1", text: "Scan QR with your phone camera" },
-                  { n: "2", text: "View 6-digit code on your phone" },
-                  { n: "3", text: "Enter the code below to verify" }
+                  {
+                    n: "1",
+                    done: scanDetected,
+                    text: scanDetected ? "Phone connected to kiosk" : "Scan QR with your phone camera"
+                  },
+                  {
+                    n: "2",
+                    done: scanDetected && digits.some((d) => d !== ""),
+                    text: "View 6-digit code on your phone"
+                  },
+                  {
+                    n: "3",
+                    done: isVerified,
+                    text: "Enter the code below to verify"
+                  }
                 ].map((step) => (
-                  <div key={step.n} className="flex items-center gap-2.5 text-xs text-slate-600 font-medium">
-                    <div className="w-5 h-5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-[11px] shrink-0">
-                      {step.n}
+                  <div
+                    key={step.n}
+                    className={`flex items-center gap-2.5 text-xs font-medium transition-colors ${
+                      step.done ? "text-emerald-700 font-semibold" : "text-slate-600"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[11px] shrink-0 transition-colors ${
+                        step.done
+                          ? "bg-emerald-500 text-white shadow-2xs"
+                          : "bg-emerald-50 border border-emerald-200 text-emerald-700"
+                      }`}
+                    >
+                      {step.done ? "✓" : step.n}
                     </div>
                     <span className="truncate">{step.text}</span>
                   </div>
@@ -471,7 +548,7 @@ export function QrDonorVerifier({
                 <button
                   type="button"
                   onClick={() => {
-                    const qrUrl = `${getQrBaseUrl()}?sid=${sessionId}&code=${passkey}&phone=${encodeURIComponent(phoneNumber)}`;
+                    const qrUrl = `${getQrBaseUrl(true)}?sid=${sessionId}&code=${passkey}&phone=${encodeURIComponent(phoneNumber)}`;
                     window.open(qrUrl, "_blank");
                   }}
                   className="flex items-center gap-1 text-[11px] text-emerald-600 hover:text-emerald-700 font-semibold transition-colors cursor-pointer"
