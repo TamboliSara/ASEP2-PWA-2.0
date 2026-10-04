@@ -8,43 +8,19 @@ import { useLockerController } from "../features/useLockerController";
 
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
-import { unlockLocker } from "../services/rtdb";
-import { bleService } from "../services/ble";
 import { ScrollReveal } from "../components/ScrollReveal";
 import { TextReveal } from "../components/TextReveal";
 
 export function DonorPage() {
   const navigate = useNavigate();
   const { state, dispatch } = useAppContext();
-  const { currentLocker, submitDeposit, confirmDepositManually, isBusy } = useLockerController();
+  const { currentLocker, submitDeposit, isBusy } = useLockerController();
   const { t } = useTranslation();
   const [isFlowStarted, setIsFlowStarted] = useState(false);
   const [depositConfirmed, setDepositConfirmed] = useState(false);
   const [depositFailed, setDepositFailed] = useState(false);
   const [showSafetyCard, setShowSafetyCard] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false);
   const isHardwareChamber = currentLocker.lockerId === "chamber-1";
-
-  useEffect(() => {
-    if (!isBusy) {
-      setIsConfirming(false);
-    }
-  }, [isBusy]);
-
-  async function pulseUnlockSolenoid() {
-    const targetMac = (state.hardwareMac && state.hardwareMac !== "SIMULATED" && state.hardwareMac !== "OFFLINE")
-      ? state.hardwareMac
-      : "E8F60A893D4C";
-    dispatch({ type: "set-sync-message", message: "⚡ Triggering solenoid unlock pulse..." });
-    // Channel 1 (Ultra-fast): Web Bluetooth direct link (~15ms response)
-    bleService.sendUnlock().catch(() => {});
-    // Channel 2: Parallel Cloud RTDB REST push (~30ms transmission)
-    unlockLocker("chamber-1", targetMac).catch(() => {});
-    // Instant confirmation
-    setTimeout(() => {
-      dispatch({ type: "set-sync-message", message: "🔓 Solenoid pulse sent to physical locker!" });
-    }, 40);
-  }
 
   async function handleSubmit(imageData?: string) {
     setDepositFailed(false);
@@ -149,25 +125,6 @@ export function DonorPage() {
                 </span>
               </div>
 
-              <button
-                type="button"
-                id="manual-confirm-deposit-btn"
-                onClick={() => {
-                  setIsConfirming(true);
-                  confirmDepositManually();
-                }}
-                disabled={isConfirming}
-                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/30 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-85"
-              >
-                {isConfirming ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>✓ Food Verified! Securing Chamber...</span>
-                  </>
-                ) : (
-                  <span>✓ Food Placed — Lock & Confirm</span>
-                )}
-              </button>
             </motion.div>
           </motion.div>
         )}
@@ -394,19 +351,9 @@ export function DonorPage() {
                         </button>
 
                         {isHardwareChamber ? (
-                          <div className="flex flex-col gap-2 w-full">
-                            <button 
-                              type="button"
-                              onClick={pulseUnlockSolenoid}
-                              className="flex items-center justify-center gap-2 py-2 rounded-xl border border-accent/30 bg-accent/5 hover:bg-accent/15 text-accent transition-all font-bold text-xs uppercase tracking-wider cursor-pointer"
-                            >
-                              🔓 Test Solenoid Lock Pulse
-                            </button>
-                            
-                            <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-emerald-400 font-bold text-[11px] tracking-wider">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                              <span>Physical Hardware Active • Cloud Synced</span>
-                            </div>
+                          <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-emerald-400 font-bold text-[11px] tracking-wider w-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>Physical Hardware Active • Cloud Synced</span>
                           </div>
                         ) : (
                           <button
