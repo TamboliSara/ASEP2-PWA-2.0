@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, User, Camera, Sun, Focus, AlertCircle, Scan, RefreshCw } from 'lucide-react';
 import * as faceapi from 'face-api.js';
+import { useTranslation } from '../../store/useTranslation';
 
 interface AppleFaceIDScannerProps {
   onVerify: (imageData?: string, descriptor?: Float32Array) => void;
@@ -17,16 +18,6 @@ type ScanWarning =
   | "face_partial"
   | null;
 
-const WARNING_MESSAGES: Record<NonNullable<ScanWarning>, string> = {
-  no_face: "No face detected. Please look directly at the camera.",
-  mask_detected: "Face obstructed. Please remove mask, sunglasses, or heavy accessories.",
-  face_too_small: "Move closer to the camera.",
-  face_too_close: "Move slightly back — face too close.",
-  not_centered: "Center your face within the circle.",
-  not_straight: "Look straight at the camera — don't turn your head.",
-  face_partial: "Your full face isn't visible. Keep your whole face in frame.",
-};
-
 const WARNING_ICONS: Record<NonNullable<ScanWarning>, string> = {
   no_face: "👤",
   mask_detected: "😷",
@@ -38,11 +29,25 @@ const WARNING_ICONS: Record<NonNullable<ScanWarning>, string> = {
 };
 
 export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [scanStatus, setScanStatus] = useState<"idle" | "scanning" | "success" | "camera_error">("idle");
   const [progress, setProgress] = useState(0);
   const [hasConsented, setHasConsented] = useState(false);
+
+  const getWarningMessage = (w: NonNullable<ScanWarning>): string => {
+    switch (w) {
+      case "no_face": return t("noFaceWarning") || "No face detected. Please look directly at the camera.";
+      case "mask_detected": return t("maskWarning") || "Face obstructed. Please remove mask, sunglasses, or heavy accessories.";
+      case "face_too_small": return t("faceTooSmallWarning") || "Move closer to the camera.";
+      case "face_too_close": return t("faceTooCloseWarning") || "Move slightly back — face too close.";
+      case "not_centered": return t("notCenteredWarning") || "Center your face within the circle.";
+      case "not_straight": return t("notStraightWarning") || "Look straight at the camera — don't turn your head.";
+      case "face_partial": return t("facePartialWarning") || "Your full face isn't visible. Keep your whole face in frame.";
+      default: return "";
+    }
+  };
   const [isCheckboxChecked, setIsCheckboxChecked] = useState(false);
   const [warning, setWarning] = useState<ScanWarning>(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -229,15 +234,15 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
               <Scan size={32} strokeWidth={1.5} />
             </div>
           </div>
-          <h3 className="font-bold text-text text-xl tracking-tight mb-1">Identity Verification</h3>
-          <p className="text-[10px] font-bold text-accent uppercase tracking-[0.2em] opacity-80">Community Safety Protocol</p>
+          <h3 className="font-bold text-text text-xl tracking-tight mb-1">{t("identityVerification")}</h3>
+          <p className="text-[10px] font-bold text-accent uppercase tracking-[0.2em] opacity-80">{t("securityProtocolRequirements")}</p>
         </div>
 
         <div className="space-y-3 mb-6">
           {[
-            { icon: <Sun size={16} />, text: "Ensure your face is well-lit — avoid backlighting." },
-            { icon: <User size={16} />, text: "Remove masks, sunglasses, and heavy headwear." },
-            { icon: <Focus size={16} />, text: "Look straight into the camera and stay still." },
+            { icon: <Sun size={16} />, text: t("faceRule3") || "Ensure your face is well-lit — avoid backlighting." },
+            { icon: <User size={16} />, text: t("faceRule2") || "Remove masks, sunglasses, and heavy headwear." },
+            { icon: <Focus size={16} />, text: t("faceRule4") || "Look straight into the camera and stay still." },
           ].map((item, i) => (
             <div key={i} className="flex items-center gap-3 text-[13px] text-text-muted">
               <div className="p-2 rounded-xl bg-background border border-line text-accent/70 shrink-0">{item.icon}</div>
@@ -248,7 +253,7 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
 
         {modelLoadFailed && (
           <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-semibold text-center">
-            ⚠️ AI models failed to load. Scan may proceed without anti-hoarding checks.
+            ⚠️ AI models failed to load.
           </div>
         )}
 
@@ -260,7 +265,7 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
               <ShieldCheck className="absolute w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity duration-300 pointer-events-none" />
             </div>
             <span className="text-[11px] text-text-muted leading-relaxed">
-              I consent to a biometric scan for identity verification. Data is processed locally and not stored permanently.
+              {t("faceRule1")}
             </span>
           </label>
         </div>
@@ -271,7 +276,7 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
           onClick={() => setHasConsented(true)}
           className="w-full py-4 rounded-xl bg-gradient-to-r from-accent to-emerald-500 text-white font-black text-[12px] uppercase tracking-[0.15em] hover:brightness-110 disabled:grayscale disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-[0_12px_40px_-12px_rgba(16,185,129,0.5)] disabled:shadow-none"
         >
-          Accept &amp; Start Scan
+          {t("initializeCameraScan")}
         </button>
       </motion.div>
     );
@@ -375,7 +380,7 @@ export function AppleFaceIDScanner({ onVerify }: AppleFaceIDScannerProps) {
               >
                 <div className="bg-red-500/95 backdrop-blur-xl text-white text-[10px] font-black uppercase tracking-wider py-2 px-3 rounded-2xl flex items-center gap-2 shadow-[0_6px_24px_rgba(239,68,68,0.5)] border border-red-400 max-w-[92%] text-center leading-tight">
                   <span className="shrink-0">{WARNING_ICONS[warning]}</span>
-                  <span>{WARNING_MESSAGES[warning]}</span>
+                  <span>{getWarningMessage(warning)}</span>
                 </div>
               </motion.div>
             )}

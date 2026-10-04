@@ -2962,8 +2962,7 @@
               position: relative;
               width: 100%;
             }
-            .admin-override-area::before {
-              content: "PROTECTED";
+            .admin-protected-badge {
               position: absolute;
               top: -8px; right: 20px;
               background: #F59E0B;
@@ -2973,6 +2972,8 @@
               padding: 2px 8px;
               border-radius: 4px;
               letter-spacing: 0.1em;
+              text-transform: uppercase;
+              z-index: 2;
             }
             
             .admin-divider {

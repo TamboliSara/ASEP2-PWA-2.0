@@ -20,10 +20,11 @@ import {
 } from "lucide-react";
 import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { db } from "../../services/firebase";
-import { formatDateTime } from "../../utils/format";
+import { formatDateTime, toLocalDigits, translateFoodName, translateDonorName, translateCategory, translateAllergens } from "../../utils/format";
 import { TextReveal } from "../../components/TextReveal";
 import { ScrollReveal } from "../../components/ScrollReveal";
 import { getQualityLabel } from "../../utils/safety";
+import { useTranslation } from "../../store/useTranslation";
 
 interface DonationEntry {
   id: string;
@@ -69,6 +70,7 @@ const SAFE_COLORS: Record<string, { solid: string, alphaBg: string, alphaBorder:
 };
 
 export function ActiveCommunityCalendar() {
+  const { t, locale } = useTranslation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<DonationEntry | null>(null);
   const [donations, setDonations] = useState<DonationEntry[]>([]);
@@ -77,12 +79,12 @@ export function ActiveCommunityCalendar() {
   const [now, setNow] = useState(new Date());
   const [selectedStack, setSelectedStack] = useState<DonationEntry[] | null>(null);
 
+  const intlLocale = locale === "hi" ? "hi-IN" : locale === "mr" ? "mr-IN" : "en-US";
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
-
 
   // ── Firestore Listener — donations is the single source of truth ─────────
   useEffect(() => {
@@ -178,7 +180,11 @@ export function ActiveCommunityCalendar() {
   };
 
   // ── Calendar Helpers ──────────────────────────────────────────────
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const weekDays = locale === "hi"
+    ? ["रवि", "सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि"]
+    : locale === "mr"
+    ? ["रवि", "सोम", "मंगळ", "बुध", "गुरू", "शुक्र", "शनि"]
+    : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   
   const getWeekRange = (date: Date) => {
     const start = new Date(date);
@@ -227,61 +233,59 @@ export function ActiveCommunityCalendar() {
             </motion.div>
             <div>
               <TextReveal mode="words" direction="left" distance={10} delay={0.1}>
-                <h3 className="text-2xl font-black tracking-tight text-text">Contribution Timeline</h3>
+                <h3 className="text-2xl font-black tracking-tight text-text">{t("contributionTimeline", "Contribution Timeline")}</h3>
               </TextReveal>
-              
             </div>
           </div>
 
           <div className="flex flex-col md:flex-row items-end md:items-center gap-6">
             <div className="flex items-center gap-4 mr-4">
               <div className="text-right">
-                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted opacity-60">Week Total</p>
-                <p className="text-xl font-black text-emerald-500">{allEvents.length} <span className="text-sm text-text">Items</span></p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted opacity-60">{t("weekTotal", "Week Total")}</p>
+                <p className="text-xl font-black text-emerald-500">{toLocalDigits(allEvents.length, locale)} <span className="text-sm text-text">{t("items", "Items")}</span></p>
               </div>
               <div className="w-px h-8 bg-line/40" />
               <div className="text-left">
-                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted opacity-60">Pending</p>
-                <p className="text-xl font-black text-amber-500">{allEvents.filter(e => e.status !== 'retrieved').length} <span className="text-sm text-text">Active</span></p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-text-muted opacity-60">{t("pending", "Pending")}</p>
+                <p className="text-xl font-black text-amber-500">{toLocalDigits(allEvents.filter(e => e.status !== 'retrieved').length, locale)} <span className="text-sm text-text">{t("activeItems", "Active")}</span></p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="flex items-center bg-panel-elevated/50 rounded-2xl p-1 border border-line/40 shadow-inner">
-
+                <button 
+                  onClick={prevWeek}
+                  className="p-3 rounded-xl hover:bg-white/10 text-text-muted transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className="px-6 py-2 font-black text-sm uppercase tracking-widest text-text">
+                  {toLocalDigits(currentWeek[0].toLocaleDateString(intlLocale, { month: 'short', day: 'numeric' }), locale)} - {toLocalDigits(currentWeek[6].toLocaleDateString(intlLocale, { month: 'short', day: 'numeric', year: 'numeric' }), locale)}
+                </span>
+                <button 
+                  onClick={nextWeek}
+                  className="p-3 rounded-xl hover:bg-white/10 text-text-muted transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+              
               <button 
-                onClick={prevWeek}
-                className="p-3 rounded-xl hover:bg-white/10 text-text-muted transition-colors"
+                onClick={() => setCurrentDate(new Date())}
+                className="px-6 py-4 rounded-2xl bg-emerald-500 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
               >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <span className="px-6 py-2 font-black text-sm uppercase tracking-widest text-text">
-                {currentWeek[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {currentWeek[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-              <button 
-                onClick={nextWeek}
-                className="p-3 rounded-xl hover:bg-white/10 text-text-muted transition-colors"
-              >
-                <ChevronRight className="w-5 h-5" />
+                {t("todayBtn", "Today")}
               </button>
             </div>
-            
-            <button 
-              onClick={() => setCurrentDate(new Date())}
-              className="px-6 py-4 rounded-2xl bg-emerald-500 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
-            >
-              Today
-            </button>
           </div>
         </div>
-      </div>
 
-      <div className="flex flex-col lg:flex-row min-h-[600px]">
+        <div className="flex flex-col lg:flex-row min-h-[600px]">
           {/* Sidebar Filters */}
           <div className="w-full lg:w-72 border-r border-line/40 p-6 bg-panel/10">
             <div className="flex items-center gap-2 mb-6">
               <Layers className="w-4 h-4 text-emerald-500" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600/60 dark:text-emerald-500/60">Fleet Units</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600/60 dark:text-emerald-500/60">{t("fleetUnits", "Fleet Units")}</span>
             </div>
             
             <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
@@ -299,7 +303,7 @@ export function ActiveCommunityCalendar() {
                         : 'bg-transparent border-line/40 text-text-muted opacity-40 hover:opacity-100'}`}
                   >
                     <div className={`w-3 h-3 rounded-full ${isActive ? `${safeColor.solid} animate-pulse` : 'bg-muted'}`} />
-                    <span className="text-xs font-black tracking-widest uppercase">SAFE-0{num}</span>
+                    <span className="text-xs font-black tracking-widest uppercase">SAFE-{toLocalDigits(num.toString().padStart(2, '0'), locale)}</span>
                     {isActive && <CheckCircle2 className="w-3 h-3 ml-auto opacity-60" />}
                   </button>
                 );
@@ -309,20 +313,20 @@ export function ActiveCommunityCalendar() {
             <div className="mt-8 pt-8 border-t border-line/20">
               <div className="flex items-center gap-2 mb-4">
                 <Info className="w-4 h-4 text-emerald-500/50" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Legend</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">{t("legend", "Legend")}</span>
               </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] font-bold text-text-muted uppercase">Fresh / Optimal</span>
+                  <span className="text-[10px] font-bold text-text-muted uppercase">{t("freshOptimal", "Fresh / Optimal")}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-amber-500" />
-                  <span className="text-[10px] font-bold text-text-muted uppercase">Aging / Alert</span>
+                  <span className="text-[10px] font-bold text-text-muted uppercase">{t("agingAlert", "Aging / Alert")}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full bg-rose-500" />
-                  <span className="text-[10px] font-bold text-text-muted uppercase">Spoilt / Critical</span>
+                  <span className="text-[10px] font-bold text-text-muted uppercase">{t("spoiltCritical", "Spoilt / Critical")}</span>
                 </div>
               </div>
             </div>
@@ -341,7 +345,7 @@ export function ActiveCommunityCalendar() {
                         {weekDays[idx]}
                       </p>
                       <p className={`text-xl font-black ${isToday ? 'text-emerald-600 dark:text-emerald-400' : 'text-text'}`}>
-                        {day.getDate()}
+                        {toLocalDigits(day.getDate(), locale)}
                       </p>
                     </div>
                   );
@@ -356,7 +360,13 @@ export function ActiveCommunityCalendar() {
                     {[0, 3, 6, 9, 12, 15, 18, 21].map((hour) => (
                       <div key={hour} className="h-[90px] relative flex justify-end pr-2 border-b border-line/10 last:border-b-0">
                         <span className="text-[9px] font-black text-text-muted opacity-40 -translate-y-2 uppercase">
-                          {hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour - 12} PM`}
+                          {hour === 0 
+                            ? (locale === 'hi' || locale === 'mr' ? `${toLocalDigits('12', locale)} पूर्व` : '12 AM') 
+                            : hour < 12 
+                            ? (locale === 'hi' || locale === 'mr' ? `${toLocalDigits(hour, locale)} पूर्व` : `${hour} AM`) 
+                            : hour === 12 
+                            ? (locale === 'hi' || locale === 'mr' ? `${toLocalDigits('12', locale)} अपरा` : '12 PM') 
+                            : (locale === 'hi' || locale === 'mr' ? `${toLocalDigits(hour - 12, locale)} अपरा` : `${hour - 12} PM`)}
                         </span>
                       </div>
                     ))}
@@ -425,7 +435,7 @@ export function ActiveCommunityCalendar() {
                                 >
                                   {layout.isStack && (
                                     <div className="absolute top-0 right-0 px-2 py-1 bg-emerald-500 text-[7px] font-black uppercase tracking-tighter rounded-bl-lg shadow-lg z-20 whitespace-nowrap">
-                                      {layout.stackSize} Items
+                                      {toLocalDigits(layout.stackSize, locale)} {t("items", "Items")}
                                     </div>
                                   )}
                                   
@@ -438,11 +448,11 @@ export function ActiveCommunityCalendar() {
                                         <div className={`shrink-0 w-2 h-2 rounded-full border border-white/40 ${qualityColor} shadow-md mt-1`} />
                                         <div className="flex flex-col w-full min-w-0">
                                           <h4 className={`font-black truncate w-full text-left drop-shadow-md leading-tight ${layout.isStack ? 'text-text text-xs' : isRetrieved ? 'text-slate-100 text-[11px]' : 'text-white text-[11px]'}`}>
-                                            {layout.isStack ? 'Multiple' : event.foodName}
+                                            {layout.isStack ? t("multiple", "Multiple") : translateFoodName(event.foodName, locale)}
                                           </h4>
                                           {!layout.isStack && (
                                             <span className="text-[8px] font-black uppercase tracking-widest opacity-80 drop-shadow-md truncate mt-0.5">
-                                              {event.lockerId.replace('chamber-', 'SAFE-')}
+                                              SAFE-{toLocalDigits(event.lockerId.split('-')[1], locale)}
                                             </span>
                                           )}
                                         </div>
@@ -454,7 +464,7 @@ export function ActiveCommunityCalendar() {
                                     <div className="flex items-center gap-1.5 mt-auto opacity-70 group-hover/event:hidden">
                                       <Clock className="w-2.5 h-2.5" />
                                       <span className="text-[8px] font-bold">
-                                        {createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {toLocalDigits(createdDate.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }), locale)}
                                       </span>
                                     </div>
 
@@ -463,26 +473,26 @@ export function ActiveCommunityCalendar() {
                                       {!layout.isStack && (
                                         <>
                                           <div className="flex justify-between items-center text-[9px] opacity-80 gap-4">
-                                            <span className="font-bold">Donor: {event.donorName}</span>
-                                            <span>{event.categoryLabel}</span>
+                                            <span className="font-bold">{t("donor", "Donor")}: {translateDonorName(event.donorName, locale)}</span>
+                                            <span>{translateCategory(event.categoryLabel, locale)}</span>
                                           </div>
                                           {isRetrieved && event.receiver && (
                                             <div className="flex justify-between items-center text-[9px] text-emerald-300 dark:text-emerald-400 gap-4">
-                                              <span className="font-bold">Exit Score: {event.receiver.qualityScoreAtRetrieval?.toUpperCase()}</span>
-                                              <span>{new Date(event.receiver.retrievedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                              <span className="font-bold">Exit Score: {getQualityLabel(event.receiver.qualityScoreAtRetrieval as any).toUpperCase()}</span>
+                                              <span>{toLocalDigits(new Date(event.receiver.retrievedAt).toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }), locale)}</span>
                                             </div>
                                           )}
                                         </>
                                       )}
                                       {layout.isStack && (
                                         <div className="text-[9px] opacity-80 font-bold text-emerald-400">
-                                          Click to view all {layout.stackSize} items
+                                          {t("clickToViewAll", "Click to view all")} {toLocalDigits(layout.stackSize, locale)} {t("items", "Items")}
                                         </div>
                                       )}
                                       <div className="flex items-center gap-1.5 mt-1 opacity-70">
                                         <Clock className="w-2.5 h-2.5" />
                                         <span className="text-[8px] font-bold">
-                                          {createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                          {toLocalDigits(createdDate.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }), locale)}
                                         </span>
                                       </div>
                                     </div>
@@ -495,13 +505,11 @@ export function ActiveCommunityCalendar() {
                       );
                     })}
                   </div>
-
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
       </div>
 
       {/* Event Details Modal */}
@@ -529,23 +537,23 @@ export function ActiveCommunityCalendar() {
                 <div className="relative z-10 p-10 flex flex-col justify-end h-full">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-[10px] font-black uppercase tracking-widest text-white">
-                      {selectedEvent.lockerId.replace('chamber-', 'Mission Safe ')}
+                      Mission Safe {toLocalDigits(selectedEvent.lockerId.split('-')[1], locale)}
                     </div>
                     {selectedEvent.status === 'retrieved' && (
                       <div className="px-3 py-1 rounded-full bg-white text-emerald-600 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
                         <CheckCircle2 className="w-3 h-3" />
-                        Distribution Complete
+                        {t("distributionComplete", "Distribution Complete")}
                       </div>
                     )}
                   </div>
-                  <h3 className="text-5xl font-black text-white tracking-tight leading-none mb-2">{selectedEvent.foodName}</h3>
+                  <h3 className="text-5xl font-black text-white tracking-tight leading-none mb-2">{translateFoodName(selectedEvent.foodName, locale)}</h3>
                   <div className="flex items-center gap-4 text-white/80">
                     <div className="flex items-center gap-1.5">
                       <Clock className="w-4 h-4" />
-                      <span className="text-sm font-bold uppercase tracking-widest">{formatDateTime(selectedEvent.createdAt)}</span>
+                      <span className="text-sm font-bold uppercase tracking-widest">{formatDateTime(selectedEvent.createdAt, locale)}</span>
                     </div>
                     <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
-                    <span className="text-sm font-black uppercase tracking-widest">{selectedEvent.categoryLabel}</span>
+                    <span className="text-sm font-black uppercase tracking-widest">{translateCategory(selectedEvent.categoryLabel, locale)}</span>
                   </div>
                 </div>
                 <button 
@@ -564,7 +572,7 @@ export function ActiveCommunityCalendar() {
                     <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
                       <Heart className="w-5 h-5" />
                     </div>
-                    <h4 className="text-lg font-black tracking-tight">Donor Profile</h4>
+                    <h4 className="text-lg font-black tracking-tight">{t("donorProfile", "Donor Profile")}</h4>
                   </div>
                   
                   <div className="space-y-4">
@@ -578,21 +586,21 @@ export function ActiveCommunityCalendar() {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
                         <div className="absolute bottom-4 left-4 flex items-center gap-2">
                           <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                          <span className="text-xs font-black uppercase tracking-widest text-white drop-shadow-md">Verified Scan</span>
+                          <span className="text-xs font-black uppercase tracking-widest text-white drop-shadow-md">{t("verifiedScan", "Verified Scan")}</span>
                         </div>
                       </div>
                     )}
-                    <DetailItem icon={<User className="w-4 h-4" />} label="Verified Donor" value={selectedEvent.donorName} />
-                    <DetailItem icon={<Mail className="w-4 h-4" />} label="Contact Stream" value={selectedEvent.donorContact} />
+                    <DetailItem icon={<User className="w-4 h-4" />} label={t("verifiedDonor", "Verified Donor")} value={translateDonorName(selectedEvent.donorName, locale)} />
+                    <DetailItem icon={<Mail className="w-4 h-4" />} label={t("contactStream", "Contact Stream")} value={toLocalDigits(selectedEvent.donorContact, locale)} />
                     <div className="p-4 rounded-2xl bg-panel-elevated/40 border border-line/40">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-text-muted mb-2">Dietary & Allergens</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-text-muted mb-2">{t("dietaryAllergens", "Dietary & Allergens")}</p>
                       <div className="flex flex-wrap gap-2 mb-3">
                         <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${selectedEvent.dietTag === 'veg' ? 'bg-emerald-500/20 text-emerald-600' : 'bg-amber-500/20 text-amber-600'}`}>
-                          {selectedEvent.dietTag}
+                          {selectedEvent.dietTag === 'veg' ? t("dietVeg", "Veg") : t("dietNonVeg", "Non-Veg")}
                         </span>
                       </div>
                       <p className="text-xs font-medium leading-relaxed italic text-text-muted">
-                        "{selectedEvent.allergensNotes || 'No specific allergen notes provided by donor.'}"
+                        "{translateAllergens(selectedEvent.allergensNotes, locale)}"
                       </p>
                     </div>
                   </div>
@@ -604,7 +612,7 @@ export function ActiveCommunityCalendar() {
                     <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600">
                       <Package className="w-5 h-5" />
                     </div>
-                    <h4 className="text-lg font-black tracking-tight">Receiver Matrix</h4>
+                    <h4 className="text-lg font-black tracking-tight">{t("receiverMatrix", "Receiver Matrix")}</h4>
                   </div>
                   
                   <div className="space-y-4">
@@ -620,33 +628,33 @@ export function ActiveCommunityCalendar() {
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
                             <div className="absolute bottom-4 left-4 flex items-center gap-2">
                               <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                              <span className="text-xs font-black uppercase tracking-widest text-white drop-shadow-md">Verified Scan</span>
+                              <span className="text-xs font-black uppercase tracking-widest text-white drop-shadow-md">{t("verifiedScan", "Verified Scan")}</span>
                             </div>
                           </div>
                         )}
                         <DetailItem
                           icon={<Clock className="w-4 h-4" />}
-                          label="Collection Time"
-                          value={formatDateTime(selectedEvent.receiver.retrievedAt)}
+                          label={t("collectionTime", "Collection Time")}
+                          value={formatDateTime(selectedEvent.receiver.retrievedAt, locale)}
                         />
                         <DetailItem
                           icon={<ShieldCheck className="w-4 h-4" />}
-                          label="Freshness at Retrieval"
+                          label={t("freshnessAtRetrieval", "Freshness at Retrieval")}
                           value={getQualityLabel(selectedEvent.receiver.qualityScoreAtRetrieval as any).toUpperCase()}
                           color={selectedEvent.receiver.qualityScoreAtRetrieval === 'fresh' ? 'emerald' : selectedEvent.receiver.qualityScoreAtRetrieval === 'aging' ? 'amber' : 'rose'}
                         />
                         <DetailItem
                           icon={<User className="w-4 h-4" />}
-                          label="Access Mode"
-                          value={selectedEvent.receiver.retrievedBy === 'admin_override' ? "ADMIN OVERRIDE" : "Community Receiver"}
+                          label={t("accessMode", "Access Mode")}
+                          value={selectedEvent.receiver.retrievedBy === 'admin_override' ? t("administrativeOverride", "ADMIN OVERRIDE") : t("communityReceiver", "Community Receiver")}
                           highlight={selectedEvent.receiver.retrievedBy === 'admin_override'}
                         />
                       </>
                     ) : (
                       <div className="py-10 flex flex-col items-center justify-center text-center opacity-30">
                         <Clock className="w-10 h-10 mb-4 animate-pulse" />
-                        <p className="text-xs font-black uppercase tracking-widest">Pending Distribution</p>
-                        <p className="text-[9px] font-medium mt-1">Item is currently secure in {selectedEvent.lockerId.replace('chamber-', 'SAFE-')}</p>
+                        <p className="text-xs font-black uppercase tracking-widest">{t("pendingDistribution", "Pending Distribution")}</p>
+                        <p className="text-[9px] font-medium mt-1">{t("itemSecureInChamber", "Item is currently secure in")} SAFE-{toLocalDigits(selectedEvent.lockerId.split('-')[1], locale)}</p>
                       </div>
                     )}
                   </div>
@@ -658,7 +666,7 @@ export function ActiveCommunityCalendar() {
                     <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
                       <ShieldCheck className="w-5 h-5" />
                     </div>
-                    <h4 className="text-lg font-black tracking-tight">Fleet Governance</h4>
+                    <h4 className="text-lg font-black tracking-tight">{t("fleetGovernance", "Fleet Governance")}</h4>
                   </div>
 
                   <div className="space-y-4">
@@ -667,15 +675,15 @@ export function ActiveCommunityCalendar() {
                       <div className="p-5 rounded-3xl bg-rose-500/10 border border-rose-500/30">
                         <div className="flex items-center gap-3 mb-3">
                           <AlertCircle className="w-5 h-5 text-rose-500" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-rose-600">Administrative Override</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-rose-600">{t("administrativeOverride", "Administrative Override")}</span>
                         </div>
                         <div className="space-y-2">
-                          <p className="text-[11px] font-black text-rose-500/80 uppercase tracking-widest">Authorized by</p>
+                          <p className="text-[11px] font-black text-rose-500/80 uppercase tracking-widest">{t("authorizedBy", "Authorized by")}</p>
                           <p className="text-sm font-black text-rose-400">{selectedEvent.adminOverride.adminCredentials}</p>
-                          <p className="text-[11px] font-black text-rose-500/80 uppercase tracking-widest mt-3">Override Timestamp</p>
-                          <p className="text-sm font-black text-text">{formatDateTime(selectedEvent.adminOverride.overrideAt)}</p>
+                          <p className="text-[11px] font-black text-rose-500/80 uppercase tracking-widest mt-3">{t("overrideTimestamp", "Override Timestamp")}</p>
+                          <p className="text-sm font-black text-text">{formatDateTime(selectedEvent.adminOverride.overrideAt, locale)}</p>
                           <p className="text-[10px] font-medium leading-relaxed opacity-60 mt-2">
-                            This asset was forcibly released under administrative authority. The override is logged and flagged for routine verification.
+                            {t("adminOverrideDescription", "This asset was forcibly released under administrative authority. The override is logged and flagged for routine verification.")}
                           </p>
                         </div>
                       </div>
@@ -683,19 +691,19 @@ export function ActiveCommunityCalendar() {
                       <div className="p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/30">
                         <div className="flex items-center gap-3 mb-3">
                           <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Standard Compliance</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">{t("standardCompliance", "Standard Compliance")}</span>
                         </div>
                         <p className="text-[11px] font-medium leading-relaxed opacity-70">
                           {selectedEvent.status === 'retrieved'
-                            ? "This distribution followed standard community retrieval protocols. All biometric and safety checks were verified."
-                            : "Item is currently in safe storage awaiting community retrieval."}
+                            ? t("standardComplianceRetrieved", "This distribution followed standard community retrieval protocols. All biometric and safety checks were verified.")
+                            : t("standardComplianceAwaiting", "Item is currently in safe storage awaiting community retrieval.")}
                         </p>
                       </div>
                     )}
 
                     <div className="flex items-center gap-3 p-4 rounded-2xl border border-line/20 opacity-40">
                       <Info className="w-4 h-4" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Audit Ref: {selectedEvent.id.split('-')[0].toUpperCase()}</span>
+                      <span className="text-[9px] font-black uppercase tracking-widest">{t("auditRef", "Audit Ref")}: {selectedEvent.id.split('-')[0].toUpperCase()}</span>
                     </div>
                   </div>
                 </div>
@@ -705,13 +713,13 @@ export function ActiveCommunityCalendar() {
               <div className="p-8 bg-panel-elevated/50 border-t border-line/20 flex justify-between items-center">
                 <div className="flex items-center gap-2 opacity-40">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">System Logs Synced</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">{t("systemLogsSynced", "System Logs Synced")}</span>
                 </div>
                 <button 
                   onClick={() => setSelectedEvent(null)}
                   className="px-8 py-4 rounded-2xl bg-panel border border-line hover:border-emerald-500/40 text-text font-black text-xs uppercase tracking-widest transition-all"
                 >
-                  Dismiss Terminal
+                  {t("dismissTerminal", "Dismiss Terminal")}
                 </button>
               </div>
             </motion.div>
@@ -739,8 +747,8 @@ export function ActiveCommunityCalendar() {
             >
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h3 className="text-xl font-black tracking-tight text-text">Distribution Stack</h3>
-                  <p className="text-sm text-text-muted">Multiple events occurring at this time</p>
+                  <h3 className="text-xl font-black tracking-tight text-text">{t("distributionStack", "Distribution Stack")}</h3>
+                  <p className="text-sm text-text-muted">{t("distributionStackSub", "Multiple events occurring at this time")}</p>
                 </div>
                 <button 
                   onClick={() => setSelectedStack(null)}
@@ -771,12 +779,12 @@ export function ActiveCommunityCalendar() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500">{event.lockerId.replace('chamber-', 'SAFE ')}</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500">SAFE {toLocalDigits(event.lockerId.split('-')[1], locale)}</span>
                             <div className={`w-2 h-2 rounded-full ${qualityColor}`} />
                             <span className="text-[9px] font-black uppercase tracking-widest opacity-40">{qualityLabel}</span>
                           </div>
-                          <h4 className="text-lg font-black text-text">{event.foodName}</h4>
-                          <span className="text-xs text-text-muted">{new Date(event.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <h4 className="text-lg font-black text-text">{translateFoodName(event.foodName, locale)}</h4>
+                          <span className="text-xs text-text-muted">{toLocalDigits(new Date(event.createdAt).toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit' }), locale)}</span>
                         </div>
                       </div>
                       <ChevronRight className="w-5 h-5 text-text-muted group-hover:translate-x-1 transition-transform" />

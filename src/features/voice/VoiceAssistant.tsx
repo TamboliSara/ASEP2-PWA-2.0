@@ -19,16 +19,35 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { processVoiceCommandFn } from "../../services/firebase";
 import { useAppContext } from "../../store/AppContext";
+import { useTranslation } from "../../store/useTranslation";
 
 type AssistantState = 'idle' | 'listening' | 'processing' | 'speaking';
 type ChatMessage = { role: 'user' | 'ai'; text: string; timestamp?: string };
 
-const SUGGESTIONS = [
-  { icon: Box, text: "What's in Chamber 4?", label: "Chamber 4 contents" },
-  { icon: PackageCheck, text: "Which lockers are empty?", label: "Check available lockers" },
-  { icon: HeartHandshake, text: "I want to donate food", label: "Deposit donation" },
-  { icon: HelpCircle, text: "How does EcoLocker work?", label: "System guide" },
-];
+const getSuggestions = (locale: string) => {
+  if (locale === 'hi') {
+    return [
+      { icon: Box, text: "चैंबर 4 में क्या है?", label: "चैंबर 4 सामग्री" },
+      { icon: PackageCheck, text: "कौन से लॉकर खाली हैं?", label: "उपलब्ध लॉकर जांचें" },
+      { icon: HeartHandshake, text: "मैं भोजन दान करना चाहता हूँ", label: "भोजन दान करें" },
+      { icon: HelpCircle, text: "SAFE कैसे काम करता है?", label: "सिस्टम गाइड" },
+    ];
+  }
+  if (locale === 'mr') {
+    return [
+      { icon: Box, text: "कप्पा 4 मध्ये काय आहे?", label: "कप्पा 4 सामग्री" },
+      { icon: PackageCheck, text: "कोणते लॉकर रिकामे आहेत?", label: "उपलब्ध लॉकर तपासा" },
+      { icon: HeartHandshake, text: "मला अन्न दान करायचे आहे", label: "अन्न दान करा" },
+      { icon: HelpCircle, text: "SAFE कसे कार्य करते?", label: "सिस्टम मार्गदर्शक" },
+    ];
+  }
+  return [
+    { icon: Box, text: "What's in Chamber 4?", label: "Chamber 4 contents" },
+    { icon: PackageCheck, text: "Which lockers are empty?", label: "Check available lockers" },
+    { icon: HeartHandshake, text: "I want to donate food", label: "Deposit donation" },
+    { icon: HelpCircle, text: "How does SAFE work?", label: "System guide" },
+  ];
+};
 
 function cleanTextForSpeech(text: string): string {
   if (!text) return "";
@@ -148,6 +167,7 @@ function findBestFemaleVoice(targetLang: string): SpeechSynthesisVoice | null {
 
 export function VoiceAssistant() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [state, setState] = useState<AssistantState>('idle');
   const [showHint, setShowHint] = useState(false);
   const [responseMessage, setResponseMessage] = useState("");
@@ -169,6 +189,7 @@ export function VoiceAssistant() {
   const isProcessingRef = useRef(false);
 
   const { state: appState } = useAppContext();
+  const suggestions = getSuggestions(appState.locale);
 
   useEffect(() => { 
     stateRef.current = state; 
@@ -547,7 +568,7 @@ export function VoiceAssistant() {
                     exit={{ opacity: 0, x: -10, width: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    Tap to talk to AI
+                    {t("tapToTalkAi", "Tap to talk to AI")}
                   </motion.span>
                 )}
               </AnimatePresence>
@@ -582,13 +603,13 @@ export function VoiceAssistant() {
                       <Sparkles size={20} />
                     </div>
                     <div className="va-header-titles">
-                      <h3>EcoLocker AI</h3>
+                      <h3>SAFE AI</h3>
                       <div className="va-status-tag">
                         <span className="dot" />
                         <span>
-                          {state === 'listening' ? (isTextInput ? 'Text Mode' : (liveTranscript ? 'Hearing you...' : 'Listening...')) :
-                           state === 'processing' ? 'Thinking...' :
-                           state === 'speaking' ? 'Speaking...' : 'Ready'}
+                          {state === 'listening' ? (isTextInput ? 'Text Mode' : (liveTranscript ? t("hearingYou", "Hearing you...") : t("listening", "Listening..."))) :
+                           state === 'processing' ? t("thinking", "Thinking...") :
+                           state === 'speaking' ? t("speaking", "Speaking...") : 'Ready'}
                         </span>
                       </div>
                     </div>
@@ -629,13 +650,13 @@ export function VoiceAssistant() {
                       <div className="va-hero-orb">
                         <Bot size={36} />
                       </div>
-                      <h4 className="va-empty-title">How can I help you today?</h4>
+                      <h4 className="va-empty-title">{t("howCanIHelp", "How can I help you today?")}</h4>
                       <p className="va-empty-subtitle">
-                        Speak naturally — take your time to think or breathe. I'll listen until you finish!
+                        {t("voiceSubtitle", "Speak naturally — take your time to think or breathe. I'll listen until you finish!")}
                       </p>
 
                       <div className="va-suggestions-grid">
-                        {SUGGESTIONS.map((item, idx) => {
+                        {suggestions.map((item, idx) => {
                           const IconComp = item.icon;
                           return (
                             <button
@@ -703,7 +724,7 @@ export function VoiceAssistant() {
                         <Bot size={16} />
                       </div>
                       <div className="va-thinking-box">
-                        <span>Analyzing system</span>
+                        <span>{t("analyzingSystem", "Analyzing system")}</span>
                         <div className="va-dots">
                           <span />
                           <span />
@@ -738,7 +759,7 @@ export function VoiceAssistant() {
                         className="va-text-input"
                         value={textInputValue}
                         onChange={(e) => setTextInputValue(e.target.value)}
-                        placeholder="Type question or command (e.g. 'What is in chamber 2?')..."
+                        placeholder={t("typeQuestionPlaceholder", "Type question or command (e.g. 'What is in chamber 2?')...")}
                       />
                       <button 
                         type="submit" 
@@ -791,16 +812,16 @@ export function VoiceAssistant() {
                               </div>
                               <span>
                                 {liveTranscript 
-                                  ? 'Listening... tap mic to send now' 
-                                  : (isRealSpeech ? 'Listening... speak at your own pace' : 'Simulating microphone audio...')}
+                                  ? t("hearingYou", "Listening... tap mic to send now") 
+                                  : (isRealSpeech ? t("listening", "Listening... speak at your own pace") : 'Simulating microphone audio...')}
                               </span>
                             </>
                           ) : state === 'speaking' ? (
-                            <span>EcoLocker is answering...</span>
+                            <span>{t("speaking", "SAFE is answering...")}</span>
                           ) : state === 'processing' ? (
-                            <span>Generating response...</span>
+                            <span>{t("thinking", "Generating response...")}</span>
                           ) : (
-                            <span>Tap mic to talk</span>
+                            <span>{t("tapToTalkAi", "Tap mic to talk")}</span>
                           )}
                         </div>
 
@@ -815,7 +836,7 @@ export function VoiceAssistant() {
                           }}
                         >
                           <Keyboard size={15} />
-                          <span>Type</span>
+                          <span>{appState.locale === 'hi' ? 'लिखें' : appState.locale === 'mr' ? 'टाइप करा' : 'Type'}</span>
                         </button>
                       </div>
                     </div>

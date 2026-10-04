@@ -111,7 +111,7 @@ export function DepositForm({
       }
 
       if (!isPhoneVerified) {
-        setValidationError("Please scan the QR code and enter the 6-digit passkey before proceeding.");
+        setValidationError(t("scanQrStep3") || "Please scan the QR code and enter the 6-digit passkey before proceeding.");
         return;
       }
     }
@@ -141,12 +141,12 @@ export function DepositForm({
         </div>
         <div className="form-heading-luxe relative text-center">
           <div className="flex flex-col items-center">
-            <p className="eyebrow-accent" style={{ fontSize: isNaked ? '0.7rem' : '0.72rem', marginBottom: isNaked ? '0.12rem' : '0.2rem' }}>{t("step") || "Step"} {currentStep} of 4</p>
+            <p className="eyebrow-accent" style={{ fontSize: isNaked ? '0.7rem' : '0.72rem', marginBottom: isNaked ? '0.12rem' : '0.2rem' }}>{t("step") || "Step"} {currentStep} / 4</p>
             <h2 className="gradient-text-luxe" style={{ fontSize: isNaked ? '1.4rem' : '1.45rem', marginBottom: isNaked ? '0.18rem' : '0.25rem' }}>
               {currentStep === 1 ? t("foodDetails") || "Food Details" : 
                currentStep === 2 ? t("allergyInfo") || "Safety & Allergens" : 
                currentStep === 3 ? t("confirmDeposit") || "Donor Details" :
-               "Donor Authentication"}
+               t("donorAuthentication") || "Donor Authentication"}
             </h2>
           </div>
           
@@ -165,7 +165,7 @@ export function DepositForm({
             {currentStep === 1 ? t("foodDetailsBody") || "Tell us what you are sharing today." :
              currentStep === 2 ? t("allergyInfoBody") || "Important safety information for receivers." :
              currentStep === 3 ? t("confirmDepositBody") || "Review your donation details." :
-             "Secure biometric verification required."}
+             t("donorAuthBody") || "Secure biometric verification required."}
           </p>
         </div>
       </div>
@@ -361,7 +361,7 @@ export function DepositForm({
             title={!state.donationDraft.isPhoneVerified ? "Please verify with the QR passkey first" : undefined}
           >
             {isBusy ? t("submittingDeposit") : (
-              state.donationDraft.isPhoneVerified ? "Proceed to Verification" : "Verify Phone to Proceed"
+              state.donationDraft.isPhoneVerified ? (t("proceedToVerification") || "Proceed to Verification") : (t("verifyPhoneToProceed") || "Verify Phone to Proceed")
             )}
             <span className="btn-icon">→</span>
           </button>

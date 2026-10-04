@@ -73,7 +73,17 @@ function registerDescriptorInSession(descriptor: Float32Array) {
   _sessionDescriptors.push(descriptor);
   saveTodayDescriptors(_sessionDescriptors);
 }
-import { formatCountdown, formatDateTime, getHoursRemaining } from "../utils/format";
+import { 
+  formatCountdown, 
+  formatDateTime, 
+  getHoursRemaining, 
+  toLocalDigits, 
+  translateFoodName, 
+  translateCategory, 
+  translateDonorName, 
+  translateAllergens, 
+  translateInsight 
+} from "../utils/format";
 import { useAppContext } from "../store/AppContext";
 import { ScrollReveal } from "../components/ScrollReveal";
 import { TextReveal } from "../components/TextReveal";
@@ -81,7 +91,7 @@ import { TextReveal } from "../components/TextReveal";
 export function KioskPage() {
   const { dispatch } = useAppContext();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { state, currentLocker, selectLocker, isBusy, retrieveFood, triggerMaintenanceLockdown, syncNow, clearSyncMessage } = useLockerController();
   const donation = currentLocker?.activeDonation;
   const [selectedDonation, setSelectedDonation] = useState(donation);
@@ -177,7 +187,7 @@ export function KioskPage() {
     foodQualityScore: selectedQualityScore,
     deadlineEstimate: selectedDeadline ?? currentLocker.deadlineEstimate
   };
-  const recommendedActions = getRecommendedActions(dashboardLocker);
+  const recommendedActions = getRecommendedActions(dashboardLocker, locale);
 
   const dynamicHoursRemaining = useMemo(() => {
     void now;
@@ -366,21 +376,19 @@ export function KioskPage() {
             }}>
               <Lock size={11} style={{ color: "#f87171" }} />
               <span style={{ fontSize: "0.6rem", fontWeight: 900, letterSpacing: "0.2em", color: "#f87171", textTransform: "uppercase" }}>
-                ACCESS LOCKED FOR TODAY
+                {t("fairShareNotice", "ACCESS LOCKED FOR TODAY")}
               </span>
             </div>
 
             <h3 style={{ fontSize: "1.6rem", fontWeight: 900, color: "var(--text)", margin: "0 0 0.5rem", lineHeight: 1.2 }}>
-              Daily Limit Reached
+              {t("dailyLimitReached", "Daily Limit Reached")}
             </h3>
             <p style={{ fontSize: "0.7rem", fontWeight: 800, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.18em", margin: "0 0 1.25rem" }}>
-              Fair Share Policy · 3rd Retrieval Blocked
+              {t("fairShare3rdBlocked", "Fair Share Policy · 3rd Retrieval Blocked")}
             </p>
 
             <p style={{ fontSize: "0.88rem", color: "var(--text-muted)", lineHeight: 1.65, marginBottom: "1.5rem" }}>
-              Our fleet has detected that your identity has already collected food{" "}
-              <strong style={{ color: "var(--text)" }}>{deniedMatchCount} time{deniedMatchCount !== 1 ? "s" : ""} today</strong>.
-              {" "}To ensure <strong style={{ color: "var(--text)" }}>everyone in the community</strong> gets a fair share, access is limited to <strong style={{ color: "var(--text)" }}>2 retrievals per day</strong>.
+              {t("fairShareExplanation", "Our fleet has detected that your identity has already collected food today. To ensure everyone in the community gets a fair share, access is limited to 2 retrievals per day.")}
             </p>
 
             {/* Why sharing matters block */}
@@ -395,13 +403,10 @@ export function KioskPage() {
               textAlign: "left"
             }}>
               <p style={{ fontSize: "0.6rem", fontWeight: 900, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", margin: "0 0 0.6rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <Leaf size={10} /> Why sharing is essential
+                <Leaf size={10} /> {t("whySharingEssential", "Why sharing is essential")}
               </p>
               <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", lineHeight: 1.6, margin: 0 }}>
-                EcoLocker exists to fight food waste <em>and</em> feed as many people as possible.
-                Every meal left for someone else is a life made a little easier.
-                By respecting the daily limit, you help this food reach more families across the community.
-                We're grateful for your understanding.
+                {t("whySharingBody", "SAFE exists to fight food waste and feed as many people as possible. Every meal left for someone else is a life made a little easier. We're grateful for your understanding.")}
               </p>
             </div>
 
@@ -424,13 +429,12 @@ export function KioskPage() {
                 marginBottom: "0.75rem"
               }}
             >
-              ✓ Understood
+              ✓ {t("understood", "Understood")}
             </button>
 
             {/* Note: this modal auto-dismisses so the next person can use the kiosk */}
             <p style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.5, margin: 0 }}>
-              Your daily limit is tracked by face recognition.
-              This screen will close automatically so others can use this kiosk.
+              {t("ipProtectionNote", "Your daily limit is tracked by face recognition.")}
             </p>
           </motion.div>
         </div>
@@ -464,9 +468,9 @@ export function KioskPage() {
                 </div>
                 <div className="auth-icon-pulse" />
               </div>
-              <p className="auth-eyebrow">SECURITY OVERRIDE</p>
-              <h3 className="auth-title">Admin Authorization</h3>
-              <p className="auth-subtitle">Elevated privileges required for this operation.</p>
+              <p className="auth-eyebrow">{t("securityOverride", "SECURITY OVERRIDE")}</p>
+              <h3 className="auth-title">{t("adminAuthorization", "Admin Authorization")}</h3>
+              <p className="auth-subtitle">{t("elevatedPrivileges", "Elevated privileges required for this operation.")}</p>
             </div>
 
             <form onSubmit={confirmAdminAuth} className="auth-form-luxe">
@@ -474,7 +478,7 @@ export function KioskPage() {
                 <label className="auth-field">
                   <div className="field-label-row">
                     <Mail size={12} className="text-accent" />
-                    <span>ADMIN IDENTIFIER</span>
+                    <span>{t("adminIdentifier", "ADMIN IDENTIFIER")}</span>
                   </div>
                   <div className="input-wrapper-luxe">
                     <input 
@@ -491,7 +495,7 @@ export function KioskPage() {
                 <label className="auth-field">
                   <div className="field-label-row">
                     <Key size={12} className="text-accent" />
-                    <span>ACCESS TOKEN</span>
+                    <span>{t("accessToken", "ACCESS TOKEN")}</span>
                   </div>
                   <div className="input-wrapper-luxe">
                     <input 
@@ -519,10 +523,10 @@ export function KioskPage() {
 
               <div className="auth-actions-luxe">
                 <button type="button" className="auth-btn-secondary" onClick={() => setShowAdminAuth(false)}>
-                  Dismiss
+                  {t("dismiss", "Dismiss")}
                 </button>
                 <button type="submit" className="auth-btn-primary">
-                  <span>Verify Authorization</span>
+                  <span>{t("verifyAuthorization", "Verify Authorization")}</span>
                   <ShieldCheck size={18} />
                 </button>
               </div>
@@ -530,7 +534,7 @@ export function KioskPage() {
 
             <div className="auth-footer">
               <Shield size={10} />
-              <span>ENCRYPTED END-TO-END SESSION</span>
+              <span>{t("encryptedSession", "ENCRYPTED END-TO-END SESSION")}</span>
             </div>
           </motion.div>
         </div>
@@ -649,7 +653,7 @@ export function KioskPage() {
               <div className="hrd-food-name-row" style={{ position: 'relative', zIndex: 10 }}>
                 <TextReveal mode="block" direction="up" distance={15} delay={0.3} className="w-full min-w-0">
                   <h2 className="hrd-food-name" title={displayDonation.foodName}>
-                    {displayDonation.foodName.charAt(0).toUpperCase() + displayDonation.foodName.slice(1)}
+                    {translateFoodName(displayDonation.foodName, locale)}
                   </h2>
                 </TextReveal>
               </div>
@@ -667,25 +671,25 @@ export function KioskPage() {
                 <div className="hrd-qi-data-refined">
                   <div className="hrd-data-grid">
                     <div className="hrd-data-cell">
-                      <span className="hrd-cell-label">TIME REMAINING</span>
+                      <span className="hrd-cell-label">{t("timeRemaining", "TIME REMAINING")}</span>
                       <div className="hrd-hours-block">
-                        <span className="hrd-hours-num">{displayHoursRemaining > 0 ? displayHoursRemaining.toFixed(1) : "—"}</span>
-                        <span className="hrd-hours-unit">hrs</span>
+                        <span className="hrd-hours-num">{displayHoursRemaining > 0 ? toLocalDigits(displayHoursRemaining.toFixed(1), locale) : "—"}</span>
+                        <span className="hrd-hours-unit">{t("hours", "hrs")}</span>
                       </div>
                     </div>
 
                     <div className="hrd-data-cell">
-                      <span className="hrd-cell-label">FRESHNESS STATE</span>
+                      <span className="hrd-cell-label">{t("freshnessState", "FRESHNESS STATE")}</span>
                       <div className={`hrd-status-badge-new ${qualityStage}`}>
                         {qualityStage === "fresh" ? <ShieldCheck size={10} /> : <Activity size={10} />}
-                        {qualityStage === "empty" ? "EMPTY" : getQualityLabel(qualityStage)}
+                        {qualityStage === "empty" ? t("empty", "EMPTY") : getQualityLabel(qualityStage, locale)}
                       </div>
                     </div>
 
                     <div className="hrd-data-cell">
-                      <span className="hrd-cell-label">EXPIRY DATE</span>
+                      <span className="hrd-cell-label">{t("expiryDate", "EXPIRY DATE")}</span>
                       <span className="hrd-expiry-text-new">
-                        {selectedDeadline ? formatDateTime(selectedDeadline.absoluteIso) : "N/A"}
+                        {selectedDeadline ? formatDateTime(selectedDeadline.absoluteIso, locale) : "N/A"}
                       </span>
                     </div>
                   </div>
@@ -706,9 +710,9 @@ export function KioskPage() {
                       />
                     </div>
                     <div className="hrd-bar-labels">
-                      <span>SPOILED</span>
-                      <span>OPTIMAL</span>
-                      <span>FRESH</span>
+                      <span>{t("spoilt", "SPOILED")}</span>
+                      <span>{t("optimal", "OPTIMAL")}</span>
+                      <span>{t("fresh", "FRESH")}</span>
                     </div>
                   </div>
                 </div>
@@ -726,33 +730,33 @@ export function KioskPage() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '99px', padding: '4px 12px' }}>
                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
-                  <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.15em', color: 'var(--accent)', textTransform: 'uppercase' }}>Donor Mode</span>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.15em', color: 'var(--accent)', textTransform: 'uppercase' }}>{t("donorEyebrow", "Donor Mode")}</span>
                 </div>
               </div>
 
               {/* Heading */}
               <h2 style={{ fontSize: 'clamp(1.4rem, 3vw, 1.9rem)', fontWeight: 900, lineHeight: 1.2, color: 'var(--text)', margin: 0 }}>
-                Register your donation<br />to unlock the locker.
+                {t("registerDonationToUnlock", "Register your donation to unlock the locker.")}
               </h2>
 
               {/* Subtext */}
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: '260px', margin: 0, opacity: 0.8 }}>
-                Donor details stay strictly confidential, while community members see verified food safety and real-time chamber conditions.
+                {t("donorDetailsConfidential", "Donor details stay strictly confidential, while community members see verified food safety and real-time chamber conditions.")}
               </p>
 
               {/* Mini telemetry hint */}
               <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', opacity: 0.9 }}>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{(telemetry?.internalTempC ?? 0).toFixed(1)}°</div>
-                  <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Temp</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{toLocalDigits((telemetry?.internalTempC ?? 0).toFixed(1), locale)}°</div>
+                  <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{t("temp", "Temp")}</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{(telemetry?.humidityPct ?? 0).toFixed(0)}%</div>
-                  <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Humidity</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{toLocalDigits((telemetry?.humidityPct ?? 0).toFixed(0), locale)}%</div>
+                  <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{t("humidityLabel", "Humidity")}</div>
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--accent)' }}>{telemetry?.sensorHealth === 'healthy' ? '✓' : '!'}</div>
-                  <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Sensor</div>
+                  <div style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>{t("sensor", "Sensor")}</div>
                 </div>
               </div>
             </div>
@@ -772,8 +776,8 @@ export function KioskPage() {
             data-tour="chamber-selection-header"
             className="selection-header"
           >
-            <p className="eyebrow-accent">UNIT COMPARTMENTS</p>
-            <h3 className="premium-h3">Select Safe to Analyze</h3>
+            <p className="eyebrow-accent">{t("unitCompartments", "UNIT COMPARTMENTS")}</p>
+            <h3 className="premium-h3">{t("selectSafeToAnalyze", "Select Safe to Analyze")}</h3>
             <div className="header-divider-mini" />
           </div>
 
@@ -798,16 +802,16 @@ export function KioskPage() {
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.65rem' }}>
               <span style={{ height: '1px', width: '32px', background: 'linear-gradient(90deg, transparent, #10B981)' }} />
               <p className="eyebrow-accent" style={{ margin: 0, fontSize: '0.78rem', fontWeight: 900, letterSpacing: '0.3em', color: '#34D399', textTransform: 'uppercase' }}>
-                MISSION CONTROL
+                {t("missionControl", "MISSION CONTROL")}
               </p>
               <span style={{ height: '1px', width: '32px', background: 'linear-gradient(90deg, #10B981, transparent)' }} />
             </div>
             <h2 className="gradient-text-luxe" style={{ fontSize: '2.75rem', fontWeight: 900, letterSpacing: '-0.025em', margin: '0 0 0.75rem 0', lineHeight: 1.1 }}>
-              Analytics Dashboard
+              {t("analyticsDashboard", "Analytics Dashboard")}
             </h2>
             <div className="header-divider-luxe" style={{ margin: '0.5rem 0 1rem 0' }} />
             <p className="heading-subtext" style={{ maxWidth: '600px', margin: '0 auto', fontSize: '0.95rem', lineHeight: 1.6, color: 'rgba(255, 255, 255, 0.7)', fontWeight: 500 }}>
-              Real-time telemetry, continuous safety intelligence, and food health forecasting
+              {t("analyticsSubtext", "Real-time telemetry, continuous safety intelligence, and food health forecasting")}
             </p>
           </div>
         </ScrollReveal>
@@ -843,11 +847,11 @@ export function KioskPage() {
             </div>
             <div className="profile-hero" style={{ position: 'relative', zIndex: 1, marginBottom: '1rem' }}>
               <h3 className="premium-h3" style={{ fontSize: '1.6rem', marginBottom: '0.4rem', color: '#FFFFFF' }}>
-                {displayDonation?.categoryLabel ?? t("lockerReady")}
+                {translateCategory(displayDonation?.categoryLabel, locale) || t("lockerReady")}
               </h3>
               {displayDonation?.allergensNotes && displayDonation.allergensNotes !== 'none' && (
                 <p className="premium-p" style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>
-                  {displayDonation.allergensNotes}
+                  {translateAllergens(displayDonation.allergensNotes, locale)}
                 </p>
               )}
             </div>
@@ -860,7 +864,13 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">{t("preference")}</span>
                   <span className="spec-value" style={{ fontSize: '1rem', textTransform: 'uppercase' }}>
-                    {displayDonation?.dietTag?.replace("_", " ") ?? "-"}
+                    {displayDonation?.dietTag === 'veg' 
+                      ? (t("dietVeg") || "Vegetarian") 
+                      : displayDonation?.dietTag === 'non_veg' 
+                      ? (t("dietNonVeg") || "Non-Vegetarian") 
+                      : displayDonation?.dietTag === 'vegan'
+                      ? (t("dietVegan") || "Vegan")
+                      : "-"}
                   </span>
                 </div>
               </div>
@@ -871,10 +881,10 @@ export function KioskPage() {
                   <span className="spec-label">{t("registered")}</span>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span className="spec-value" style={{ fontSize: '0.9rem' }}>
-                      {displayDonation ? formatDateTime(displayDonation.createdAt).split(',')[0] : "-"}
+                      {displayDonation ? formatDateTime(displayDonation.createdAt, locale).split(',')[0] : "-"}
                     </span>
                     <span className="spec-unit" style={{ fontSize: '0.65rem', marginTop: '-2px', opacity: 0.8 }}>
-                      {displayDonation ? formatDateTime(displayDonation.createdAt).split(',')[1] : ""}
+                      {displayDonation ? formatDateTime(displayDonation.createdAt, locale).split(',')[1] : ""}
                     </span>
                   </div>
                 </div>
@@ -903,7 +913,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">{t("internalTemp")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.internalTempC.toFixed(2)}</span>
+                    <span className="spec-value">{toLocalDigits(telemetry.internalTempC.toFixed(2), locale)}</span>
                     <span className="spec-unit">°C</span>
                   </div>
                 </div>
@@ -913,7 +923,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">Probe Temp</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.externalTempC != null ? telemetry.externalTempC.toFixed(2) : "—"}</span>
+                    <span className="spec-value">{telemetry.externalTempC != null ? toLocalDigits(telemetry.externalTempC.toFixed(2), locale) : "—"}</span>
                     <span className="spec-unit">°C</span>
                   </div>
                 </div>
@@ -923,7 +933,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">{t("humidity")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.humidityPct.toFixed(1)}</span>
+                    <span className="spec-value">{toLocalDigits(telemetry.humidityPct.toFixed(1), locale)}</span>
                     <span className="spec-unit">%</span>
                   </div>
                 </div>
@@ -933,7 +943,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">{t("pressure")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.pressureHpa.toFixed(1)}</span>
+                    <span className="spec-value">{toLocalDigits(telemetry.pressureHpa.toFixed(1), locale)}</span>
                     <span className="spec-unit">hPa</span>
                   </div>
                 </div>
@@ -943,7 +953,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">{t("airQuality")}</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.gasResistanceOhms.toLocaleString()}</span>
+                    <span className="spec-value">{toLocalDigits(telemetry.gasResistanceOhms.toLocaleString(), locale)}</span>
                     <span className="spec-unit">Ω</span>
                   </div>
                 </div>
@@ -953,7 +963,7 @@ export function KioskPage() {
                 <div className="spec-info">
                   <span className="spec-label">Distance</span>
                   <div className="spec-value-group">
-                    <span className="spec-value">{telemetry.distanceCm != null ? telemetry.distanceCm.toFixed(1) : "—"}</span>
+                    <span className="spec-value">{telemetry.distanceCm != null ? toLocalDigits(telemetry.distanceCm.toFixed(1), locale) : "—"}</span>
                     <span className="spec-unit">cm</span>
                   </div>
                 </div>
@@ -997,20 +1007,20 @@ export function KioskPage() {
                   <div className="retrieve-details-hub" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                     <h3 className="premium-h3" style={{ fontSize: '1.4rem', margin: 0 }}>
                       {donation 
-                        ? (calculatedQualityScore < 30 ? "Access Restricted" : "Safe to Retrieve") 
-                        : "Vault Standby"}
+                        ? (calculatedQualityScore < 30 ? t("accessRestricted", "Access Restricted") : t("safeToRetrieve", "Safe to Retrieve")) 
+                        : t("vaultStandby", "Vault Standby")}
                     </h3>
                     <p className="premium-p" style={{ fontSize: '0.85rem', margin: 0, opacity: 0.85 }}>
                       {donation 
                         ? (calculatedQualityScore < 30 
-                            ? "Quality dropped below safety threshold." 
-                            : "Item health verified. Please use the slider to open.") 
+                            ? t("qualityDroppedSub", "Quality dropped below safety threshold.") 
+                            : t("itemHealthVerifiedSub", "Item health verified. Please use the slider to open.")) 
                         : t("receiverRule")}
                     </p>
                     
                     <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
-                      <div className="nature-pill" style={{ fontSize: '0.55rem' }}><Activity size={10} />INDEX: {calculatedQualityScore}%</div>
-                      <div className="nature-pill" style={{ fontSize: '0.55rem' }}><ShieldCheck size={10} />HEALTH: OPTIMAL</div>
+                      <div className="nature-pill" style={{ fontSize: '0.55rem' }}><Activity size={10} />{t("quality", "INDEX")}: {toLocalDigits(calculatedQualityScore, locale)}%</div>
+                      <div className="nature-pill" style={{ fontSize: '0.55rem' }}><ShieldCheck size={10} />{t("sanitary", "HEALTH")}: {t("optimal", "OPTIMAL")}</div>
                     </div>
                   </div>
                 </div>
@@ -1029,10 +1039,10 @@ export function KioskPage() {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
                       <p className="sector-title" style={{ color: '#34D399', margin: 0, fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.12em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Zap size={14} className="animate-pulse" style={{ color: '#10B981' }} /> RECOMMENDED ACTIONS
+                        <Zap size={14} className="animate-pulse" style={{ color: '#10B981' }} /> {t("recommendedActions", "RECOMMENDED ACTIONS")}
                       </p>
                       <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#10B981', background: 'rgba(16, 185, 129, 0.15)', padding: '0.15rem 0.5rem', borderRadius: '99px', textTransform: 'uppercase' }}>
-                        Protocol Active
+                        {t("protocolActive", "Protocol Active")}
                       </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.55rem' }}>
@@ -1062,13 +1072,11 @@ export function KioskPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                       <Ban size={18} style={{ color: "#f87171", flexShrink: 0 }} />
                       <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.12em" }}>
-                        Access Denied — Daily Limit Reached
+                        {t("fairShare3rdBlocked", "Access Denied — Daily Limit Reached")}
                       </span>
                     </div>
                     <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: 0, lineHeight: 1.55 }}>
-                      You've already collected food {deniedMatchCount} time{deniedMatchCount !== 1 ? "s" : ""} today.
-                      Fair Share Policy limits 2 retrievals per person per day.
-                      This screen will close automatically.
+                      {t("fairShareExplanation", "Fair Share Policy limits 2 retrievals per person per day.")}
                     </p>
                     <button
                       onClick={() => setShowHoardingDenied(false)}
@@ -1084,13 +1092,13 @@ export function KioskPage() {
                         cursor: "pointer"
                       }}
                     >
-                      Understood
+                      {t("understood", "Understood")}
                     </button>
                   </div>
                 ) : (
                   <div data-tour="receiver-slide-action" className="retrieve-action-area-luxe" style={{ position: 'relative', zIndex: 1, marginTop: '0', width: '100%' }}>
                     <SlideConfirm 
-                      label={isSpoiled ? "⚠ Restricted — Food Spoiled" : isFaulted ? "⚠ Locker Faulted — Use Override" : (t("slideToRetrieve") || "Slide to Retrieve")}
+                      label={isSpoiled ? `⚠ ${t("spoilt", "Restricted — Food Spoiled")}` : isFaulted ? `⚠ ${t("lockerFaulted", "Locker Faulted — Use Override")}` : (t("slideToRetrieve") || "Slide to Retrieve")}
                       onConfirm={() => setShowFaceVerification(true)}
                       disabled={!donation || isFaulted || isBusy || isSanitizing || isSpoiled}
                       className="luxe-slide-container"
@@ -1100,11 +1108,12 @@ export function KioskPage() {
 
                 {/* Admin Override — ENABLED when spoiled OR faulted (ensures there's always a way to get food out) */}
                 <div className="admin-override-area" style={{ marginTop: '0', position: 'relative', zIndex: 1, width: '100%' }}>
+                  <span className="admin-protected-badge">{t("protectedBadge", "PROTECTED")}</span>
                   <div className="admin-divider" style={{ marginBottom: '0.75rem' }}>
-                    <span className="divider-text">ADMINISTRATIVE OVERRIDE</span>
+                    <span className="divider-text">{t("adminOverrideTitle", "ADMINISTRATIVE OVERRIDE")}</span>
                   </div>
                   <SlideConfirm 
-                    label={!donation ? "No Item in Vault" : (isSpoiled ? "Force Open Vault" : isFaulted ? "Force Open — Fault Override" : "Override Not Required")}
+                    label={!donation ? t("noItemInVault", "No Item in Vault") : (isSpoiled ? t("forceOpenVault", "Force Open Vault") : isFaulted ? t("forceOpenFault", "Force Open — Fault Override") : t("overrideNotRequired", "Override Not Required"))}
                     onConfirm={handleAdminRetrieve}
                     className="luxe-slide-container admin-slide"
                     disabled={!donation || isBusy || isSanitizing || (!isSpoiled && !isFaulted)}
@@ -1131,8 +1140,8 @@ export function KioskPage() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: '48px', height: '48px', marginBottom: '1rem', color: 'var(--accent)', opacity: 0.5 }}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
-                <p style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--text)', opacity: 0.8, margin: 0 }}>Awaiting Deposit</p>
-                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', opacity: 0.7, marginTop: '0.5rem' }}>Analytics will appear once food is stored.</p>
+                <p style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--text)', opacity: 0.8, margin: 0 }}>{t("awaitingDeposit", "Awaiting Deposit")}</p>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', opacity: 0.7, marginTop: '0.5rem' }}>{t("awaitingDepositSubtext", "Analytics will appear once food is stored.")}</p>
               </div>
             )}
           </div>

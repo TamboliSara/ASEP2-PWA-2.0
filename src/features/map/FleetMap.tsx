@@ -6,17 +6,21 @@ import { useAppContext } from "../../store/AppContext";
 import { useTranslation } from "../../store/useTranslation";
 import type { FleetLockerSummary } from "../../types/domain";
 import { getQualityLabel } from "../../utils/safety";
+import { toLocalDigits, translateFoodName, translateDonorName } from "../../utils/format";
 
 /**
  * Derives FleetLockerSummary[] from live app state instead of mock data.
  * "Kiosk Delta (THIS DEVICE)" always uses the real current locker state.
  */
-function deriveFleetFromState(lockers: ReturnType<typeof useAppContext>["state"]["lockers"]): FleetLockerSummary[] {
+function deriveFleetFromState(
+  lockers: ReturnType<typeof useAppContext>["state"]["lockers"],
+  t: (key: string, fallback?: string) => string
+): FleetLockerSummary[] {
   const kioskMeta = [
-    { id: "kiosk-alpha", label: "Kiosk Alpha", zone: "Main Dining Hall", coords: { x: 28, y: 35 } },
-    { id: "kiosk-beta",  label: "Kiosk Beta",  zone: "Engineering Block", coords: { x: 55, y: 28 } },
-    { id: "kiosk-gamma", label: "Kiosk Gamma", zone: "Sports Complex",    coords: { x: 45, y: 65 } },
-    { id: "kiosk-delta", label: "Kiosk Delta (THIS DEVICE)", zone: "Campus Gate \u2014 Active Kiosk", coords: { x: 75, y: 52 } },
+    { id: "kiosk-alpha", label: t("kioskAlpha", "Kiosk Alpha"), zone: t("zoneDining", "Main Dining Hall"), coords: { x: 28, y: 35 } },
+    { id: "kiosk-beta",  label: t("kioskBeta", "Kiosk Beta"),   zone: t("zoneEngineering", "Engineering Block"), coords: { x: 55, y: 28 } },
+    { id: "kiosk-gamma", label: t("kioskGamma", "Kiosk Gamma"), zone: t("zoneSports", "Sports Complex"),    coords: { x: 45, y: 65 } },
+    { id: "kiosk-delta", label: t("kioskDeltaThis", "Kiosk Delta (THIS DEVICE)"), zone: t("zoneGate", "Campus Gate — Active Kiosk"), coords: { x: 75, y: 52 } },
   ];
 
   const totalUnits = lockers.length;
@@ -98,9 +102,9 @@ function deriveFleetFromState(lockers: ReturnType<typeof useAppContext>["state"]
 }
 
 export function FleetMap() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { state } = useAppContext();
-  const fleet = deriveFleetFromState(state.lockers);
+  const fleet = deriveFleetFromState(state.lockers, t);
 
   // Real per-chamber details for delta kiosk's 3-dot menu
   const deltaChambersDetail = state.lockers.map((locker, idx) => ({
@@ -111,6 +115,9 @@ export function FleetMap() {
     isOccupied: locker.occupancyState === 'occupied' || locker.occupancyState === 'spoiled',
   }));
 
+  const mapLanguage = locale === "hi" ? "hi" : locale === "mr" ? "mr" : "en";
+  const mapEmbedUrl = `https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3784.441999208006!2d73.868202514892!3d18.46362248744!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2ea9511019ed3%3A0x33ef92d33b49767a!2sVishwakarma%20Institute%20of%20Technology!5e0!3m2!1s${mapLanguage}!2sin!4v1620000000000!5m2!1s${mapLanguage}!2sin&hl=${mapLanguage}`;
+
   return (
     <SurfaceCard className="!p-8 overflow-hidden relative">
       <div className="flex items-center gap-3 mb-6">
@@ -118,13 +125,24 @@ export function FleetMap() {
           <MapIcon className="w-5 h-5 text-accent" />
         </div>
         <div>
-          <p className="text-[10px] font-black tracking-widest uppercase text-accent/80">{t("fleetMap")}</p>
-          <h3 className="text-xl font-black">{t("liveStatusVisualization")}</h3>
+          <p className="text-[10px] font-black tracking-widest uppercase text-accent/80">{t("fleetMap", "FLEET MAP")}</p>
+          <h3 className="text-xl font-black">{t("liveStatusVisualization", "Live Status Visualization")}</h3>
         </div>
       </div>
       
       <div className="fleet-map relative aspect-[21/9] bg-panel-elevated/30 rounded-2xl border border-line overflow-hidden group/map shadow-2xl">
-        <iframe title="VIT Pune Location" width="100%" height="100%" frameBorder="0" style={{ border: 0, filter: 'grayscale(1) contrast(1.1) brightness(0.9) invert(0.05)', opacity: 0.7 }} className="pointer-events-none" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3784.441999208006!2d73.868202514892!3d18.46362248744!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc2ea9511019ed3%3A0x33ef92d33b49767a!2sVishwakarma%20Institute%20of%20Technology!5e0!3m2!1sen!2sin!4v1620000000000!5m2!1sen!2sin" allowFullScreen loading="lazy"></iframe>
+        <iframe
+          key={mapLanguage}
+          title="VIT Pune Location"
+          width="100%"
+          height="100%"
+          frameBorder="0"
+          style={{ border: 0, filter: 'grayscale(1) contrast(1.1) brightness(0.9) invert(0.05)', opacity: 0.7 }}
+          className="pointer-events-none"
+          src={mapEmbedUrl}
+          allowFullScreen
+          loading="lazy"
+        />
 
         <div className="absolute inset-0 bg-gradient-to-t from-panel/60 via-transparent to-panel/20 pointer-events-none" />
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]" />
@@ -132,30 +150,30 @@ export function FleetMap() {
         <div className="absolute top-6 left-6 flex items-center gap-3 z-20">
           <div className="px-3 py-1.5 rounded-full bg-accent/10 backdrop-blur-md border border-accent/20 flex items-center gap-2 shadow-xl">
             <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-accent">Live GPS Stream</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-accent">{t("liveGpsStream", "Live GPS Stream")}</span>
           </div>
           <div className="px-3 py-1.5 rounded-full bg-panel/40 backdrop-blur-md border border-line flex items-center gap-2 shadow-xl">
-            <span className="text-[9px] font-bold text-text-muted uppercase tracking-widest">Zone: VIT-PUNE-01</span>
+            <span className="text-[9px] font-bold text-text-muted uppercase tracking-widest">{t("zoneVitPune", "Zone: VIT-PUNE-01")}</span>
           </div>
         </div>
 
         <div className="absolute top-6 right-6 flex flex-col items-end gap-1 z-20">
-          <span className="text-[10px] font-mono font-bold text-accent/60 uppercase">Lat: 18.4636</span>
-          <span className="text-[10px] font-mono font-bold text-accent/60 uppercase">Lng: 73.8682</span>
+          <span className="text-[10px] font-mono font-bold text-accent/60 uppercase">Lat: {toLocalDigits("18.4636", locale)}</span>
+          <span className="text-[10px] font-mono font-bold text-accent/60 uppercase">Lng: {toLocalDigits("73.8682", locale)}</span>
         </div>
 
         <div className="absolute bottom-6 left-6 flex items-center gap-4 z-20">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-panel/60 backdrop-blur-md border border-line">
             <div className="w-2 h-2 rounded-full bg-accent" />
-            <span className="text-[9px] font-black uppercase text-text-muted tracking-tighter">Active</span>
+            <span className="text-[9px] font-black uppercase text-text-muted tracking-tighter">{t("mapActive", "Active")}</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-panel/60 backdrop-blur-md border border-line">
             <div className="w-2 h-2 rounded-full bg-panel border border-line" />
-            <span className="text-[9px] font-black uppercase text-text-muted tracking-tighter">Standby</span>
+            <span className="text-[9px] font-black uppercase text-text-muted tracking-tighter">{t("mapStandby", "Standby")}</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-panel/60 backdrop-blur-md border border-line">
             <div className="w-2 h-2 rounded-full bg-danger" />
-            <span className="text-[9px] font-black uppercase text-text-muted tracking-tighter">Fault</span>
+            <span className="text-[9px] font-black uppercase text-text-muted tracking-tighter">{t("mapFault", "Fault")}</span>
           </div>
         </div>
         
@@ -186,7 +204,7 @@ export function FleetMap() {
               <div className="relative flex flex-col items-center justify-center">
                 <div className={`absolute w-32 h-20 rounded-2xl backdrop-blur-md border shadow-2xl transition-all duration-500 -z-10 ${auraColor}`} />
                 <div className={`relative w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all duration-500 border-4 shadow-xl z-10 ${markerClass} ${isOccupied ? 'ring-4 ring-accent/20' : ''}`}>
-                  {locker.lockerLabel.split(' ')[1]?.[0] || 'L'}
+                  {locker.lockerId === 'kiosk-alpha' ? 'α' : locker.lockerId === 'kiosk-beta' ? 'β' : locker.lockerId === 'kiosk-gamma' ? 'γ' : 'δ'}
                 </div>
                 <div className="mt-2 px-3 py-1 rounded bg-panel shadow-md border border-line z-10">
                   <span className="text-[8px] font-black uppercase tracking-widest text-text">{locker.lockerLabel}</span>
@@ -208,7 +226,7 @@ export function FleetMap() {
                         >
                           <div className="px-3 py-2 border-b border-line">
                             <span className="text-[9px] font-black uppercase tracking-widest text-text-muted">
-                              {isDelta ? 'Chamber Details (Live)' : 'Unit Contents'}
+                              {isDelta ? t("chamberDetailsLive", "Chamber Details (Live)") : t("unitContents", "Unit Contents")}
                             </span>
                           </div>
                           <div className="max-h-48 overflow-y-auto p-1 space-y-1">
@@ -217,10 +235,10 @@ export function FleetMap() {
                                 <div key={chamber.chamberNum} className="flex items-center justify-between p-2 rounded hover:bg-panel-elevated transition-colors">
                                   <div className="flex flex-col">
                                     <span className="text-xs font-bold text-text">
-                                      {chamber.isOccupied ? chamber.foodName : 'Empty'}
+                                      {chamber.isOccupied ? translateFoodName(chamber.foodName, locale) : t("empty", "Empty")}
                                     </span>
                                     <span className="text-[9px] font-bold text-text-muted uppercase">
-                                      SAFE {chamber.chamberNum.toString().padStart(2, '0')}{chamber.donorName ? ` \u00b7 ${chamber.donorName}` : ''}
+                                      SAFE {toLocalDigits(chamber.chamberNum.toString().padStart(2, '0'), locale)}{chamber.donorName ? ` · ${translateDonorName(chamber.donorName, locale)}` : ''}
                                     </span>
                                   </div>
                                   <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border
@@ -229,7 +247,7 @@ export function FleetMap() {
                                       chamber.isOccupied ? 'bg-danger/10 text-danger border-danger/20' :
                                       'bg-panel/50 text-text-muted border-line'}`}
                                   >
-                                    {chamber.isOccupied ? getQualityLabel(chamber.quality as any) : 'idle'}
+                                    {chamber.isOccupied ? getQualityLabel(chamber.quality as any, locale) : t("empty", "idle")}
                                   </span>
                                 </div>
                               ))
@@ -246,21 +264,21 @@ export function FleetMap() {
                                 return Array.from({ length: locker.occupiedUnits }).map((_, i) => (
                                   <div key={i} className="flex items-center justify-between p-2 rounded hover:bg-panel-elevated transition-colors">
                                     <div className="flex flex-col">
-                                      <span className="text-xs font-bold text-text">{items[i % items.length]}</span>
-                                      <span className="text-[9px] font-bold text-text-muted uppercase">Unit {i + 1}</span>
+                                      <span className="text-xs font-bold text-text">{translateFoodName(items[i % items.length], locale)}</span>
+                                      <span className="text-[9px] font-bold text-text-muted uppercase">{t("chamber", "Unit")} {toLocalDigits(i + 1, locale)}</span>
                                     </div>
                                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border
                                       ${locker.foodQualityScore === 'fresh' ? 'bg-success/10 text-success border-success/20' : 
                                         locker.foodQualityScore === 'aging' ? 'bg-warning/10 text-warning border-warning/20' : 
                                         'bg-danger/10 text-danger border-danger/20'}`}
                                     >
-                                      {getQualityLabel(locker.foodQualityScore)}
+                                      {getQualityLabel(locker.foodQualityScore, locale)}
                                     </span>
                                   </div>
                                 ));
                               })()
                             ) : (
-                              <div className="p-3 text-center text-xs font-medium text-text-muted">All units are free</div>
+                              <div className="p-3 text-center text-xs font-medium text-text-muted">{t("allUnitsFree", "All units are free")}</div>
                             )}
                           </div>
                         </Menu>
@@ -271,15 +289,15 @@ export function FleetMap() {
                   <div className="space-y-3">
                     <div className="flex flex-col">
                       <div className="flex justify-between items-center mb-0.5">
-                        <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Unit Capacity</span>
-                        <span className="text-[9px] font-black font-mono text-text">{locker.occupiedUnits}/{locker.totalUnits}</span>
+                        <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider">{t("unitCapacity", "Unit Capacity")}</span>
+                        <span className="text-[9px] font-black font-mono text-text">{toLocalDigits(locker.occupiedUnits, locale)}/{toLocalDigits(locker.totalUnits, locale)}</span>
                       </div>
                       <div className="w-full h-1.5 bg-line/50 rounded-full overflow-hidden flex">
                         <div className="h-full bg-accent transition-all duration-500" style={{ width: `${(locker.occupiedUnits / locker.totalUnits) * 100}%` }} />
                       </div>
                       <div className="flex justify-between mt-1 text-[8px] font-bold uppercase tracking-widest text-text-muted">
-                        <span>{locker.occupiedUnits} Occupied</span>
-                        <span>{locker.freeUnits} Free</span>
+                        <span>{toLocalDigits(locker.occupiedUnits, locale)} {t("occupied", "Occupied")}</span>
+                        <span>{toLocalDigits(locker.freeUnits, locale)} {t("empty", "Free")}</span>
                       </div>
                     </div>
                   </div>
@@ -287,7 +305,7 @@ export function FleetMap() {
                   {isDelta && (
                     <div className="mt-3 pt-2 border-t border-line/30 flex items-center gap-1.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                      <span className="text-[8px] font-black uppercase tracking-widest text-accent/70">HARDWARE PAIRED \u00b7 LIVE DATA</span>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-accent/70">{t("hardwarePairedLive", "HARDWARE PAIRED · LIVE DATA")}</span>
                     </div>
                   )}
 

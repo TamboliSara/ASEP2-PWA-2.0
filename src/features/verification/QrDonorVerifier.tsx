@@ -17,6 +17,7 @@ import {
   subscribeQrSession,
   type QrSession
 } from "../../services/qrSessionService";
+import { useTranslation } from "../../store/useTranslation";
 
 interface QrDonorVerifierProps {
   phoneNumber: string;
@@ -57,6 +58,7 @@ export function QrDonorVerifier({
   onVerified,
   disabled = false
 }: QrDonorVerifierProps) {
+  const { t } = useTranslation();
   const [passkey, setPasskey] = useState<string>("");
   const [sessionId, setSessionId] = useState<string>("");
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
@@ -301,7 +303,7 @@ export function QrDonorVerifier({
             title="Change mobile number or scan again"
           >
             <RefreshCw className="w-3.5 h-3.5" style={{ color: "#475569" }} />
-            <span>Change Number</span>
+            <span>{t("changeNumber")}</span>
           </button>
         </div>
 
@@ -315,7 +317,7 @@ export function QrDonorVerifier({
         >
           <div className="flex items-center gap-1.5 min-w-0">
             <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="truncate">Your IP address is stored in our system and is protected.</span>
+            <span className="truncate">{t("ipProtectionNote")}</span>
           </div>
           {activeIp && (
             <span
@@ -347,12 +349,12 @@ export function QrDonorVerifier({
             </div>
             <div className="min-w-0">
               <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-900 truncate">
-                Instant QR Verification
+                {t("instantQrVerification")}
               </h4>
               <p className="text-[11px] text-slate-500 truncate">
                 {isPhoneValid
-                  ? "Scan with your phone to receive your passkey"
-                  : "Enter mobile number above to generate QR"}
+                  ? t("scanWithPhoneForPasskey")
+                  : t("enterMobileToGenerateQr")}
               </p>
             </div>
           </div>
@@ -365,7 +367,7 @@ export function QrDonorVerifier({
               title="Refresh QR Code"
             >
               <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-              <span>New QR</span>
+              <span>{t("newQr")}</span>
             </button>
           )}
         </div>
@@ -386,7 +388,7 @@ export function QrDonorVerifier({
                     style={{ background: timerColor }}
                   />
                   <span className="text-slate-600">
-                    Valid for{" "}
+                    {t("validFor")}{" "}
                     <strong className="tabular-nums" style={{ color: timerColor }}>
                       {timerSeconds}s
                     </strong>
@@ -397,9 +399,9 @@ export function QrDonorVerifier({
               {/* 3 Step Instructions */}
               <div className="space-y-2.5 min-w-0">
                 {[
-                  { n: "1", text: "Scan QR with your phone camera" },
-                  { n: "2", text: "View 6-digit code on your phone" },
-                  { n: "3", text: "Enter the code below to verify" }
+                  { n: "1", text: t("scanQrStep1") },
+                  { n: "2", text: t("scanQrStep2") },
+                  { n: "3", text: t("scanQrStep3") }
                 ].map((step) => (
                   <div key={step.n} className="flex items-center gap-2.5 text-xs text-slate-600 font-medium">
                     <div className="w-5 h-5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-[11px] shrink-0">
@@ -414,7 +416,7 @@ export function QrDonorVerifier({
             {/* Bottom Row: Full-Width Centered 6-Digit PIN Boxes (Never Clipped!) */}
             <div className="pt-2 border-t border-slate-100 flex flex-col items-center">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
-                Enter 6-Digit Passkey
+                {t("enter6DigitPasskey")}
               </p>
 
               <div className="flex items-center justify-center gap-2 sm:gap-2.5 w-full">

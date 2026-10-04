@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Activity } from "lucide-react";
 import { StatusPill } from "../../components/StatusPill";
 import { getQualityLabel } from "../../utils/safety";
+import { useTranslation } from "../../store/useTranslation";
+import { toLocalDigits } from "../../utils/format";
 import type { LockerState } from "../../types/domain";
 
 export interface ChamberCardProps {
@@ -24,7 +26,10 @@ export const ChamberCard = memo(function ChamberCard({
   isActive,
   onSelect
 }: ChamberCardProps) {
-  const unitTag = `UNIT_${locker.lockerId.split("-")[1] || "00"}`;
+  const { t, locale } = useTranslation();
+  const rawNum = locker.lockerId.split("-")[1] || "00";
+  const localSafeNum = toLocalDigits(safeNum, locale);
+  const unitTag = `SAFE_${toLocalDigits(rawNum, locale)}`;
   const pillValue = locker.occupancyState === "maintenance" ? "empty" : locker.occupancyState;
   const pillTone = locker.occupancyState === "occupied" ? "warning" : "success";
 
@@ -36,13 +41,13 @@ export const ChamberCard = memo(function ChamberCard({
       onClick={() => onSelect(locker.lockerId)}
     >
         <div className="chamber-node-inner">
-          <div className="chamber-node-number">{safeNum}</div>
+          <div className="chamber-node-number">{localSafeNum}</div>
           <div className="chamber-node-info">
             <div className="chamber-header-row">
-              <span className="chamber-label">SAFE</span>
+              <span className="chamber-label">{t("safe", "SAFE")}</span>
               <div className="chamber-node-tag">{unitTag}</div>
             </div>
-            <strong className="chamber-id">{safeNum}</strong>
+            <strong className="chamber-id">{localSafeNum}</strong>
 
             <div className="chamber-status-stack">
               <StatusPill value={pillValue} tone={pillTone} />
@@ -56,7 +61,7 @@ export const ChamberCard = memo(function ChamberCard({
                     className={`quality-mini-pill ${locker.foodQualityScore}`}
                   >
                     <Activity size={8} />
-                    {getQualityLabel(locker.foodQualityScore).toUpperCase()}
+                    {t(locker.foodQualityScore) || getQualityLabel(locker.foodQualityScore).toUpperCase()}
                   </motion.div>
                 )}
               </AnimatePresence>

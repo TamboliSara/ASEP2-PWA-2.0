@@ -23,6 +23,8 @@ import {
   Filler
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { useTranslation } from '../../store/useTranslation';
+import { toLocalDigits, translateInsight } from '../../utils/format';
 
 ChartJS.register(
   CategoryScale,
@@ -58,7 +60,7 @@ export function FoodHealthCardPremium({
   className = "",
   variant = 'default'
 }: FoodHealthCardPremiumProps) {
-  
+  const { t, locale } = useTranslation();
   const isCompact = variant === 'compact';
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [activeMetrics, setActiveMetrics] = useState<MetricType[]>(['RISK', 'QUALITY', 'TEMP']);
@@ -274,15 +276,15 @@ export function FoodHealthCardPremium({
           </div>
           <div className="space-y-0.5">
             <h2 className={`${isCompact ? 'text-xl md:text-2xl' : 'text-3xl md:text-4xl'} font-black tracking-tight`} style={{ color: colors.text }}>
-              Food Health Intelligence
+              {t("foodHealthIntelligence")}
             </h2>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <StatMini 
-            label="RISK" 
-            value={`${risk}%`} 
+            label={t("risk")} 
+            value={`${toLocalDigits(risk, locale)}%`} 
             color="text-red-500" 
             bg={isDarkMode ? "bg-red-500/10" : "bg-red-50"} 
             isCompact={isCompact} 
@@ -291,8 +293,8 @@ export function FoodHealthCardPremium({
             onClick={() => toggleMetric('RISK')}
           />
           <StatMini 
-            label="QUALITY" 
-            value={`${quality}%`} 
+            label={t("quality")} 
+            value={`${toLocalDigits(quality, locale)}%`} 
             color={isDarkMode ? "text-emerald-400" : "text-emerald-600"} 
             bg={isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50"} 
             isCompact={isCompact} 
@@ -301,8 +303,8 @@ export function FoodHealthCardPremium({
             onClick={() => toggleMetric('QUALITY')}
           />
           <StatMini 
-            label="GAS" 
-            value={`${gas}%`} 
+            label={t("gas")} 
+            value={`${toLocalDigits(gas, locale)}%`} 
             color={isDarkMode ? "text-amber-500" : "text-amber-600"} 
             bg={isDarkMode ? "bg-amber-500/10" : "bg-amber-50"} 
             isCompact={isCompact} 
@@ -311,8 +313,8 @@ export function FoodHealthCardPremium({
             onClick={() => toggleMetric('GAS')}
           />
           <StatMini 
-            label="TEMP" 
-            value={`${temp}°C`} 
+            label={t("temp")} 
+            value={`${toLocalDigits(temp, locale)}°C`} 
             color={isDarkMode ? "text-blue-400" : "text-blue-600"} 
             bg={isDarkMode ? "bg-blue-500/10" : "bg-blue-50"} 
             isCompact={isCompact} 
@@ -336,7 +338,7 @@ export function FoodHealthCardPremium({
           <div className="flex justify-between items-center mb-6 relative z-10">
             <div className="flex items-center gap-2">
               <Activity className="w-3.5 h-3.5 text-emerald-500" />
-              <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-text-muted' : 'text-slate-500'}`}>Interactive Prognosis Stream</span>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-text-muted' : 'text-slate-500'}`}>{t("prognosisStream")}</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-[8px] font-black text-text-muted/40 uppercase tracking-widest">Select Metrics above to toggle trendlines</span>
@@ -370,12 +372,12 @@ export function FoodHealthCardPremium({
             }}
           >
             <div className="flex justify-between items-center mb-2">
-              <span className={`text-[10px] font-black tracking-widest uppercase text-emerald-500`}>SHELF_LIFE</span>
+              <span className={`text-[10px] font-black tracking-widest uppercase text-emerald-500`}>{t("shelfLife")}</span>
               <Clock className="w-3 h-3 text-emerald-500/50" />
             </div>
             <div className={`flex items-baseline gap-1 ${isCompact ? 'mb-4' : 'mb-6'}`}>
-              <strong className={`${isCompact ? 'text-4xl' : 'text-6xl'} font-black tracking-tighter font-mono`} style={{ color: colors.text }}>{shelfLifeHours}</strong>
-              <span className={`${isCompact ? 'text-lg' : 'text-xl'} font-black uppercase tracking-widest`} style={{ color: colors.textMuted }}>hrs</span>
+              <strong className={`${isCompact ? 'text-4xl' : 'text-6xl'} font-black tracking-tighter font-mono`} style={{ color: colors.text }}>{toLocalDigits(shelfLifeHours, locale)}</strong>
+              <span className={`${isCompact ? 'text-lg' : 'text-xl'} font-black uppercase tracking-widest`} style={{ color: colors.textMuted }}>{t("hours")}</span>
             </div>
             <div className={`h-1.5 w-full rounded-full overflow-hidden border shadow-inner ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
               <motion.div 
@@ -397,10 +399,10 @@ export function FoodHealthCardPremium({
           >
             <div className="flex items-center gap-2 mb-4">
               <Brain className={`w-4 h-4 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
-              <span className={`text-[10px] font-black tracking-widest uppercase ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>AI_INSIGHT</span>
+              <span className={`text-[10px] font-black tracking-widest uppercase ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{t("aiInsight")}</span>
             </div>
             <p className={`${isCompact ? 'text-xs' : 'text-base'} font-bold leading-relaxed italic opacity-95`} style={{ color: colors.text }}>
-              "{insight}"
+              "{translateInsight(insight, locale)}"
             </p>
           </motion.div>
         </div>

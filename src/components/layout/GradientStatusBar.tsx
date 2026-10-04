@@ -38,7 +38,7 @@ export function GradientStatusBar() {
   const navItems: GradientActionItem[] = [
     {
       id: 'esp32',
-      label: isDeviceConnected ? `ESP32 (${macSuffix})` : 'PAIR ESP32',
+      label: isDeviceConnected ? `${t("esp32Connected")} (${macSuffix})` : t("pairEsp32"),
       display: 'BT',
       icon: <Bluetooth size={15} strokeWidth={2.2} className="nav-bluetooth-icon" />,
       gradientFrom: isDeviceConnected ? '#10B981' : '#EF4444',
@@ -49,7 +49,7 @@ export function GradientStatusBar() {
     },
     {
       id: 'tour',
-      label: 'WEBSITE TOUR',
+      label: t("websiteTour"),
       display: 'TOUR',
       icon: <PlaneTakeoff size={15} strokeWidth={2.2} className="tour-plane-icon" />,
       gradientFrom: '#14B8A6',
@@ -60,7 +60,7 @@ export function GradientStatusBar() {
     },
     {
       id: 'visualizer',
-      label: '3D MODEL',
+      label: t("model3d"),
       display: '3D',
       icon: <Box size={15} strokeWidth={2.2} />,
       gradientFrom: '#EC4899',
@@ -73,7 +73,7 @@ export function GradientStatusBar() {
 
   const languageItems: GradientActionItem[] = locales.map((locale) => ({
     id: locale,
-    label: locale === 'en' ? 'English' : locale === 'hi' ? 'Hindi' : 'Marathi',
+    label: locale === 'en' ? 'English' : locale === 'hi' ? 'हिंदी' : 'मराठी',
     display: locale.toUpperCase(),
     gradientFrom: locale === 'en' ? '#14B8A6' : locale === 'hi' ? '#F59E0B' : '#6366f1',
     gradientTo: locale === 'en' ? '#0D9488' : locale === 'hi' ? '#B45309' : '#4338ca',

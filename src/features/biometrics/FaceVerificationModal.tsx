@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, X, ShieldCheck, UserCheck, AlertCircle } from 'lucide-react';
+import { useTranslation } from '../../store/useTranslation';
 
 interface FaceVerificationModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface FaceVerificationModalProps {
 }
 
 export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ isOpen, onClose, onVerify }) => {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastFrameData = useRef<Uint8ClampedArray | null>(null);
@@ -21,6 +23,14 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
   const [autoCaptureCountdown, setAutoCaptureCountdown] = useState<number | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [showInstructions, setShowInstructions] = useState(true);
+
+  const getLocalizedWarning = (warning: string | null) => {
+    if (!warning) return null;
+    if (warning.includes("Low light")) return t("faceRule3", "Low light detected. Please move to a brighter area.");
+    if (warning.includes("Motion")) return t("faceRule1", "Motion detected. Please hold still.");
+    if (warning.includes("circle")) return t("notCenteredWarning", "Position your face within the circle.");
+    return warning;
+  };
 
   useEffect(() => {
     if (isOpen && !showInstructions) {
@@ -464,32 +474,32 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
                 <UserCheck size={36} className="instruction-icon" />
               </div>
               
-              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '1.5rem', color: 'white', letterSpacing: '-0.02em' }}>Identity Verification</h3>
+              <h3 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '1.5rem', color: 'white', letterSpacing: '-0.02em' }}>{t("identityVerification", "Identity Verification")}</h3>
               
               <div className="instruction-content">
-                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', marginBottom: '1.25rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>Security Protocol Requirements</p>
+                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', marginBottom: '1.25rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>{t("securityProtocolRequirements", "Security Protocol Requirements")}</p>
                 <ul className="instruction-list">
                   <li className="instruction-item">
                     <div className="item-dot" />
-                    <span>Ensure your face is clearly visible and centered.</span>
+                    <span>{t("faceRule1", "Ensure your face is clearly visible and centered.")}</span>
                   </li>
                   <li className="instruction-item">
                     <div className="item-dot" />
-                    <span>Remove any masks, sunglasses, or heavy headwear.</span>
+                    <span>{t("faceRule2", "Remove any masks, sunglasses, or heavy headwear.")}</span>
                   </li>
                   <li className="instruction-item">
                     <div className="item-dot" />
-                    <span>Verify there is adequate lighting on your face.</span>
+                    <span>{t("faceRule3", "Verify there is adequate lighting on your face.")}</span>
                   </li>
                   <li className="instruction-item">
                     <div className="item-dot" />
-                    <span>Position yourself within the guide on the screen.</span>
+                    <span>{t("faceRule4", "Position yourself within the guide on the screen.")}</span>
                   </li>
                 </ul>
               </div>
               
               <button className="action-btn btn-primary" style={{ width: '100%', fontSize: '1.1rem', padding: '1.1rem' }} onClick={() => setShowInstructions(false)}>
-                Initialize Camera Scan
+                {t("initializeCameraScan", "Initialize Camera Scan")}
               </button>
             </motion.div>
           ) : (
@@ -500,8 +510,8 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
               exit={{ opacity: 0 }}
             >
               <div className="modal-header">
-                <p style={{ fontSize: '0.7rem', fontWeight: 900, color: '#10B981', letterSpacing: '0.2em', marginBottom: '0.25rem' }}>IDENTITY VERIFICATION</p>
-                <h3 style={{ margin: 0, color: 'white' }}>{isCapturing ? 'Verifying...' : 'Align Your Face'}</h3>
+                <p style={{ fontSize: '0.7rem', fontWeight: 900, color: '#10B981', letterSpacing: '0.2em', marginBottom: '0.25rem' }}>{t("identityVerification", "IDENTITY VERIFICATION")}</p>
+                <h3 style={{ margin: 0, color: 'white' }}>{isCapturing ? t("verifyingFace", "Verifying...") : t("alignYourFace", "Align Your Face")}</h3>
               </div>
 
               <div className="camera-container">
@@ -517,7 +527,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
                         <div style={{ width: 80, height: 80, background: '#10B981', borderRadius: '50%', display: 'grid', placeItems: 'center', margin: '0 auto 1rem', boxShadow: '0 0 30px rgba(16, 185, 129, 0.5)' }}>
                           <ShieldCheck size={48} color="white" />
                         </div>
-                        <p style={{ color: 'white', fontWeight: 800, fontSize: '1.2rem', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>IMAGE CAPTURED</p>
+                        <p style={{ color: 'white', fontWeight: 800, fontSize: '1.2rem', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>{t("imageCaptured", "IMAGE CAPTURED")}</p>
                       </div>
                     </div>
                   </motion.div>
@@ -525,10 +535,10 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
                   <div style={{ height: '100%', display: 'grid', placeItems: 'center', padding: '2rem', textAlign: 'center', color: '#EF4444', background: 'rgba(239, 68, 68, 0.05)' }}>
                     <div>
                       <AlertCircle size={48} style={{ margin: '0 auto 1rem' }} />
-                      <p style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.5rem' }}>Security Alert</p>
+                      <p style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.5rem' }}>{t("securityAlert", "Security Alert")}</p>
                       <p style={{ fontSize: '0.9rem', opacity: 0.9 }}>{error}</p>
                     </div>
-                    <button className="action-btn btn-secondary" style={{ marginTop: '1.5rem' }} onClick={() => setError(null)}>Acknowledge & Retry</button>
+                    <button className="action-btn btn-secondary" style={{ marginTop: '1.5rem' }} onClick={() => setError(null)}>{t("acknowledgeAndRetry", "Acknowledge & Retry")}</button>
                   </div>
                 ) : (
                   <>
@@ -550,7 +560,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
                             className="live-warning-banner"
                           >
                             <AlertCircle size={14} />
-                            <span>{liveWarning}</span>
+                            <span>{getLocalizedWarning(liveWarning)}</span>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -590,7 +600,7 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
                 {!isCapturing && !error ? (
                   <button className="action-btn btn-primary" onClick={captureImage} disabled={!stream}>
                     <Camera size={20} />
-                    Capture & Verify
+                    {t("captureAndVerify", "Capture & Verify")}
                   </button>
                 ) : isCapturing ? (
                   <div style={{ textAlign: 'center', color: '#10B981', fontSize: '0.9rem', fontWeight: 600 }}>
@@ -600,12 +610,12 @@ export const FaceVerificationModal: React.FC<FaceVerificationModalProps> = ({ is
                       exit={{ opacity: 0 }}
                       key={scanStatus}
                     >
-                      {scanStatus || "Processing biometric signature..."}
+                      {scanStatus || t("verifyingFace", "Processing biometric signature...")}
                     </motion.div>
                   </div>
                 ) : null}
                 <p style={{ margin: 0, fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
-                  Your privacy is important. Biometric data is processed locally and not stored permanently.
+                  {t("ipProtectionNote", "Your privacy is important. Biometric data is processed locally and not stored permanently.")}
                 </p>
               </div>
             </motion.div>

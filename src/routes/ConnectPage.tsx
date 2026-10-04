@@ -23,11 +23,11 @@ export function ConnectPage() {
   const isRealHardwarePaired = !!state.hardwareMac && state.hardwareMac !== "SIMULATED" && state.hardwareMac !== "";
 
   const steps = useMemo(() => [
-    { text: "Hardware Discovery (BLE)", icon: Bluetooth,   key: "ble_discovery" },
-    { text: "Cloud Registration",       icon: Database,     key: "cloud_register" },
-    { text: "Security Handshake",       icon: ShieldCheck,  key: "state_sync" },
-    { text: "System Online",            icon: Activity,     key: "complete" },
-  ], []);
+    { text: t("connectStep4", "Hardware Discovery (BLE)"), icon: Bluetooth,   key: "ble_discovery" },
+    { text: t("connectStep5", "Cloud Registration"),       icon: Database,     key: "cloud_register" },
+    { text: t("connectStep2", "Security Handshake"),       icon: ShieldCheck,  key: "state_sync" },
+    { text: t("connected", "System Online"),            icon: Activity,     key: "complete" },
+  ], [t]);
 
   const handlePair = useCallback(async () => {
     setPairingCancelled(false);
@@ -108,7 +108,7 @@ export function ConnectPage() {
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px", fontWeight: 600 }}>
               <Wifi size={14} />
-              <span>System Configuration</span>
+              <span>{t("sensorHealth", "System Configuration")}</span>
             </div>
             <div style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
               🔒 <strong>Chamber 1</strong> — Real ESP32-S3 Hardware
@@ -118,7 +118,7 @@ export function ConnectPage() {
                 </span>
               )}
               <br />
-              📋 <strong>Chambers 2–8</strong> — Mock simulation (no hardware required)
+              📋 <strong>Chambers 2–8</strong> — {t("simulationMode", "Simulation mode active")}
             </div>
           </div>
 
@@ -152,7 +152,7 @@ export function ConnectPage() {
                 ) : (
                   <Bluetooth className="btn-icon" size={22} />
                 )}
-                <span>{isBusy ? t("pairingBusy") : "Pair Hardware (BLE)"}</span>
+                <span>{isBusy ? t("pairingBusy") : t("pairEsp32", "Pair Hardware (BLE)")}</span>
               </button>
 
               <button
@@ -175,7 +175,7 @@ export function ConnectPage() {
                 }}
               >
                 <ShieldCheck size={18} style={{ color: "var(--accent)" }} />
-                <span>Instant Pair & Fix</span>
+                <span>{t("connectAction", "Instant Pair & Fix")}</span>
               </button>
             </div>
 

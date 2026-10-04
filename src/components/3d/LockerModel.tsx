@@ -7,6 +7,8 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { useAppContext } from '../../store/AppContext';
+import { useTranslation } from '../../store/useTranslation';
+import { toLocalDigits } from '../../utils/format';
 
 /* ── helpers ── */
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
@@ -26,8 +28,8 @@ function makeLabel(text: string, color = '#00f3ff'): THREE.Sprite {
   const w = 1024; const h = 128;
   canvas.width = w; canvas.height = h;
   
-  const labelText = text.toUpperCase();
-  ctx.font = '600 38px "Space Grotesk", Inter, sans-serif';
+  const labelText = text;
+  ctx.font = '600 36px "Space Grotesk", Inter, "Noto Sans Devanagari", sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
@@ -81,7 +83,7 @@ function makeLeaderLine(from: THREE.Vector3, to: THREE.Vector3): THREE.Group {
 }
 
 /* ── Generate realistic Kiosk UI texture for the door touchscreen ── */
-function createScreenTexture(): THREE.CanvasTexture {
+function createScreenTexture(t: (k: string, def?: string) => string, locale: string = "en"): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 768; // 2:3 vertical kiosk display
@@ -128,15 +130,15 @@ function createScreenTexture(): THREE.CanvasTexture {
   ctx.lineWidth = 1;
   ctx.strokeRect(20, 20, 472, 60);
 
-  ctx.font = 'bold 20px "Space Grotesk", sans-serif';
+  ctx.font = 'bold 20px "Space Grotesk", Inter, "Noto Sans Devanagari", sans-serif';
   ctx.fillStyle = '#00f3ff';
   ctx.textAlign = 'left';
-  ctx.fillText('SAFE // KIOSK OS', 36, 56);
+  ctx.fillText(t("screenKioskOs", "SAFE // KIOSK OS"), 36, 56);
 
-  ctx.font = 'bold 13px monospace';
+  ctx.font = 'bold 13px monospace, "Noto Sans Devanagari"';
   ctx.fillStyle = '#10b981';
   ctx.textAlign = 'right';
-  ctx.fillText('● BLE ONLINE', 472, 56);
+  ctx.fillText(t("screenBleOnline", "● BLE ONLINE"), 472, 56);
 
   // 5. Environmental Metrics Card
   ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
@@ -144,27 +146,27 @@ function createScreenTexture(): THREE.CanvasTexture {
   ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
   ctx.strokeRect(24, 96, 464, 116);
 
-  ctx.font = '11px "Inter", sans-serif';
+  ctx.font = '11px "Inter", "Noto Sans Devanagari", sans-serif';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
   ctx.textAlign = 'left';
-  ctx.fillText('ENVIRONMENTAL METRICS (BME688 AI)', 38, 122);
+  ctx.fillText(t("screenEnvMetrics", "ENVIRONMENTAL METRICS (BME688 AI)"), 38, 122);
 
   ctx.font = 'bold 30px monospace';
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('4.2°C', 38, 166);
+  ctx.fillText(`${toLocalDigits('4.2', locale)}°C`, 38, 166);
 
   ctx.font = 'bold 18px monospace';
   ctx.fillStyle = '#00f3ff';
-  ctx.fillText('62% RH', 190, 166);
+  ctx.fillText(`${toLocalDigits('62', locale)}% RH`, 190, 166);
 
-  ctx.font = 'bold 15px monospace';
+  ctx.font = 'bold 14px monospace, "Noto Sans Devanagari"';
   ctx.fillStyle = '#10b981';
-  ctx.fillText('VOC: OPTIMAL', 320, 166);
+  ctx.fillText(t("screenVocOptimal", "VOC: OPTIMAL"), 320, 166);
 
   // 6. Compartment Status Grid (8 Safes)
-  ctx.font = '11px "Inter", sans-serif';
+  ctx.font = '11px "Inter", "Noto Sans Devanagari", sans-serif';
   ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.fillText('STORAGE COMPARTMENTS (8 AUTONOMOUS SAFES)', 38, 246);
+  ctx.fillText(t("screenStorageComp", "STORAGE COMPARTMENTS (8 AUTONOMOUS SAFES)"), 38, 246);
 
   const startY = 264;
   const cardW = 224;
@@ -180,14 +182,14 @@ function createScreenTexture(): THREE.CanvasTexture {
       ctx.strokeStyle = idx === 1 ? 'rgba(234, 179, 8, 0.5)' : 'rgba(0, 243, 255, 0.3)';
       ctx.strokeRect(x, y, cardW, cardH);
 
-      ctx.font = 'bold 15px monospace';
+      ctx.font = 'bold 14px monospace, "Noto Sans Devanagari"';
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'left';
-      ctx.fillText(`SAFE ${idx}`, x + 16, y + 32);
+      ctx.fillText(`${t("screenSafe", "SAFE")} ${toLocalDigits(idx, locale)}`, x + 16, y + 32);
 
-      ctx.font = '11px monospace';
+      ctx.font = '11px monospace, "Noto Sans Devanagari"';
       ctx.fillStyle = idx === 1 ? '#eab308' : '#10b981';
-      ctx.fillText(idx === 1 ? 'OCCUPIED' : 'READY', x + 16, y + 54);
+      ctx.fillText(idx === 1 ? t("screenOccupied", "OCCUPIED") : t("screenReady", "READY"), x + 16, y + 54);
 
       // Status indicator light
       ctx.fillStyle = idx === 1 ? '#eab308' : '#00f3ff';
@@ -204,10 +206,10 @@ function createScreenTexture(): THREE.CanvasTexture {
   ctx.lineWidth = 1.5;
   ctx.strokeRect(24, 664, 464, 68);
 
-  ctx.font = 'bold 16px "Space Grotesk", sans-serif';
+  ctx.font = 'bold 14px "Space Grotesk", Inter, "Noto Sans Devanagari", sans-serif';
   ctx.fillStyle = '#00f3ff';
   ctx.textAlign = 'center';
-  ctx.fillText('SCAN QR CODE OR TAP CARD TO UNLOCK', 256, 705);
+  ctx.fillText(locale === "hi" ? "अनलॉक करने के लिए QR स्कैन करें" : locale === "mr" ? "अनलॉक करण्यासाठी QR स्कॅन करा" : "SCAN QR CODE OR TAP CARD TO UNLOCK", 256, 705);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -246,6 +248,7 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { state: appState } = useAppContext();
+  const { t, locale } = useTranslation();
   const theme = appState.themeMode;
 
   // Scene refs
@@ -439,7 +442,7 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
     let modelWrapperGroup: THREE.Group | null = null;
 
     /* ── Screen UI Texture ── */
-    const screenTexture = createScreenTexture();
+    const screenTexture = createScreenTexture(t, locale);
 
     /* ── Premium Architectural & Hardware Materials ── */
     const matChassis = new THREE.MeshPhysicalMaterial({ 
@@ -678,14 +681,14 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
       };
 
       // Annotation labels
-      const lblMainDoor1 = mainDoor1 ? addLabel('TEMPERED GLASS DOOR', mainDoor1, 0.4) : -1;
-      const lblScreen = screen ? addLabel('KIOSK TOUCHSCREEN DISPLAY', screen, 0.35) : -1;
-      const lblSafe1 = safeBases[1] ? addLabel('SAFE 1 COMPARTMENT', safeBases[1], 0.12) : -1;
-      const lblSafe4 = safeBases[4] ? addLabel('SAFE 4 COMPARTMENT', safeBases[4], 0.12) : -1;
-      const lblSolenoid1 = parts['safe_1_lock'] ? addLabel('AUTONOMOUS SOLENOID LOCK', parts['safe_1_lock'], 0.18) : -1;
-      const lblESP = esp ? addLabel('ESP32-S3 CORE CONTROLLER', esp, 0.25) : -1;
-      const lblI2C = i2c ? addLabel('I²C MULTIPLEXER', i2c, 0.25) : -1;
-      const lblBME = bmeObjects.length > 0 ? addLabel('BME688 AI SENSOR UNIT', bmeObjects[0], 0.16) : -1;
+      const lblMainDoor1 = mainDoor1 ? addLabel(t("hudTemperedGlassDoor", "TEMPERED GLASS DOOR"), mainDoor1, 0.4) : -1;
+      const lblScreen = screen ? addLabel(t("hudKioskTouchscreen", "KIOSK TOUCHSCREEN DISPLAY"), screen, 0.35) : -1;
+      const lblSafe1 = safeBases[1] ? addLabel(t("hudSafe1Compartment", "SAFE 1 COMPARTMENT"), safeBases[1], 0.12) : -1;
+      const lblSafe4 = safeBases[4] ? addLabel(t("hudSafe4Compartment", "SAFE 4 COMPARTMENT"), safeBases[4], 0.12) : -1;
+      const lblSolenoid1 = parts['safe_1_lock'] ? addLabel(t("hudAutonomousSolenoid", "AUTONOMOUS SOLENOID LOCK"), parts['safe_1_lock'], 0.18) : -1;
+      const lblESP = esp ? addLabel(t("hudEsp32Core", "ESP32-S3 CORE CONTROLLER"), esp, 0.25) : -1;
+      const lblI2C = i2c ? addLabel(t("hudI2cMultiplexer", "I²C MULTIPLEXER"), i2c, 0.25) : -1;
+      const lblBME = bmeObjects.length > 0 ? addLabel(t("hudBme688Sensor", "BME688 AI SENSOR UNIT"), bmeObjects[0], 0.16) : -1;
 
       /* Helper to show/hide label */
       const setLabelVis = (idx: number, vis: boolean) => {
@@ -978,7 +981,7 @@ const LockerModel: React.FC<Props> = ({ onProgressChange, onPhaseChange }) => {
       }
       renderer.dispose();
     };
-  }, [onProgressChange, onPhaseChange, theme]);
+  }, [onProgressChange, onPhaseChange, theme, locale, t]);
 
   return (
     <>

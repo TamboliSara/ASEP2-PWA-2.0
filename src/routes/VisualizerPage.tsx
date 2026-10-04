@@ -2,27 +2,14 @@ import React, { useState, useCallback, useEffect } from 'react';
 import LockerModel from '../components/3d/LockerModel';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useAppContext } from '../store/AppContext';
+import { useTranslation } from '../store/useTranslation';
+import { toLocalDigits } from '../utils/format';
 import type { ThemeMode } from '../types/domain';
-
-const PHASE_TITLES = [
-  'SAFE — Smart Automated Food Exchange',
-  'Phase 1 — Main Doors Opening',
-  'Phase 2 — 8 Internal SAFEs Revealed',
-  'Phase 3 — Autonomous Solenoid Access',
-  'Phase 4 — BME688 AI Sensor Architecture',
-];
-
-const PHASE_DESCRIPTIONS = [
-  'Scroll or drag to explore the complete patent-pending smart food locker architecture',
-  'Dual tempered-glass doors swing open to reveal internal autonomous compartments',
-  'Each SAFE operates as an independent secure unit with individual environmental tracking',
-  '12V solenoid locks engage via ESP32-S3 and I²C multiplexer for contactless retrieval',
-  'Integrated Bosch BME688 sensor monitors TVOC, temperature, humidity & food freshness',
-];
 
 const PHASE_SCROLL_PERCENTAGES = [0, 0.18, 0.42, 0.68, 0.95];
 
 export const VisualizerPage: React.FC = () => {
+  const { t, locale } = useTranslation();
   const { scrollYProgress } = useScroll();
   const fadeOut = useTransform(scrollYProgress, [0, 0.05], [1, 0]);
 
@@ -30,6 +17,22 @@ export const VisualizerPage: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [currentPhase, setCurrentPhase] = useState(0);
   const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
+
+  const phaseTitles = [
+    t("phase0Title", "SAFE — Smart Automated Food Exchange"),
+    t("phase1Title", "Phase 1 — Main Doors Opening"),
+    t("phase2Title", "Phase 2 — 8 Internal SAFEs Revealed"),
+    t("phase3Title", "Phase 3 — Autonomous Solenoid Access"),
+    t("phase4Title", "Phase 4 — BME688 AI Sensor Architecture"),
+  ];
+
+  const phaseDescriptions = [
+    t("phase0Desc", "Scroll or drag to explore the complete patent-pending smart food locker architecture"),
+    t("phase1Desc", "Dual tempered-glass doors swing open to reveal internal autonomous compartments"),
+    t("phase2Desc", "Each SAFE operates as an independent secure unit with individual environmental tracking"),
+    t("phase3Desc", "12V solenoid locks engage via ESP32-S3 and I²C multiplexer for contactless retrieval"),
+    t("phase4Desc", "Integrated Bosch BME688 sensor monitors TVOC, temperature, humidity & food freshness"),
+  ];
 
   const handleProgress = useCallback((p: number) => setProgress(Math.round(p * 100)), []);
   const handlePhase = useCallback((p: number) => setCurrentPhase(p), []);
@@ -92,7 +95,7 @@ export const VisualizerPage: React.FC = () => {
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
         opacity: fadeOut, textTransform: 'uppercase',
       }}>
-        <span>Scroll or Drag to Explore</span>
+        <span>{t("scrollOrDragToExplore", "Scroll or Drag to Explore")}</span>
         <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>
           <svg width="16" height="24" viewBox="0 0 16 24" fill="none">
             <rect x="5.5" y="0" width="5" height="14" rx="2.5" stroke="rgba(0,243,255,0.4)" strokeWidth="1.2" />
@@ -128,7 +131,7 @@ export const VisualizerPage: React.FC = () => {
               fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6,
             }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#00f3ff', boxShadow: '0 0 8px #00f3ff' }} />
-              {currentPhase === 0 ? 'OVERVIEW' : `PHASE ${currentPhase} OF 4`}
+              {currentPhase === 0 ? t("overview", "OVERVIEW") : `${t("phaseLabel", "PHASE")} ${toLocalDigits(currentPhase, locale)} ${t("ofLabel", "OF")} ${toLocalDigits(4, locale)}`}
             </div>
 
             {/* Quick Phase Jump Pills */}
@@ -152,9 +155,9 @@ export const VisualizerPage: React.FC = () => {
                     justifyContent: 'center',
                     transition: 'all 0.2s ease',
                   }}
-                  title={`Jump to Phase ${idx}`}
+                  title={`${t("phaseLabel", "Phase")} ${toLocalDigits(idx, locale)}`}
                 >
-                  {idx}
+                  {toLocalDigits(idx, locale)}
                 </button>
               ))}
             </div>
@@ -164,12 +167,12 @@ export const VisualizerPage: React.FC = () => {
             fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.95)',
             letterSpacing: 0.5, lineHeight: 1.4, marginBottom: 8,
           }}>
-            {PHASE_TITLES[currentPhase]}
+            {phaseTitles[currentPhase]}
           </div>
           <div style={{
             fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6,
           }}>
-            {PHASE_DESCRIPTIONS[currentPhase]}
+            {phaseDescriptions[currentPhase]}
           </div>
         </motion.div>
       </div>
@@ -200,7 +203,7 @@ export const VisualizerPage: React.FC = () => {
               transition: 'all 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
               boxShadow: i === currentPhase ? '0 0 10px rgba(0,243,255,0.6)' : 'none',
             }}
-            title={`Phase ${i}: ${PHASE_TITLES[i]}`}
+            title={`${t("phaseLabel", "Phase")} ${toLocalDigits(i, locale)}: ${phaseTitles[i]}`}
           />
         ))}
       </div>
@@ -221,10 +224,10 @@ export const VisualizerPage: React.FC = () => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, color: '#10b981', fontWeight: 600 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }} />
-          <span>SYS: ONLINE</span>
+          <span>{t("sysOnline", "SYS: ONLINE")}</span>
         </div>
-        <div>ENGINE: THREE.JS / WEBGL 2.0</div>
-        <div style={{ color: '#00f3ff', fontWeight: 700 }}>DISASSEMBLY: {progress}%</div>
+        <div>{t("engineInfo", "ENGINE: THREE.JS / WEBGL 2.0")}</div>
+        <div style={{ color: '#00f3ff', fontWeight: 700 }}>{t("disassembly", "DISASSEMBLY")}: {toLocalDigits(progress, locale)}%</div>
       </div>
 
       {/* ── Left scan bars ── */}
@@ -287,7 +290,7 @@ export const VisualizerPage: React.FC = () => {
           }}
         >
           <span>🧊</span>
-          <span>Spline 3D Fridge</span>
+          <span>{t("splineFridge", "Spline 3D Fridge")}</span>
         </a>
         <a
           href="https://app.spline.design/file/e1997a5b-dccc-4942-9d66-b7ba6503e9d9"
@@ -321,7 +324,7 @@ export const VisualizerPage: React.FC = () => {
           }}
         >
           <span>📦</span>
-          <span>Sample Chamber</span>
+          <span>{t("sampleChamber", "Sample Chamber")}</span>
         </a>
       </div>
 

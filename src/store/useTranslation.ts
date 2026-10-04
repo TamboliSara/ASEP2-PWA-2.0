@@ -10,7 +10,7 @@ export function useTranslation() {
     const fallback = translationsV3.en;
     return {
       locale: state.locale,
-      t: (key: string) => dictionary[key] ?? fallback[key] ?? key
+      t: (key: string, defaultText?: string) => dictionary[key] ?? fallback[key] ?? defaultText ?? key
     };
   }, [state.locale]);
 }

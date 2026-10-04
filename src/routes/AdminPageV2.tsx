@@ -37,7 +37,7 @@ import { MetricCardPremium } from "../components/MetricCardPremium";
 import { Menu } from "../components/ui/fluid-menu";
 import { useLockerController } from "../features/useLockerController";
 import { useTranslation } from "../store/useTranslation";
-import { formatDateTime, getHoursRemaining } from "../utils/format";
+import { formatDateTime, getHoursRemaining, toLocalDigits, translateFoodName, translateDonorName, translateCategory } from "../utils/format";
 import { calculateQualityScore, getQualityStage, getQualityLabel, MAX_SHELF_LIFE } from "../utils/safety";
 import { useState, useEffect, useMemo } from "react";
 import { ScrollReveal } from "../components/ScrollReveal";
@@ -104,7 +104,7 @@ function parseUserAgent(ua?: string): { os: string; browser: string; iconType: "
 }
 
 export function AdminPageV2() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { state, dispatch, currentLocker, signOut } = useLockerController();
   const fleet = deriveFleetForPDF(state.lockers);
   const [showSafeSelector, setShowSafeSelector] = useState(false);
@@ -291,14 +291,14 @@ export function AdminPageV2() {
       fleet: fleet,
       currentLocker: targetLocker,
       stats: {
-        totalDonations: String(totalDonations),
-        activeLockers: `${state.lockers.filter(l => l.occupancyState !== 'empty').length}/${state.lockers.length}`,
-        mealsServed: String(mealsServed)
+        totalDonations: toLocalDigits(totalDonations, locale),
+        activeLockers: `${toLocalDigits(state.lockers.filter(l => l.occupancyState !== 'empty').length, locale)}/${toLocalDigits(state.lockers.length, locale)}`,
+        mealsServed: toLocalDigits(mealsServed, locale)
       },
       foodItem: targetLocker.activeDonation ? {
-        name: targetLocker.activeDonation.foodName,
-        category: targetLocker.activeDonation.categoryLabel,
-        donor: targetLocker.activeDonation.donorName
+        name: translateFoodName(targetLocker.activeDonation.foodName, locale),
+        category: translateCategory(targetLocker.activeDonation.categoryLabel, locale),
+        donor: translateDonorName(targetLocker.activeDonation.donorName, locale)
       } : {
         name: "N/A (System Check)",
         category: "N/A",
@@ -315,9 +315,9 @@ export function AdminPageV2() {
         .filter(l => l.activeDonation)
         .map(l => ({
           lockerId: l.lockerId,
-          donorName: l.activeDonation!.donorName,
-          donorContact: l.activeDonation!.donorContact,
-          foodName: l.activeDonation!.foodName,
+          donorName: translateDonorName(l.activeDonation!.donorName, locale),
+          donorContact: toLocalDigits(l.activeDonation!.donorContact, locale),
+          foodName: translateFoodName(l.activeDonation!.foodName, locale),
           dietTag: l.activeDonation!.dietTag,
           qualityScore: getQualityLabel(l.activeDonation!.latestQualityScore as any),
           createdAt: l.activeDonation!.createdAt
@@ -352,10 +352,10 @@ export function AdminPageV2() {
               
               <div className="space-y-2">
                 <p className="text-[10px] font-black tracking-[0.3em] uppercase text-accent/80 opacity-80">
-                  {t("adminAuthRequired")}
+                  {t("adminAuthRequired", "Admin Authorization Required")}
                 </p>
                 <h2 className="text-4xl md:text-5xl font-black tracking-tight text-text">
-                  {t("signIn")}
+                  {t("signIn", "Sign In")}
                 </h2>
               </div>
             </div>
@@ -369,18 +369,18 @@ export function AdminPageV2() {
                 className="group relative flex items-center justify-center gap-3 w-full sm:w-auto px-10 py-5 rounded-full bg-accent hover:bg-accent-hover text-white dark:text-black font-black text-lg transition-all duration-300 shadow-[0_10px_40px_rgba(20,184,166,0.3)] hover:shadow-[0_15px_50px_rgba(20,184,166,0.4)] hover:-translate-y-1 active:translate-y-0"
                 to="/admin/sign-in"
               >
-                <span>{t("continueSignIn")}</span>
+                <span>{t("continueSignIn", "Continue to Sign In")}</span>
                 <MoveRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               
               <div className="flex items-center gap-6 opacity-30">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                  <span className="text-[9px] font-black tracking-widest uppercase text-text">Secure Shell</span>
+                  <span className="text-[9px] font-black tracking-widest uppercase text-text">{t("secureShell", "Secure Shell")}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-accent-warm" />
-                  <span className="text-[9px] font-black tracking-widest uppercase text-text">Audit Logging</span>
+                  <span className="text-[9px] font-black tracking-widest uppercase text-text">{t("auditLogging", "Audit Logging")}</span>
                 </div>
               </div>
             </div>
@@ -422,12 +422,12 @@ export function AdminPageV2() {
               
               <TextReveal mode="words" direction="up" distance={20} delay={0.2}>
                 <h2 className="text-3xl md:text-4xl leading-[1.05] font-black tracking-tight mb-3 text-text drop-shadow-sm dark:drop-shadow-none">
-                  Maintenance and<br />safety dashboard
+                  {t("adminTitle", "Maintenance and safety dashboard")}
                 </h2>
               </TextReveal>
               <TextReveal mode="block" direction="up" distance={20} delay={0.3} threshold={0.1}>
                 <p className="text-text-muted font-medium text-base md:text-[17px] leading-relaxed max-w-[500px]">
-                  Monitor every locker, inspect active donations, and open the current kiosk for deeper cleaning or safety actions.
+                  {t("adminBody", "Monitor every locker, inspect active donations, and open the current kiosk for deeper cleaning or safety actions.")}
                 </p>
               </TextReveal>
             </div>
@@ -437,7 +437,7 @@ export function AdminPageV2() {
                 <HeroActionButton 
                   to="/connect"
                   icon={<Settings2 className="w-5 h-5" />}
-                  label="CONNECT"
+                  label={t("connectNav", "CONNECT")}
                   accent="teal"
                   index={0}
                 />
@@ -445,7 +445,7 @@ export function AdminPageV2() {
                 <HeroActionButton 
                   onClick={() => setShowSafeSelector(true)}
                   icon={<Box className="w-6 h-6" />}
-                  label="AUDIT REPORT"
+                  label={t("auditReport", "AUDIT REPORT")}
                   accent="teal"
                   featured
                   index={1}
@@ -456,7 +456,7 @@ export function AdminPageV2() {
                 <HeroActionButton 
                   onClick={signOut}
                   icon={<LogOut className="w-5 h-5" />}
-                  label="SIGNOUT"
+                  label={t("signOut", "SIGNOUT")}
                   accent="rose"
                   index={2}
                 />
@@ -469,10 +469,10 @@ export function AdminPageV2() {
       <section className="admin-stats-bar grid grid-cols-1 md:grid-cols-3 gap-5">
         <ScrollReveal direction="up" distance={30} delay={0.1}>
           <MetricCardPremium 
-            title={t("totalDonations") || "Total Donations"}
-            subtitle={firestoreDonationCount !== null ? "Live from Firebase" : "Local Count"}
-            value={String(totalDonations)}
-            trend={firestoreDonationCount !== null ? "● LIVE SYNC" : "○ LOCAL"}
+            title={t("totalDonations", "Total Donations")}
+            subtitle={firestoreDonationCount !== null ? t("liveFromFirebase", "Live from Firebase") : t("localCount", "Local Count")}
+            value={toLocalDigits(totalDonations, locale)}
+            trend={firestoreDonationCount !== null ? `● ${t("liveSync", "LIVE SYNC")}` : `○ ${t("localTrend", "LOCAL")}`}
             trendDirection="up"
             icon={<BarChart3 className="w-6 h-6" />}
             bgIcon={<BarChart3 className="w-40 h-40" />}
@@ -488,10 +488,10 @@ export function AdminPageV2() {
             const available = total - occupied;
             return (
               <MetricCardPremium 
-                title="SAFE Readiness"
-                subtitle="Mission Availability"
-                value={`${available}/${total}`}
-                trend={`${occupied} OCCUPIED · ${available} AVAILABLE`}
+                title={t("safeReadiness", "SAFE Readiness")}
+                subtitle={t("missionAvailability", "Mission Availability")}
+                value={`${toLocalDigits(available, locale)}/${toLocalDigits(total, locale)}`}
+                trend={`${toLocalDigits(occupied, locale)} ${t("occupiedLabel", "OCCUPIED")} · ${toLocalDigits(available, locale)} ${t("availableLabel", "AVAILABLE")}`}
                 trendDirection={occupied > 0 ? "neutral" : "up"}
                 icon={<Layers className="w-6 h-6" />}
                 bgIcon={<Layers className="w-40 h-40" />}
@@ -504,10 +504,10 @@ export function AdminPageV2() {
 
         <ScrollReveal direction="up" distance={30} delay={0.3}>
           <MetricCardPremium 
-            title="Meals Served Today"
-            subtitle={`Daily Impact — ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`}
-            value={String(mealsServed)}
-            trend={firestoreRetrievalCount !== null ? "● LIVE SYNC" : "○ LOCAL"}
+            title={t("mealsServedToday", "Meals Served Today")}
+            subtitle={`${t("dailyImpact", "Daily Impact")} — ${toLocalDigits(new Date().toLocaleDateString(locale === 'hi' ? 'hi-IN' : locale === 'mr' ? 'mr-IN' : 'en-IN', { day: 'numeric', month: 'short', year: 'numeric' }), locale)}`}
+            value={toLocalDigits(mealsServed, locale)}
+            trend={firestoreRetrievalCount !== null ? `● ${t("liveSync", "LIVE SYNC")}` : `○ ${t("localTrend", "LOCAL")}`}
             trendDirection="up"
             icon={<Database className="w-6 h-6" />}
             bgIcon={<Database className="w-40 h-40" />}
@@ -531,20 +531,20 @@ export function AdminPageV2() {
           <div className="luxe-card-header mb-6 relative z-10">
             <div className="flex items-center gap-2 mb-1">
                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500">System Trace</span>
+               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500">{t("systemTrace", "System Trace")}</span>
             </div>
-            <h3 className="text-2xl font-black text-text tracking-tight">Activity Log</h3>
+            <h3 className="text-2xl font-black text-text tracking-tight">{t("activityLog", "Activity Log")}</h3>
           </div>
           <div className="space-y-3 relative z-10 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
             {state.logs.length > 0 ? state.logs.map(log => (
               <div key={log.id} className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 p-4 rounded-xl bg-panel-elevated/50 dark:bg-white/5 border border-line hover:border-emerald-500/30 transition-colors">
                 <div className="flex flex-col">
                   <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-500 tracking-[0.2em]">{log.type.replace('_', ' ')}</span>
-                  <p className="text-sm font-medium text-text mt-1">{log.detail || `Event triggered for ${log.lockerId}`}</p>
+                  <p className="text-sm font-medium text-text mt-1">{log.detail || `Event triggered for ${toLocalDigits(log.lockerId.replace('chamber-', 'SAFE-'), locale)}`}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="px-2 py-1 rounded bg-panel dark:bg-black/20 border border-line">
-                    <span className="text-[9px] font-mono text-text-muted">{formatDateTime(log.createdAt)}</span>
+                    <span className="text-[9px] font-mono text-text-muted">{formatDateTime(log.createdAt, locale)}</span>
                   </div>
                   {log.syncState === 'synced' ? (
                      <Database className="w-3.5 h-3.5 text-emerald-500" />
@@ -555,7 +555,7 @@ export function AdminPageV2() {
               </div>
             )) : (
               <div className="p-8 text-center border border-dashed border-line rounded-xl">
-                <p className="text-sm font-bold text-text-muted opacity-50 uppercase tracking-widest">No Activity Recorded</p>
+                <p className="text-sm font-bold text-text-muted opacity-50 uppercase tracking-widest">{t("noActivityRecorded", "No Activity Recorded")}</p>
               </div>
             )}
           </div>
@@ -570,20 +570,20 @@ export function AdminPageV2() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200/80 dark:border-blue-500/25 mb-2.5 shadow-xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">Security Audit Feed</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">{t("securityAuditFeed", "Security Audit Feed")}</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-                QR Scan — IP Audit Log
+                {t("qrScanIpAuditLog", "QR Scan — IP Audit Log")}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1 max-w-xl leading-relaxed">
-                Real-time forensic ledger capturing donor mobile scans, public IP handshakes, and device telemetry.
+                {t("qrAuditSubtitle", "Real-time forensic ledger capturing donor mobile scans, public IP handshakes, and device telemetry.")}
               </p>
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-center">
               <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-50 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-xs">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span><strong className="font-mono text-slate-900 dark:text-white">{qrStats.scanned}</strong> scans recorded</span>
+                <span><strong className="font-mono text-slate-900 dark:text-white">{toLocalDigits(qrStats.scanned, locale)}</strong> {t("scansRecorded", "scans recorded")}</span>
               </span>
             </div>
           </div>
@@ -597,14 +597,14 @@ export function AdminPageV2() {
                 type="text"
                 value={qrSearchQuery}
                 onChange={(e) => setQrSearchQuery(e.target.value)}
-                placeholder="Search donor, phone, IP..."
+                placeholder={t("searchDonorPhoneIp", "Search donor, phone, IP...")}
                 className="w-full pl-10 pr-9 py-2 rounded-xl bg-slate-50 hover:bg-slate-100/70 dark:bg-white/[0.05] dark:hover:bg-white/[0.07] border border-slate-200/80 dark:border-white/10 text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:bg-white dark:focus:bg-white/[0.08] focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 transition-all shadow-xs"
               />
               {qrSearchQuery && (
                 <button 
                   onClick={() => setQrSearchQuery("")}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                  title="Clear search"
+                  title={t("clearSearch", "Clear search")}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -614,10 +614,10 @@ export function AdminPageV2() {
             {/* Segmented Filter Pills */}
             <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/10 overflow-x-auto">
               {[
-                { id: "all", label: "All Logs", count: qrSessions.length },
-                { id: "scanned", label: "Scanned", count: qrStats.scanned },
-                { id: "verified", label: "Verified", count: qrStats.verified },
-                { id: "pending", label: "Pending", count: qrSessions.length - qrStats.scanned },
+                { id: "all", label: t("allLogs", "All Logs"), count: qrSessions.length },
+                { id: "scanned", label: t("scanned", "Scanned"), count: qrStats.scanned },
+                { id: "verified", label: t("verified", "Verified"), count: qrStats.verified },
+                { id: "pending", label: t("pending", "Pending"), count: qrSessions.length - qrStats.scanned },
               ].map(f => {
                 const active = qrStatusFilter === f.id;
                 return (
@@ -636,7 +636,7 @@ export function AdminPageV2() {
                         ? "bg-blue-50 dark:bg-white/20 text-blue-700 dark:text-white" 
                         : "bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-slate-400"
                     }`}>
-                      {f.count}
+                      {toLocalDigits(f.count, locale)}
                     </span>
                   </button>
                 );
@@ -650,14 +650,14 @@ export function AdminPageV2() {
               <div className="py-12 px-4 text-center">
                 <ScanLine className="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto mb-2" />
                 <p className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  {qrSearchQuery ? "No matching records found" : "No QR scans recorded"}
+                  {qrSearchQuery ? t("noMatchingRecords", "No matching records found") : t("noQrScansRecorded", "No QR scans recorded")}
                 </p>
                 {qrSearchQuery && (
                   <button
                     onClick={() => setQrSearchQuery("")}
                     className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline font-bold"
                   >
-                    Clear search
+                    {t("clearSearch", "Clear search")}
                   </button>
                 )}
               </div>
@@ -665,12 +665,12 @@ export function AdminPageV2() {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-200/80 dark:border-white/5 bg-slate-50/80 dark:bg-white/[0.02]">
-                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Time</th>
-                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Donor</th>
-                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Phone</th>
-                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Public IP Address</th>
-                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Status</th>
-                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">Client Device</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">{t("time", "Time")}</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">{t("donor", "Donor")}</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">{t("phone", "Phone")}</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">{t("publicIpAddress", "Public IP Address")}</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">{t("status", "Status")}</th>
+                    <th className="py-3.5 px-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap">{t("clientDevice", "Client Device")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -678,6 +678,7 @@ export function AdminPageV2() {
                     const rawTime = s.scannedAt || s.createdAt;
                     const dateObj = rawTime ? new Date(rawTime) : new Date();
                     const parsedClient = parseUserAgent(s.userAgent);
+                    const intlLocale = locale === 'hi' ? 'hi-IN' : locale === 'mr' ? 'mr-IN' : 'en-IN';
 
                     return (
                       <tr
@@ -689,13 +690,13 @@ export function AdminPageV2() {
                           <div className="flex flex-col">
                             <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
                               {rawTime
-                                ? dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+                                ? toLocalDigits(dateObj.toLocaleTimeString(intlLocale, { hour: '2-digit', minute: '2-digit', hour12: true }), locale)
                                 : "—"
                               }
                             </span>
                             <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
                               {rawTime
-                                ? dateObj.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                                ? toLocalDigits(dateObj.toLocaleDateString(intlLocale, { day: '2-digit', month: 'short' }), locale)
                                 : ""
                               }
                             </span>
@@ -710,11 +711,11 @@ export function AdminPageV2() {
                             </div>
                             <div className="flex flex-col">
                               <span className="font-semibold text-slate-900 dark:text-white text-xs group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                {s.donorName || "Guest Donor"}
+                                {translateDonorName(s.donorName, locale) || t("guestDonor", "Guest Donor")}
                               </span>
                               {s.sessionId && (
                                 <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500">
-                                  #{s.sessionId.slice(-5)}
+                                  #{toLocalDigits(s.sessionId.slice(-5), locale)}
                                 </span>
                               )}
                             </div>
@@ -725,7 +726,7 @@ export function AdminPageV2() {
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           {s.phone ? (
                             <span className="font-mono text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-white/[0.04] px-2.5 py-1 rounded-md border border-slate-200/60 dark:border-white/5">
-                              {s.phone.startsWith("+") ? s.phone : `+91 ${s.phone}`}
+                              {toLocalDigits(s.phone.startsWith("+") ? s.phone : `+91 ${s.phone}`, locale)}
                             </span>
                           ) : (
                             <span className="text-slate-400 font-mono text-xs">—</span>
@@ -741,7 +742,7 @@ export function AdminPageV2() {
                               <button
                                 onClick={() => copyToClipboard(s.phoneIp!)}
                                 className="p-1 rounded text-blue-500 hover:text-blue-800 dark:hover:text-white transition-colors cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50"
-                                title="Copy IP address"
+                                title={t("copyIpAddress", "Copy IP address")}
                               >
                                 {copiedIp === s.phoneIp ? (
                                   <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
@@ -753,7 +754,7 @@ export function AdminPageV2() {
                           ) : (
                             <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 font-medium">
                               <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
-                              Waiting for scan
+                              {t("waitingForScan", "Waiting for scan")}
                             </span>
                           )}
                         </td>
@@ -763,7 +764,7 @@ export function AdminPageV2() {
                           {s.verified ? (
                             <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-800/60 shadow-xs">
                               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                              Verified
+                              {t("verified", "Verified")}
                             </span>
                           ) : s.scannedAt || s.phoneIp ? (
                             <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/90 dark:border-amber-800/60 shadow-xs">
@@ -771,12 +772,12 @@ export function AdminPageV2() {
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                               </span>
-                              Scanned
+                              {t("scanned", "Scanned")}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border border-slate-200/70 dark:border-slate-700">
                               <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                              Pending
+                              {t("pending", "Pending")}
                             </span>
                           )}
                         </td>
@@ -810,11 +811,11 @@ export function AdminPageV2() {
             {filteredQrSessions.length > 0 && (
               <div className="py-3 px-4 bg-slate-50/70 dark:bg-white/[0.01] border-t border-slate-200/80 dark:border-white/5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
                 <span>
-                  Showing <strong className="font-semibold text-slate-800 dark:text-slate-200">{filteredQrSessions.length}</strong> of <strong className="font-semibold text-slate-800 dark:text-slate-200">{qrSessions.length}</strong> recorded audit sessions
+                  {t("showing", "Showing")} <strong className="font-semibold text-slate-800 dark:text-slate-200">{toLocalDigits(filteredQrSessions.length, locale)}</strong> {t("of", "of")} <strong className="font-semibold text-slate-800 dark:text-slate-200">{toLocalDigits(qrSessions.length, locale)}</strong> {t("recordedAuditSessions", "recorded audit sessions")}
                 </span>
                 <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold text-[11px]">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  Firestore Realtime Sync Active
+                  {t("firestoreRealtimeSyncActive", "Firestore Realtime Sync Active")}
                 </span>
               </div>
             )}
@@ -845,10 +846,10 @@ export function AdminPageV2() {
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 rounded-full bg-accent" />
-                    <p className="text-[10px] font-black tracking-widest uppercase text-accent">DIAGNOSTIC EXPORT</p>
+                    <p className="text-[10px] font-black tracking-widest uppercase text-accent">{t("diagnosticExport", "DIAGNOSTIC EXPORT")}</p>
                   </div>
-                  <h3 className="text-3xl font-black">Select Safe for Report</h3>
-                  <p className="text-text-muted mt-2 text-sm font-medium">Select a mission-safe to generate a localized telemetry PDF.</p>
+                  <h3 className="text-3xl font-black">{t("selectSafeForReport", "Select Safe for Report")}</h3>
+                  <p className="text-text-muted mt-2 text-sm font-medium">{t("selectSafeForReportSub", "Select a mission-safe to generate a localized telemetry PDF.")}</p>
                 </div>
                 <button 
                   onClick={() => setShowSafeSelector(false)}
@@ -869,11 +870,11 @@ export function AdminPageV2() {
                   >
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl border-2 transition-all
                       ${locker.occupancyState === 'occupied' ? 'bg-accent/10 border-accent/30 text-accent' : 'bg-panel/50 border-line text-text-muted'}`}>
-                      {(idx + 1).toString().padStart(2, '0')}
+                      {toLocalDigits((idx + 1).toString().padStart(2, '0'), locale)}
                     </div>
                     <div className="text-center">
-                      <p className="text-[9px] font-black tracking-widest text-text-muted uppercase">SAFE</p>
-                      <p className="text-xs font-black text-text group-hover:text-accent transition-colors">UNIT_{locker.lockerId.split('-')[1]}</p>
+                      <p className="text-[9px] font-black tracking-widest text-text-muted uppercase">{t("safeUnit", "SAFE")}</p>
+                      <p className="text-xs font-black text-text group-hover:text-accent transition-colors">UNIT_{toLocalDigits(locker.lockerId.split('-')[1], locale)}</p>
                     </div>
                   </motion.button>
                 ))}
@@ -882,7 +883,7 @@ export function AdminPageV2() {
               <div className="mt-8 pt-6 border-t border-line/20 flex justify-center">
                 <div className="flex items-center gap-2 opacity-30">
                   <ShieldCheck className="w-4 h-4 text-accent" />
-                  <span className="text-[9px] font-black tracking-widest uppercase text-text">Security Verified Telemetry</span>
+                  <span className="text-[9px] font-black tracking-widest uppercase text-text">{t("securityVerifiedTelemetry", "Security Verified Telemetry")}</span>
                 </div>
               </div>
             </motion.div>

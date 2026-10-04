@@ -1,12 +1,15 @@
 import { motion } from "framer-motion";
 import { Scale, Package, Thermometer, Droplets, ShieldCheck, Ban, Beef, CupSoda, Info, X, Wind } from "lucide-react";
 import { TextReveal } from "../effects/TextReveal";
+import { useTranslation } from "../../store/useTranslation";
 
 interface SafetyCapacityCardProps {
   onClose?: () => void;
 }
 
 export function SafetyCapacityCard({ onClose }: SafetyCapacityCardProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="relative w-full max-w-2xl bg-panel/95 backdrop-blur-3xl border border-line/50 rounded-[2.5rem] overflow-hidden shadow-[0_32px_120px_-20px_rgba(0,0,0,0.4)] p-8 md:p-10">
       {onClose && (
@@ -25,7 +28,7 @@ export function SafetyCapacityCard({ onClose }: SafetyCapacityCardProps) {
             <div className="p-3.5 rounded-2xl bg-accent/10 border border-accent/20 shadow-inner">
               <ShieldCheck className="w-6 h-6 text-accent" />
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-text uppercase">Safety & Capacity</h2>
+            <h2 className="text-2xl font-black tracking-tight text-text uppercase">{t("donorSafetyGuidelines", "Safety & Capacity")}</h2>
           </div>
         </TextReveal>
       </div>
@@ -33,10 +36,10 @@ export function SafetyCapacityCard({ onClose }: SafetyCapacityCardProps) {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
         {[
-          { icon: Scale, label: "Max Weight", val: "12", unit: "kg" },
-          { icon: Package, label: "Volume", val: "20", unit: "L" },
-          { icon: Thermometer, label: "Temp Zone", val: "2 – 8", unit: "°C" },
-          { icon: Droplets, label: "Humidity", val: "75", unit: "%", prefix: "≤" },
+          { icon: Scale, label: t("maxWeight", "Max Weight"), val: "12", unit: "kg" },
+          { icon: Package, label: t("volume", "Volume"), val: "20", unit: "L" },
+          { icon: Thermometer, label: t("tempZone", "Temp Zone"), val: "2 – 8", unit: "°C" },
+          { icon: Droplets, label: t("humidityLabel", "Humidity"), val: "75", unit: "%", prefix: "≤" },
         ].map((stat, idx) => (
           <TextReveal key={idx} direction="up" distance={15} delay={0.1 + idx * 0.05}>
             <div className="flex items-center gap-5 p-6 rounded-3xl bg-panel-elevated/80 border border-line/60 hover:border-accent/40 transition-all group shadow-sm hover:shadow-md h-full">
@@ -63,19 +66,19 @@ export function SafetyCapacityCard({ onClose }: SafetyCapacityCardProps) {
             <Ban className="w-5 h-5 text-accent-warm" />
           </div>
           <div className="flex flex-col">
-            <h3 className="text-sm font-black tracking-widest uppercase text-accent-warm leading-none">Restrictions</h3>
-            <p className="text-[9px] font-bold text-accent-warm/70 mt-1.5 uppercase tracking-wider">Avoid vacuum seals for sensor ventilation</p>
+            <h3 className="text-sm font-black tracking-widest uppercase text-accent-warm leading-none">{t("restrictions", "Restrictions")}</h3>
+            <p className="text-[9px] font-bold text-accent-warm/70 mt-1.5 uppercase tracking-wider">{t("avoidVacuumSeals", "Avoid vacuum seals for sensor ventilation")}</p>
           </div>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
-            { icon: Beef, label: "Raw Meat" },
-            { icon: CupSoda, label: "Liquids" },
-            { icon: Wind, label: "Airtight Seals" },
-            { icon: Info, label: "Allergens" },
+            { icon: Beef, label: t("rawMeat", "Raw Meat") },
+            { icon: CupSoda, label: t("liquids", "Liquids") },
+            { icon: Wind, label: t("airtightSeals", "Airtight Seals"), isCritical: true },
+            { icon: Info, label: t("allergens", "Allergens") },
           ].map((res, idx) => {
-            const isHighlighted = res.label === "Airtight Seals";
+            const isHighlighted = res.isCritical;
             return (
               <motion.div 
                 key={idx} 
@@ -103,7 +106,7 @@ export function SafetyCapacityCard({ onClose }: SafetyCapacityCardProps) {
                 <res.icon className={`w-4 h-4 ${isHighlighted ? "animate-bounce" : ""}`} />
                 <span className="text-xs font-black tracking-wider uppercase">{res.label}</span>
                 {isHighlighted && (
-                  <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-accent-warm text-[8px] font-black text-white rounded-full shadow-sm">CRITICAL</span>
+                  <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-accent-warm text-[8px] font-black text-white rounded-full shadow-sm">{t("critical", "CRITICAL")}</span>
                 )}
               </motion.div>
             );

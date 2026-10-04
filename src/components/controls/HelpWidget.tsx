@@ -34,29 +34,29 @@ export function HelpWidget() {
   const donorSteps = [
     {
       id: 1,
-      title: "Pack & Check Food",
-      desc: "Ensure food is fresh and properly sealed in a clean container for maximum safety.",
+      title: t("donorStep1Title"),
+      desc: t("donorStep1Desc"),
       icon: <Box className="text-amber-400" size={24} />,
       visuals: [<PackageOpen key="1" className="text-amber-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <ThumbsUp key="3" className="text-emerald-400" size={28} />]
     },
     {
       id: 2,
-      title: "Verify & Register",
-      desc: "Use secure Face ID or select manually to register your donation items.",
+      title: t("donorStep2Title"),
+      desc: t("donorStep2Desc"),
       icon: <ScanFace className="text-rose-400" size={24} />,
       visuals: [<Fingerprint key="1" className="text-rose-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <List key="3" className="text-indigo-400" size={28} />]
     },
     {
       id: 3,
-      title: "Auto-Deposit",
-      desc: "The smart locker door will automatically open. Carefully place your item inside.",
+      title: t("donorStep3Title"),
+      desc: t("donorStep3Desc"),
       icon: <Unlock className="text-cyan-400" size={24} />,
       visuals: [<Unlock key="1" className="text-cyan-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <Box key="3" className="text-cyan-400" size={28} />]
     },
     {
       id: 4,
-      title: "Secure Closure",
-      desc: "Push the door until you hear it lock. System telemetry confirms an airtight seal.",
+      title: t("donorStep4Title"),
+      desc: t("donorStep4Desc"),
       icon: <Lock className="text-emerald-400" size={24} />,
       visuals: [<Lock key="1" className="text-emerald-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <ShieldCheck key="3" className="text-emerald-400" size={28} />]
     }
@@ -65,22 +65,22 @@ export function HelpWidget() {
   const receiverSteps = [
     {
       id: 1,
-      title: "Browse Kiosk UI",
-      desc: "Use the interactive Kiosk interface to browse available verified food items.",
+      title: t("receiverStep1Title"),
+      desc: t("receiverStep1Desc"),
       icon: <Search className="text-blue-400" size={24} />,
       visuals: [<Eye key="1" className="text-blue-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <Search key="3" className="text-indigo-400" size={28} />]
     },
     {
       id: 2,
-      title: "Select & Authenticate",
-      desc: "Tap your desired item and undergo a rapid biometric check to unlock the unit.",
+      title: t("receiverStep2Title"),
+      desc: t("receiverStep2Desc"),
       icon: <HandHeart className="text-amber-400" size={24} />,
       visuals: [<Smartphone key="1" className="text-slate-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <ScanFace key="3" className="text-rose-400" size={28} />]
     },
     {
       id: 3,
-      title: "Retrieve & Close",
-      desc: "The designated locker opens automatically. Retrieve the food and close securely.",
+      title: t("receiverStep3Title"),
+      desc: t("receiverStep3Desc"),
       icon: <CheckCircle2 className="text-emerald-400" size={24} />,
       visuals: [<Unlock key="1" className="text-amber-400" size={28} />, <ArrowRight key="2" className="text-muted" size={16} />, <Lock key="3" className="text-emerald-400" size={28} />]
     }
@@ -96,43 +96,43 @@ export function HelpWidget() {
       {[
         {
           id: "fda-fsma",
-          title: "FDA FSMA Compliance",
-          desc: "Focuses on preventing foodborne illnesses through preventive controls rather than just reacting.",
+          title: t("policyFdaFsmaTitle"),
+          desc: t("policyFdaFsmaDesc"),
           icon: ShieldCheck,
           color: "var(--primary)"
         },
         {
           id: "fda-haccp",
-          title: "FDA HACCP Standards",
-          desc: "Management system addressing food safety through analysis and control of biological and physical hazards.",
+          title: t("policyFdaHaccpTitle"),
+          desc: t("policyFdaHaccpDesc"),
           icon: Activity,
           color: "var(--success)"
         },
         {
           id: "fda-labeling",
-          title: "FDA Labeling Rules",
-          desc: "Strict requirements for declaring nutritional content, allergens, and clear ingredient transparency.",
+          title: t("policyFdaLabelingTitle"),
+          desc: t("policyFdaLabelingDesc"),
           icon: List,
           color: "var(--warning)"
         },
         {
           id: "fssai-license",
-          title: "FSSAI Licensing",
-          desc: "Mandatory statutory registration for all Food Business Operators (FBOs) to ensure legal accountability.",
+          title: t("policyFssaiLicenseTitle"),
+          desc: t("policyFssaiLicenseDesc"),
           icon: CheckCircle2,
           color: "var(--info)"
         },
         {
           id: "fssai-hygiene",
-          title: "FSSAI Schedule 4",
-          desc: "Rigorous general hygienic and sanitary practices required for safe food processing and handling.",
+          title: t("policyFssaiHygieneTitle"),
+          desc: t("policyFssaiHygieneDesc"),
           icon: ThumbsUp,
           color: "var(--accent)"
         },
         {
           id: "fssai-recall",
-          title: "FSSAI Food Recall",
-          desc: "Rapid response protocols to quickly remove unsafe or misbranded food items from the distribution network.",
+          title: t("policyFssaiRecallTitle"),
+          desc: t("policyFssaiRecallDesc"),
           icon: BellRing,
           color: "var(--accent-warm)"
         }
@@ -189,7 +189,7 @@ export function HelpWidget() {
           display: 'flex', alignItems: 'center', gap: '0.75rem',
           textTransform: 'uppercase', letterSpacing: '0.1em'
         }}>
-          <Heart size={20} /> Donor Procedure
+          <Heart size={20} /> {t("donorProcedure")}
         </h4>
         <div style={{ 
           display: 'flex', alignItems: 'center', flexWrap: 'nowrap', 
@@ -197,10 +197,10 @@ export function HelpWidget() {
           scrollbarWidth: 'none'
         }}>
           {[
-            { icon: User, label: "Donor", desc: "Initiates", color: "text-amber-500" },
-            { icon: PackageOpen, label: "Pack", desc: "Seals Food", color: "text-emerald-500" },
-            { icon: ScanFace, label: "Verify", desc: "Face ID", color: "text-indigo-500" },
-            { icon: Box, label: "Deposit", desc: "Locker Locks", color: "text-cyan-500" }
+            { icon: User, label: t("diagramDonor"), desc: t("diagramInitiates"), color: "text-amber-500" },
+            { icon: PackageOpen, label: t("diagramPack"), desc: t("diagramSealsFood"), color: "text-emerald-500" },
+            { icon: ScanFace, label: t("diagramVerify"), desc: t("diagramFaceId"), color: "text-indigo-500" },
+            { icon: Box, label: t("diagramDeposit"), desc: t("diagramLockerLocks"), color: "text-cyan-500" }
           ].map((node, i, arr) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
               <motion.div 
@@ -250,7 +250,7 @@ export function HelpWidget() {
           display: 'flex', alignItems: 'center', gap: '0.75rem',
           textTransform: 'uppercase', letterSpacing: '0.1em'
         }}>
-          <Package size={20} /> Receiver Procedure
+          <Package size={20} /> {t("receiverProcedure")}
         </h4>
         <div style={{ 
           display: 'flex', alignItems: 'center', flexWrap: 'nowrap', 
@@ -258,10 +258,10 @@ export function HelpWidget() {
           scrollbarWidth: 'none'
         }}>
           {[
-            { icon: Activity, label: "Ready", desc: "Verified UI", color: "text-emerald-500" },
-            { icon: Search, label: "Browse", desc: "Kiosk", color: "text-indigo-500" },
-            { icon: ScanFace, label: "Unlock", desc: "Biometrics", color: "text-amber-500" },
-            { icon: User, label: "Collect", desc: "Takes Food", color: "text-blue-500" }
+            { icon: Activity, label: t("diagramReady"), desc: t("diagramVerifiedUi"), color: "text-emerald-500" },
+            { icon: Search, label: t("diagramBrowse"), desc: t("diagramKiosk"), color: "text-indigo-500" },
+            { icon: ScanFace, label: t("diagramUnlock"), desc: t("diagramBiometrics"), color: "text-amber-500" },
+            { icon: User, label: t("diagramCollect"), desc: t("diagramTakesFood"), color: "text-blue-500" }
           ].map((node, i, arr) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
               <motion.div 
@@ -315,7 +315,7 @@ export function HelpWidget() {
         whileTap={{ scale: 0.95 }}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        aria-label="Help & Guide"
+        aria-label={t("systemGuide")}
       >
         <HelpCircle size={28} />
       </motion.button>
@@ -374,8 +374,8 @@ export function HelpWidget() {
                     <HelpCircle size={28} />
                   </div>
                   <div>
-                    <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.75rem', fontWeight: 800, color: 'var(--text)' }}>System Guide</h2>
-                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1rem' }}>Smart Food Exchange & Features</p>
+                    <h2 style={{ margin: '0 0 0.25rem 0', fontSize: '1.75rem', fontWeight: 800, color: 'var(--text)' }}>{t("systemGuide")}</h2>
+                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '1rem' }}>{t("systemGuideSubtitle")}</p>
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -399,7 +399,7 @@ export function HelpWidget() {
                     }}
                   >
                     <Sparkles size={14} />
-                    <span>Interactive Tour</span>
+                    <span>{t("interactiveTour")}</span>
                   </button>
                   <button
                     onClick={() => setIsOpen(false)}
@@ -423,10 +423,10 @@ export function HelpWidget() {
                   overflowX: 'auto', scrollbarWidth: 'none'
                 }}>
                   {[
-                    { id: "diagram", icon: Network, label: "Architecture" },
-                    { id: "donor", icon: Heart, label: "Donate Flow" },
-                    { id: "receiver", icon: Package, label: "Receive Flow" },
-                    { id: "features", icon: ShieldCheck, label: "Food Policies" }
+                    { id: "diagram", icon: Network, label: t("tabArchitecture") },
+                    { id: "donor", icon: Heart, label: t("tabDonateFlow") },
+                    { id: "receiver", icon: Package, label: t("tabReceiveFlow") },
+                    { id: "features", icon: ShieldCheck, label: t("tabFoodPolicies") }
                   ].map((tab) => (
                     <button 
                       key={tab.id}

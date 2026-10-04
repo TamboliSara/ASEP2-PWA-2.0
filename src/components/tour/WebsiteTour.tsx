@@ -8,14 +8,16 @@ import {
   Lightbulb
 } from "lucide-react";
 import { 
-  DONOR_TOUR_STEPS, 
-  RECEIVER_TOUR_STEPS, 
-  DONOR_COMPLETION, 
-  RECEIVER_COMPLETION,
+  getDonorTourSteps, 
+  getReceiverTourSteps, 
+  getDonorCompletion, 
+  getReceiverCompletion,
   type TourPath, 
   type TourStep 
 } from "./tourConfig";
 import { useAppContext } from "../../store/AppContext";
+import { useTranslation } from "../../store/useTranslation";
+import { toLocalDigits } from "../../utils/format";
 import { TourPromptModal } from "./TourPromptModal";
 import { TourCompletionModal } from "./TourCompletionModal";
 import "../../styles/tour.css";
@@ -197,6 +199,7 @@ export function WebsiteTour() {
   const location = useLocation();
   const navigate = useNavigate();
   const { state, dispatch } = useAppContext();
+  const { t, locale } = useTranslation();
 
   const [activePath, setActivePath] = useState<TourPath | null>(null);
   const [completedPath, setCompletedPath] = useState<TourPath>("donor");
@@ -229,7 +232,7 @@ export function WebsiteTour() {
     }
   });
 
-  const steps: TourStep[] = activePath === "donor" ? DONOR_TOUR_STEPS : RECEIVER_TOUR_STEPS;
+  const steps: TourStep[] = activePath === "donor" ? getDonorTourSteps(t) : getReceiverTourSteps(t);
   const currentStep = activePath ? steps[currentStepIndex] : null;
 
   // ── Show Prompt automatically ONLY for first time when user opens website ──
@@ -638,10 +641,10 @@ export function WebsiteTour() {
               <div className="tour-tooltip-topbar">
                 <div className="tour-badge-pill">
                   <Sparkles size={11} />
-                  <span>{activePath === "donor" ? "Donor Tour" : "Receiver Tour"}</span>
+                  <span>{activePath === "donor" ? t("donorTour", "Donor Tour") : t("receiverTour", "Receiver Tour")}</span>
                 </div>
                 <div className="tour-step-counter">
-                  STEP {currentStepIndex + 1} OF {steps.length}
+                  {t("step", "STEP")} {toLocalDigits(currentStepIndex + 1, locale)} {t("of", "OF")} {toLocalDigits(steps.length, locale)}
                 </div>
               </div>
 
@@ -675,7 +678,7 @@ export function WebsiteTour() {
               {/* Bottom Actions Bar */}
               <div className="tour-tooltip-actions">
                 <button className="tour-btn-exit" onClick={endTour}>
-                  Exit Tour
+                  {t("exitTour", "Exit Tour")}
                 </button>
 
                 <div className="tour-btn-nav-group">
@@ -684,11 +687,11 @@ export function WebsiteTour() {
                     onClick={handleBack}
                     disabled={currentStepIndex === 0}
                   >
-                    Back
+                    {t("back", "Back")}
                   </button>
 
                   <button className="tour-btn-next" onClick={handleNext}>
-                    <span>{currentStepIndex === steps.length - 1 ? "Finish Tour" : "Next"}</span>
+                    <span>{currentStepIndex === steps.length - 1 ? t("finishTour", "Finish Tour") : t("next", "Next")}</span>
                     <ArrowRight size={14} />
                   </button>
                 </div>
@@ -701,7 +704,7 @@ export function WebsiteTour() {
       {/* 4. Celebratory Grand Finale Modal */}
       <TourCompletionModal
         isOpen={isCompleted}
-        data={completedPath === "donor" ? DONOR_COMPLETION : RECEIVER_COMPLETION}
+        data={completedPath === "donor" ? getDonorCompletion(t) : getReceiverCompletion(t)}
         onReturnToMainMenu={handleReturnToMainMenu}
       />
     </>

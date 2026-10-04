@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "../../store/useTranslation";
+import { toLocalDigits } from "../../utils/format";
 
 interface QualityGaugeProps {
   hoursRemaining: number;
@@ -6,6 +8,7 @@ interface QualityGaugeProps {
 }
 
 export function QualityGauge({ hoursRemaining, totalDuration = 24 }: QualityGaugeProps) {
+  const { t, locale } = useTranslation();
   const [needleRotation, setNeedleRotation] = useState(-90);
   const normalizedValue = Math.max(0, Math.min(1, hoursRemaining / totalDuration));
   const qualityScore = Math.round(normalizedValue * 100);
@@ -154,14 +157,14 @@ export function QualityGauge({ hoursRemaining, totalDuration = 24 }: QualityGaug
           </g>
 
           {/* Correctly Positioned Labels with harmonic colors */}
-          <text x="20" y="132" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "hsl(0, 70%, 60%)" }}>SPOILED</text>
-          <text x="100" y="32" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "var(--text)" }}>OPTIMAL</text>
-          <text x="180" y="132" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "hsl(155, 70%, 50%)" }}>FRESH</text>
+          <text x="20" y="132" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "hsl(0, 70%, 60%)" }}>{t("spoilt").toUpperCase()}</text>
+          <text x="100" y="32" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "var(--text)" }}>{t("optimal").toUpperCase()}</text>
+          <text x="180" y="132" className="gauge-label-luxe" textAnchor="middle" style={{ fill: "hsl(155, 70%, 50%)" }}>{t("fresh").toUpperCase()}</text>
         </svg>
 
         <div className="gauge-score-overlay-luxe">
-          <span className="score-value-premium" style={{ color: currentColor }}>{qualityScore}</span>
-          <span className="score-label-premium">QUALITY INDEX</span>
+          <span className="score-value-premium" style={{ color: currentColor }}>{toLocalDigits(qualityScore, locale)}</span>
+          <span className="score-label-premium">{t("qualityIndex")}</span>
         </div>
       </div>
 

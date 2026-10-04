@@ -53,7 +53,7 @@ export type AppAction =
   | { type: "set-sync-message"; message: string };
 
 export const initialAppState: AppState = {
-  locale: "en",
+  locale: "hi",
   themeMode: "light",
   themePalette: "luxury",
   hasCompletedPairing: true,

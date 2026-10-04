@@ -49,6 +49,8 @@ function foodEmoji(name: string): string {
   return "🍽️";
 }
 
+import { toLocalDigits, translateCategory, translateAllergens } from "../../utils/format";
+
 function DietIcon({ tag }: { tag?: string }) {
   if (!tag) return null;
   if (tag === "veg") return <span className="diet-dot is-veg" title="Vegetarian" />;
@@ -57,24 +59,20 @@ function DietIcon({ tag }: { tag?: string }) {
   return null;
 }
 
-function getBadges(item: DonationRecord | undefined, t: (key: string) => string) {
+function getBadges(item: DonationRecord | undefined, t: (key: string) => string, locale: string = "en") {
   return [
-    { label: item?.categoryLabel ?? t("ready"), icon: null },
-    { label: item?.dietTag?.replace("_", " ") ?? t("communityReady"), icon: <DietIcon tag={item?.dietTag} /> }
+    { label: translateCategory(item?.categoryLabel, locale) || t("ready"), icon: null },
+    { 
+      label: item?.dietTag === 'veg' 
+        ? (t("dietVeg") || "Vegetarian") 
+        : item?.dietTag === 'non_veg' 
+        ? (t("dietNonVeg") || "Non-Vegetarian") 
+        : item?.dietTag === 'vegan'
+        ? (t("dietVegan") || "Vegan")
+        : (t("communityReady") || "Community Safe"), 
+      icon: <DietIcon tag={item?.dietTag} /> 
+    }
   ];
-}
-
-function formatAllergenText(notes?: string) {
-  if (!notes) return "No allergens declared — Safe for all";
-  const trimmed = notes.trim();
-  const lower = trimmed.toLowerCase();
-  if (lower === "none" || lower === "no allergens" || lower === "none declared" || lower === "safe for all") {
-    return "No allergens declared — Safe for all";
-  }
-  if (lower === "freshly cut fruits") {
-    return "No common allergens • Fresh seasonal fruits";
-  }
-  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
 export function FoodHeroV2({
@@ -91,7 +89,7 @@ export function FoodHeroV2({
   onNextLocker?: () => void;
 }) {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { state } = useAppContext();
 
   const scrollToRetrieve = (e?: React.MouseEvent) => {
@@ -182,7 +180,7 @@ export function FoodHeroV2({
   const previews = heroItems?.filter((_, index) => index !== activeIndex).slice(0, 2) ?? [];
   const palette = pickPalette(activeItem?.foodName ?? "SAFE");
   const heroShape = visualType(activeItem?.foodName ?? "SAFE");
-  const badges = getBadges(activeItem, t);
+  const badges = getBadges(activeItem, t, locale);
 
   useEffect(() => {
     onActiveItemChange?.(activeItem);
@@ -611,7 +609,7 @@ export function FoodHeroV2({
                   {t("allergens") || "Allergens"}:
                 </span>
                 <span className="allergens-value">
-                  {formatAllergenText(activeItem.allergensNotes)}
+                  {translateAllergens(activeItem.allergensNotes, locale)}
                 </span>
               </div>
             </div>
@@ -639,7 +637,11 @@ export function FoodHeroV2({
                   </svg>
                   <span className="cell-label">{t("itemCount")}</span>
                 </div>
-                <span className="cell-value">{(heroItems?.length || 1) > 1 ? `${activeIndex + 1} / ${heroItems?.length}` : "1"}</span>
+                <span className="cell-value">
+                  {(heroItems?.length || 1) > 1 
+                    ? `${toLocalDigits(activeIndex + 1, locale)} / ${toLocalDigits(heroItems?.length, locale)}` 
+                    : toLocalDigits("1", locale)}
+                </span>
               </div>
               <div className="status-divider" />
               <div className="status-cell">

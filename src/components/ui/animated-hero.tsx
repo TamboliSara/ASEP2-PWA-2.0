@@ -3,13 +3,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MoveRight, Zap, Globe, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "../../store/useTranslation";
 
 function Hero() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [titleNumber, setTitleNumber] = useState(0);
+
   const titles = useMemo(
-    () => ["Sustainable", "Verified", "Secure", "Smart", "Impactful"],
-    []
+    () => [
+      t("heroSustainable"),
+      t("heroVerified"),
+      t("heroSecure"),
+      t("heroSmart"),
+      t("heroImpactful")
+    ],
+    [t]
   );
 
   useEffect(() => {
@@ -34,15 +43,15 @@ function Hero() {
       <div className="container mx-auto relative z-10 px-6">
         <div className="flex gap-6 items-center justify-center flex-col text-center">
           
-
-
           <div className="flex gap-4 flex-col max-w-2xl">
             <h1 className="text-4xl md:text-6xl tracking-tight font-black leading-[1.1]">
-              <span className="bg-gradient-to-r from-text to-text/60 bg-clip-text text-transparent">Sharing is</span>
+              <span className="bg-gradient-to-r from-text to-text/60 bg-clip-text text-transparent">
+                {t("heroSharingIs")}
+              </span>
               <span className="relative block h-[1.2em] overflow-hidden mt-2">
                 <AnimatePresence mode="wait">
                   <motion.span
-                    key={titleNumber}
+                    key={`${titleNumber}-${titles[titleNumber]}`}
                     className="absolute inset-0 flex justify-center text-accent"
                     initial={{ y: 40, opacity: 0, filter: "blur(10px)" }}
                     animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
@@ -66,8 +75,7 @@ function Hero() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.8 }}
             >
-              The world's most advanced <span className="text-accent font-bold">autonomous food equity</span> network. 
-              Redefining community trust through bank-grade biometrics, smart telemetry, and hyper-efficient locker technology.
+              {t("heroDescription")}
             </motion.p>
           </div>
 
@@ -84,10 +92,10 @@ function Hero() {
               onClick={() => window.dispatchEvent(new CustomEvent('open-help-widget'))}
             >
               <Zap className="w-4 h-4 text-accent-warm" />
-              How It Works
+              {t("howItWorks")}
             </Button>
             <Button size="lg" className="rounded-full px-8 py-6 text-base bg-accent hover:bg-accent-hover text-white dark:text-black font-black shadow-[0_10px_40px_rgba(20,184,166,0.3)] transition-all gap-3 group" onClick={() => navigate("/donate")}>
-              Start Donating
+              {t("startDonating")}
               <MoveRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Button>
           </motion.div>
@@ -100,12 +108,12 @@ function Hero() {
           >
             <div className="flex items-center gap-2 text-text">
               <Globe className="w-4 h-4" />
-              <span className="text-[10px] font-black tracking-widest uppercase">Global Standards</span>
+              <span className="text-[10px] font-black tracking-widest uppercase">{t("globalStandards")}</span>
             </div>
             <div className="h-4 w-px bg-line" />
             <div className="flex items-center gap-2 text-text">
               <Heart className="w-4 h-4" />
-              <span className="text-[10px] font-black tracking-widest uppercase">Community Driven</span>
+              <span className="text-[10px] font-black tracking-widest uppercase">{t("communityDriven")}</span>
             </div>
           </motion.div>
         </div>
