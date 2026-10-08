@@ -46,6 +46,7 @@ interface FoodHealthCardPremiumProps {
   insight?: string;
   className?: string;
   variant?: 'default' | 'compact';
+  defaultMetrics?: MetricType[];
 }
 
 type MetricType = 'RISK' | 'QUALITY' | 'GAS' | 'TEMP';
@@ -58,12 +59,17 @@ export function FoodHealthCardPremium({
   shelfLifeHours = 10,
   insight = "Conditions Optimal: Food quality is stable for the next 8h+.",
   className = "",
-  variant = 'default'
+  variant = 'default',
+  defaultMetrics = ['RISK']
 }: FoodHealthCardPremiumProps) {
   const { t, locale } = useTranslation();
   const isCompact = variant === 'compact';
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [activeMetrics, setActiveMetrics] = useState<MetricType[]>(['RISK', 'QUALITY', 'TEMP']);
+  const [activeMetrics, setActiveMetrics] = useState<MetricType[]>(defaultMetrics);
+
+  useEffect(() => {
+    setActiveMetrics(defaultMetrics);
+  }, [defaultMetrics]);
 
   useEffect(() => {
     const checkTheme = () => {
@@ -98,83 +104,139 @@ export function FoodHealthCardPremium({
     temp: '#3B82F6',
   };
 
-  // Chart Data Generation
+  // Chart Data Generation - dynamic projection based on active chamber's real prediction & telemetry
   const chartData = useMemo(() => {
-    const labels = ['0h', '2h', '4h', '6h', '8h', '10h', '12h'];
+    const validHours = typeof shelfLifeHours === 'number' && !isNaN(shelfLifeHours) && shelfLifeHours > 0 
+      ? shelfLifeHours 
+      : 12;
+    const maxHour = Math.max(6, Math.round(validHours));
     
-    const datasets = [];
+    // Generate 7 evenly spaced time intervals: 0h to maxHour
+    const step = maxHour / 6;
+    const timePoints = [0, 1, 2, 3, 4, 5, 6].map(i => Math.round(i * step));
+    const labels = timePoints.map(h => `${h}h`);
 
+    const datasets: any[] = [];
+
+    // Clamped base values matching current chamber telemetry & pills exactly at t = 0
+    const currentRisk = Math.min(100, Math.max(0, Math.round(risk)));
+    const currentQuality = Math.min(100, Math.max(0, Math.round(quality)));
+    const currentGas = Math.min(100, Math.max(0, Math.round(gas)));
+    const currentTemp = typeof temp === 'number' && !isNaN(temp) ? Number(temp.toFixed(1)) : 4.0;
+
+    // Single selected metric receives gradient fill; multiple active metrics use clean lines
+    const isSingleMetric = activeMetrics.length === 1;
+
+    // 1. RISK DATASET
     if (activeMetrics.includes('RISK')) {
+      const riskData = timePoints.map((_, index) => {
+        if (index === 0) return currentRisk;
+        const t = index / 6; // 0.0 to 1.0
+        // Accelerated kinetics: curve accelerates as shelf-life deadline nears
+        const curve = Math.pow(t, 1.6);
+        const targetRisk = Math.max(currentRisk, 98);
+        return Math.min(99, Math.round(currentRisk + curve * (targetRisk - currentRisk)));
+      });
+
       datasets.push({
-        label: 'Risk (%)',
-        data: [14, 15, 22, 33, 49, 71, 96],
+        label: `${t('risk', 'Risk')} (%)`,
+        data: riskData,
         borderColor: colors.risk,
         borderWidth: 3,
         pointBackgroundColor: isDarkMode ? '#fff' : colors.risk,
         pointBorderColor: colors.risk,
         pointBorderWidth: 2,
-        pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 6 : 2,
+        pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 6 : 3,
         pointHoverRadius: 6,
-        tension: 0.4,
-        fill: true,
-        backgroundColor: 'rgba(255, 61, 61, 0.05)',
+        tension: 0.35,
+        fill: isSingleMetric,
+        backgroundColor: 'rgba(255, 61, 61, 0.08)',
       });
     }
 
+    // 2. QUALITY DATASET
     if (activeMetrics.includes('QUALITY')) {
+      const qualityData = timePoints.map((_, index) => {
+        if (index === 0) return currentQuality;
+        const t = index / 6;
+        // Natural exponential decay of nutritive/sensory freshness
+        const curve = Math.pow(t, 1.4);
+        const targetQuality = Math.min(currentQuality, 4);
+        return Math.max(2, Math.round(currentQuality - curve * (currentQuality - targetQuality)));
+      });
+
       datasets.push({
-        label: 'Quality (%)',
-        data: [98, 94, 85, 71, 53, 30, 4],
+        label: `${t('quality', 'Quality')} (%)`,
+        data: qualityData,
         borderColor: colors.quality,
         borderWidth: 3,
         pointBackgroundColor: isDarkMode ? '#fff' : colors.quality,
         pointBorderColor: colors.quality,
         pointBorderWidth: 2,
-        pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 6 : 2,
+        pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 6 : 3,
         pointHoverRadius: 6,
-        tension: 0.4,
-        fill: true,
-        backgroundColor: isDarkMode ? 'rgba(139, 92, 246, 0.05)' : 'rgba(109, 40, 217, 0.05)',
+        tension: 0.35,
+        fill: isSingleMetric,
+        backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.08)' : 'rgba(5, 150, 105, 0.08)',
       });
     }
 
+    // 3. GAS (VOC) DATASET
     if (activeMetrics.includes('GAS')) {
+      const gasData = timePoints.map((_, index) => {
+        if (index === 0) return currentGas;
+        const t = index / 6;
+        // Microbial respiration & bio-volatile emissions accumulate over storage time
+        const targetGas = Math.max(currentGas + 20, Math.min(88, currentGas + (100 - currentGas) * 0.75));
+        const curve = Math.pow(t, 1.3);
+        return Math.min(100, Math.round(currentGas + curve * (targetGas - currentGas)));
+      });
+
       datasets.push({
-        label: 'Gas (ppm)',
-        data: [22, 24, 28, 35, 42, 55, 70],
+        label: `${t('gas', 'Gas')} (%)`,
+        data: gasData,
         borderColor: colors.gas,
         borderWidth: 3,
         pointBackgroundColor: isDarkMode ? '#fff' : colors.gas,
         pointBorderColor: colors.gas,
         pointBorderWidth: 2,
-        pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 6 : 2,
+        pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 6 : 3,
         pointHoverRadius: 6,
-        tension: 0.4,
-        fill: true,
-        backgroundColor: 'rgba(245, 158, 11, 0.05)',
+        tension: 0.35,
+        fill: isSingleMetric,
+        backgroundColor: 'rgba(245, 158, 11, 0.08)',
       });
     }
 
+    // 4. TEMPERATURE DATASET
     if (activeMetrics.includes('TEMP')) {
+      const tempData = timePoints.map((_, index) => {
+        if (index === 0) return currentTemp;
+        const t = index / 6;
+        // Thermal chamber stability: slight compressor hysteresis / duty cycle drift (+0.6°C to +1.2°C)
+        const drift = (Math.sin(t * Math.PI * 2) * 0.25) + (t * 0.8);
+        return parseFloat((currentTemp + drift).toFixed(1));
+      });
+
       datasets.push({
-        label: 'Temp (°C)',
-        data: [4.8, 4.9, 5.1, 5.0, 5.2, 5.5, 6.0],
+        label: `${t('temp', 'Temp')} (°C)`,
+        data: tempData,
         borderColor: colors.temp,
         borderWidth: 3,
         yAxisID: 'yTemp',
         pointBackgroundColor: isDarkMode ? '#fff' : colors.temp,
         pointBorderColor: colors.temp,
         pointBorderWidth: 2,
-        pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 6 : 2,
+        pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 6 : 3,
         pointHoverRadius: 6,
-        tension: 0.4,
-        fill: true,
-        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+        tension: 0.35,
+        fill: isSingleMetric,
+        backgroundColor: 'rgba(59, 130, 246, 0.08)',
       });
     }
 
     return { labels, datasets };
-  }, [activeMetrics, isDarkMode, colors]);
+  }, [activeMetrics, isDarkMode, colors, risk, quality, gas, temp, shelfLifeHours, t]);
 
   const chartOptions = {
     responsive: true,
@@ -216,9 +278,11 @@ export function FoodHealthCardPremium({
       },
       yTemp: {
         position: 'right' as const,
-        beginAtZero: true,
+        beginAtZero: false,
         display: activeMetrics.includes('TEMP'),
         grid: { drawOnChartArea: false },
+        suggestedMin: Math.min(0, Math.floor((temp ?? 4) - 2)),
+        suggestedMax: Math.max(10, Math.ceil((temp ?? 4) + 3)),
         ticks: {
           color: colors.textMuted,
           font: { family: "'Outfit', sans-serif", size: 9, weight: 'bold' },
@@ -226,7 +290,7 @@ export function FoodHealthCardPremium({
         },
         title: {
           display: true,
-          text: 'Temperature',
+          text: t('temp', 'Temperature'),
           color: colors.textMuted,
           font: { family: "'Outfit', sans-serif", size: 9, weight: 'bold' }
         }

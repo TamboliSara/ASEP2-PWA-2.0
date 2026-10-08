@@ -1128,9 +1128,11 @@ export function KioskPage() {
           <div className="bento-chart-container">
             {donation ? (
               <FoodHealthCardPremium 
+                key={`${currentLocker?.lockerId || 'vault'}-${donation?.id || 'item'}`}
                 variant="compact"
                 risk={100 - calculatedQualityScore}
                 quality={calculatedQualityScore}
+                gas={telemetry.gasResistanceOhms > 0 ? Math.min(100, Math.max(0, Math.round(100 - (telemetry.gasResistanceOhms / 350)))) : Math.round(20 + (100 - calculatedQualityScore) * 0.4)}
                 temp={telemetry.internalTempC}
                 shelfLifeHours={Math.round(displayHoursRemaining)}
                 insight={agentInsight}
