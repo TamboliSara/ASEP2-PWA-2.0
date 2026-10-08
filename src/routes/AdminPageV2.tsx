@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShieldCheck, 
-  MoveRight, 
   BarChart3, 
   Box, 
   Database,
@@ -32,7 +31,6 @@ import {
   AlertTriangle,
   Loader2
 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { StatusPill } from "../components/controls/StatusPill";
 import { SurfaceCard } from "../components/layout/SurfaceCard";
 import { MetricCardPremium } from "../components/safety/MetricCardPremium";
@@ -208,14 +206,14 @@ export function AdminPageV2() {
       console.warn("[Admin] QR sessions listener error:", err);
     });
     return unsub;
-  }, [state.isAdminAuthenticated]);
+  }, []);
 
   // ── Firestore: Live donation counts ──
   const [firestoreDonationCount, setFirestoreDonationCount] = useState<number | null>(null);
   const [firestoreRetrievalCount, setFirestoreRetrievalCount] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!db || !state.isAdminAuthenticated) return;
+    if (!db) return;
 
     // Listen to donations collection
     const donationsUnsub = onSnapshot(
@@ -260,11 +258,11 @@ export function AdminPageV2() {
       donationsUnsub();
       retrievalsUnsub();
     };
-  }, [state.isAdminAuthenticated]);
+  }, []);
 
   // ── RTDB: Live telemetry subscription for selected locker ──
   useEffect(() => {
-    if (!state.isAdminAuthenticated || !currentLocker) return;
+    if (!currentLocker) return;
 
     const unsub = subscribeTelemetry(currentLocker.lockerId, (rtdbData) => {
       if (rtdbData && rtdbData.timestamp > 0) {
@@ -281,7 +279,7 @@ export function AdminPageV2() {
     });
 
     return unsub;
-  }, [state.isAdminAuthenticated, currentLocker?.lockerId, dispatch]);
+  }, [currentLocker?.lockerId, dispatch]);
 
   // ── Computed stats with Firestore primary, local fallback ──
   const totalDonations = useMemo(() => {
@@ -358,70 +356,6 @@ export function AdminPageV2() {
     });
     setShowSafeSelector(false);
   };
-
-  if (!state.isAdminAuthenticated) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] as const }}
-        className="min-h-[calc(100vh-180px)] flex items-center justify-center w-full max-w-2xl mx-auto"
-      >
-        <section className="relative overflow-hidden rounded-[2.5rem] border border-line bg-panel/30 backdrop-blur-2xl p-10 md:p-14 shadow-2xl">
-          {/* Decorative background elements */}
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-accent/5 rounded-full blur-[100px]" />
-          <div className="absolute bottom-0 left-0 -ml-10 -mb-10 w-40 h-40 bg-accent-warm/5 rounded-full blur-[80px]" />
-          
-          <div className="relative z-10 flex flex-col items-center text-center gap-8">
-            <div className="flex flex-col items-center gap-4">
-              <motion.div 
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-                className="w-20 h-20 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-2 shadow-[0_0_30px_rgba(20,184,166,0.1)]"
-              >
-                <ShieldCheck className="w-10 h-10 text-accent animate-pulse" />
-              </motion.div>
-              
-              <div className="space-y-2">
-                <p className="text-[10px] font-black tracking-[0.3em] uppercase text-accent/80 opacity-80">
-                  {t("adminAuthRequired", "Admin Authorization Required")}
-                </p>
-                <h2 className="text-4xl md:text-5xl font-black tracking-tight text-text">
-                  {t("signIn", "Sign In")}
-                </h2>
-              </div>
-            </div>
-
-            
-
-            <div className="w-full h-px bg-gradient-to-r from-transparent via-line to-transparent opacity-40" />
-
-            <div className="flex flex-col items-center gap-6 w-full">
-              <Link 
-                className="group relative flex items-center justify-center gap-3 w-full sm:w-auto px-10 py-5 rounded-full bg-accent hover:bg-accent-hover text-white dark:text-black font-black text-lg transition-all duration-300 shadow-[0_10px_40px_rgba(20,184,166,0.3)] hover:shadow-[0_15px_50px_rgba(20,184,166,0.4)] hover:-translate-y-1 active:translate-y-0"
-                to="/admin/sign-in"
-              >
-                <span>{t("continueSignIn", "Continue to Sign In")}</span>
-                <MoveRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              
-              <div className="flex items-center gap-6 opacity-30">
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                  <span className="text-[9px] font-black tracking-widest uppercase text-text">{t("secureShell", "Secure Shell")}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent-warm" />
-                  <span className="text-[9px] font-black tracking-widest uppercase text-text">{t("auditLogging", "Audit Logging")}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </motion.div>
-    );
-  }
 
   const containerVariants = {
     hidden: { opacity: 0 },

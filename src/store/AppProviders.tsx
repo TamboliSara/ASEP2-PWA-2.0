@@ -52,7 +52,7 @@ export function AppProviders({ children }: PropsWithChildren) {
         hasCompletedPairing: hasPaired,
         hardwareMac:      savedMac,
         lockers: defaultState.lockers.map(l => l.lockerId === HARDWARE_LOCKER_ID ? { ...l, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : l.pairedDeviceName } : l),
-        isAdminAuthenticated: false
+        isAdminAuthenticated: true
       };
     } catch {
       return {

@@ -74,7 +74,7 @@ export const initialAppState: AppState = {
     donationHistory: [],
     logs: [],
     alerts: [],
-    isAdminAuthenticated: false,
+    isAdminAuthenticated: true,
     syncMessage: ""
   };
   
