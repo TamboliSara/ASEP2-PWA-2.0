@@ -46,10 +46,11 @@ interface FoodHealthCardPremiumProps {
   insight?: string;
   className?: string;
   variant?: 'default' | 'compact';
-  defaultMetrics?: MetricType[];
 }
 
 type MetricType = 'RISK' | 'QUALITY' | 'GAS' | 'TEMP';
+
+const DEFAULT_ACTIVE_METRICS: MetricType[] = ['RISK'];
 
 export function FoodHealthCardPremium({
   risk = 14,
@@ -59,17 +60,12 @@ export function FoodHealthCardPremium({
   shelfLifeHours = 10,
   insight = "Conditions Optimal: Food quality is stable for the next 8h+.",
   className = "",
-  variant = 'default',
-  defaultMetrics = ['RISK']
+  variant = 'default'
 }: FoodHealthCardPremiumProps) {
   const { t, locale } = useTranslation();
   const isCompact = variant === 'compact';
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [activeMetrics, setActiveMetrics] = useState<MetricType[]>(defaultMetrics);
-
-  useEffect(() => {
-    setActiveMetrics(defaultMetrics);
-  }, [defaultMetrics]);
+  const [activeMetrics, setActiveMetrics] = useState<MetricType[]>(DEFAULT_ACTIVE_METRICS);
 
   useEffect(() => {
     const checkTheme = () => {
@@ -489,18 +485,19 @@ interface StatMiniProps {
 function StatMini({ label, value, color, bg, isCompact, isDarkMode, isActive, onClick }: StatMiniProps) {
   return (
     <motion.button
+      type="button"
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       animate={{ rotate: 0 }} // Explicitly prevent rotation
       onClick={onClick}
-      className={`${isCompact ? 'px-3 py-2 min-w-[80px]' : 'px-4 py-3 min-w-[100px]'} rounded-xl flex flex-col items-start gap-0.5 transition-all shadow-sm border cursor-pointer outline-none ${isActive ? 'border-accent shadow-[0_0_15px_rgba(20,184,166,0.2)]' : 'opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0'}`}
+      className={`${isCompact ? 'px-3 py-2 min-w-[80px]' : 'px-4 py-3 min-w-[100px]'} rounded-xl flex flex-col items-start gap-0.5 transition-all shadow-sm border cursor-pointer outline-none select-none relative z-20 ${isActive ? 'border-accent shadow-[0_0_15px_rgba(20,184,166,0.2)]' : 'opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0'}`}
       style={{ 
         background: isActive ? bg : (isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'),
         borderColor: isActive ? '#14B8A6' : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)')
       }}
     >
-      <span className="text-[7px] font-black tracking-widest uppercase" style={{ color: isDarkMode ? '#fff' : '#0F172A' }}>{label}</span>
-      <span className={`${isCompact ? 'text-xs' : 'text-sm'} font-black ${color} tracking-tight`}>{value}</span>
+      <span className="text-[7px] font-black tracking-widest uppercase pointer-events-none" style={{ color: isDarkMode ? '#fff' : '#0F172A' }}>{label}</span>
+      <span className={`${isCompact ? 'text-xs' : 'text-sm'} font-black ${color} tracking-tight pointer-events-none`}>{value}</span>
     </motion.button>
   );
 }
