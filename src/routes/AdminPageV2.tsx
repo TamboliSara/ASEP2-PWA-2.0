@@ -31,6 +31,7 @@ import {
   AlertTriangle,
   Loader2
 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { StatusPill } from "../components/controls/StatusPill";
 import { SurfaceCard } from "../components/layout/SurfaceCard";
 import { MetricCardPremium } from "../components/safety/MetricCardPremium";
@@ -112,9 +113,15 @@ function parseUserAgent(ua?: string): { os: string; browser: string; iconType: "
 
 export function AdminPageV2() {
   const { t, locale } = useTranslation();
-  const { state, dispatch, currentLocker, signOut } = useLockerController();
+  const navigate = useNavigate();
+  const { state, dispatch, currentLocker } = useLockerController();
   const fleet = deriveFleetForPDF(state.lockers);
   const [showSafeSelector, setShowSafeSelector] = useState(false);
+
+  const handleSignOut = () => {
+    dispatch({ type: "set-admin-auth", value: false });
+    navigate("/");
+  };
 
   // ── QR Session IP audit log state ──
   const [qrSessions, setQrSessions] = useState<QrSession[]>([]);
@@ -421,7 +428,7 @@ export function AdminPageV2() {
 
                 
                 <HeroActionButton 
-                  onClick={signOut}
+                  onClick={handleSignOut}
                   icon={<LogOut className="w-5 h-5" />}
                   label={t("signOut", "SIGNOUT")}
                   accent="rose"
