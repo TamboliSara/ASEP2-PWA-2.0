@@ -1,10 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { Hero } from "@/components/ui/animated-hero";
-import { SlideConfirm } from "../components/SlideConfirm";
+import { SlideConfirm } from "../components/controls/SlideConfirm";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
-import { useLockerController } from "../features/useLockerController";
-import { ScrollReveal } from "../components/ScrollReveal";
+import { useLockerController } from "../features/locker/useLockerController";
+import { ScrollReveal } from "../components/effects/ScrollReveal";
 
 
 export function ModeSelectPage() {

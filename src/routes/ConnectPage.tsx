@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useLockerController } from "../features/useLockerController";
+import { useLockerController } from "../features/locker/useLockerController";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
-import { ScrollReveal } from "../components/ScrollReveal";
+import { ScrollReveal } from "../components/effects/ScrollReveal";
 import { motion } from "framer-motion";
 import { Bluetooth, ShieldCheck, Box, Activity, Database, Check, Loader2, Wifi, AlertCircle } from "lucide-react";
 import { HARDWARE_LOCKER_ID } from "../store/appState";

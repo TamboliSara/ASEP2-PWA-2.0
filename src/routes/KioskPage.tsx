@@ -3,18 +3,18 @@ import { useEffect, useMemo, useState, Suspense, lazy } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, ShieldCheck, MoveRight, Box, Weight, Thermometer, Droplets, Zap, Ban, Activity, Lock, X, Mail, Key, Shield, Leaf } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { FoodHeroV2 } from "../components/FoodHeroV2";
-import { SlideConfirm } from "../components/SlideConfirm";
-import { StatusPill } from "../components/StatusPill";
-import { TelemetryChart } from "../components/TelemetryChart";
-import { FoodHealthCardPremium } from "../components/FoodHealthCardPremium";
+import { FoodHeroV2 } from "../components/food/FoodHeroV2";
+import { SlideConfirm } from "../components/controls/SlideConfirm";
+import { StatusPill } from "../components/controls/StatusPill";
+import { TelemetryChart } from "../features/telemetry/TelemetryChart";
+import { FoodHealthCardPremium } from "../components/food/FoodHealthCardPremium";
 import { SurfaceCard } from "../components/layout/SurfaceCard";
-import { FleetMap } from "../components/FleetMap";
-import { useLockerController } from "../features/useLockerController";
+import { FleetMap } from "../features/map/FleetMap";
+import { useLockerController } from "../features/locker/useLockerController";
 import { useTranslation } from "../store/useTranslation";
-import { QualityGauge } from "../components/QualityGauge";
+import { QualityGauge } from "../components/food/QualityGauge";
 import { ChamberCard } from "./kiosk/ChamberCard";
-const AppleFaceIDScanner = lazy(() => import("../components/AppleFaceIDScanner").then(m => ({ default: m.AppleFaceIDScanner })));
+const AppleFaceIDScanner = lazy(() => import("../features/biometrics/AppleFaceIDScanner").then(m => ({ default: m.AppleFaceIDScanner })));
 import { getRecommendedActions, calculateQualityScore, getQualityStage, getQualityLabel, MAX_SHELF_LIFE } from "../utils/safety";
 // import * as faceapi from "face-api.js"; /* @deprecated — decoupled for bundle splitting */
 import { syncDeniedAttempt } from "../services/sync";
@@ -85,8 +85,8 @@ import {
   translateInsight 
 } from "../utils/format";
 import { useAppContext } from "../store/AppContext";
-import { ScrollReveal } from "../components/ScrollReveal";
-import { TextReveal } from "../components/TextReveal";
+import { ScrollReveal } from "../components/effects/ScrollReveal";
+import { TextReveal } from "../components/effects/TextReveal";
 
 export function KioskPage() {
   const { dispatch } = useAppContext();

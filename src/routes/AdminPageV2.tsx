@@ -4,7 +4,6 @@ import {
   MoveRight, 
   BarChart3, 
   Box, 
-  RefreshCcw, 
   Database,
   Map as MapIcon,
   LogOut,
@@ -28,27 +27,37 @@ import {
   Shield,
   Activity,
   Sparkles,
-  ArrowUpRight
+  ArrowUpRight,
+  Trash2,
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { StatusPill } from "../components/StatusPill";
+import { StatusPill } from "../components/controls/StatusPill";
 import { SurfaceCard } from "../components/layout/SurfaceCard";
-import { MetricCardPremium } from "../components/MetricCardPremium";
+import { MetricCardPremium } from "../components/safety/MetricCardPremium";
 import { Menu } from "../components/ui/fluid-menu";
-import { useLockerController } from "../features/useLockerController";
+import { useLockerController } from "../features/locker/useLockerController";
 import { useTranslation } from "../store/useTranslation";
-import { formatDateTime, getHoursRemaining, toLocalDigits, translateFoodName, translateDonorName, translateCategory } from "../utils/format";
+import {
+  formatDateTime,
+  getHoursRemaining,
+  toLocalDigits,
+  translateFoodName,
+  translateDonorName,
+  translateCategory
+} from "../utils/format";
 import { calculateQualityScore, getQualityStage, getQualityLabel, MAX_SHELF_LIFE } from "../utils/safety";
 import { useState, useEffect, useMemo } from "react";
-import { ScrollReveal } from "../components/ScrollReveal";
-import { TextReveal } from "../components/TextReveal";
+import { ScrollReveal } from "../components/effects/ScrollReveal";
+import { TextReveal } from "../components/effects/TextReveal";
 import { generateTelemetryPDF } from "../utils/pdfGenerator";
 import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { db } from "../services/firebase";
-import type { QrSession } from "../services/qrSessionService";
+import { clearAllQrSessions, type QrSession } from "../services/qrSessionService";
 import { subscribeTelemetry, rtdbToDomainTelemetry } from "../services/rtdb";
 import type { FleetLockerSummary, DonationRecord } from "../types/domain";
-import { ActiveCommunityCalendar } from "../components/ActiveCommunityCalendar";
+import { ActiveCommunityCalendar } from "../features/calendar/ActiveCommunityCalendar";
 
 // Derive fleet data from real state for PDF generation
 function deriveFleetForPDF(lockers: any[]): FleetLockerSummary[] {
@@ -114,6 +123,30 @@ export function AdminPageV2() {
   const [qrSearchQuery, setQrSearchQuery] = useState("");
   const [qrStatusFilter, setQrStatusFilter] = useState<"all" | "scanned" | "verified" | "pending">("all");
   const [copiedIp, setCopiedIp] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isClearingLogs, setIsClearingLogs] = useState(false);
+  const [clearFeedback, setClearFeedback] = useState<string | null>(null);
+  const [clearError, setClearError] = useState<string | null>(null);
+
+  const handleExecuteClearLogs = async () => {
+    setIsClearingLogs(true);
+    setClearError(null);
+    try {
+      const res = await clearAllQrSessions();
+      if (res.success) {
+        setQrSessions([]);
+        setShowClearConfirm(false);
+        setClearFeedback(t("logsClearedSuccess", `Successfully cleared ${res.count} audit logs.`));
+        setTimeout(() => setClearFeedback(null), 4000);
+      } else {
+        setClearError(res.error || t("logsClearFailed", "Failed to clear audit logs. Please try again."));
+      }
+    } catch (err: any) {
+      setClearError(err?.message || t("logsClearFailed", "An unexpected error occurred while clearing logs."));
+    } finally {
+      setIsClearingLogs(false);
+    }
+  };
 
   const copyToClipboard = (text: string) => {
     try {
@@ -526,41 +559,7 @@ export function AdminPageV2() {
 
 
 
-      <ScrollReveal direction="up" distance={40} delay={0.9}>
-        <div className="mt-6 obsidian-card premium-noise !p-6 rounded-[2.25rem] border-emerald-500/20 relative z-10 overflow-hidden">
-          <div className="luxe-card-header mb-6 relative z-10">
-            <div className="flex items-center gap-2 mb-1">
-               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500">{t("systemTrace", "System Trace")}</span>
-            </div>
-            <h3 className="text-2xl font-black text-text tracking-tight">{t("activityLog", "Activity Log")}</h3>
-          </div>
-          <div className="space-y-3 relative z-10 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-            {state.logs.length > 0 ? state.logs.map(log => (
-              <div key={log.id} className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 p-4 rounded-xl bg-panel-elevated/50 dark:bg-white/5 border border-line hover:border-emerald-500/30 transition-colors">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-500 tracking-[0.2em]">{log.type.replace('_', ' ')}</span>
-                  <p className="text-sm font-medium text-text mt-1">{log.detail || `Event triggered for ${toLocalDigits(log.lockerId.replace('chamber-', 'SAFE-'), locale)}`}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="px-2 py-1 rounded bg-panel dark:bg-black/20 border border-line">
-                    <span className="text-[9px] font-mono text-text-muted">{formatDateTime(log.createdAt, locale)}</span>
-                  </div>
-                  {log.syncState === 'synced' ? (
-                     <Database className="w-3.5 h-3.5 text-emerald-500" />
-                  ) : (
-                     <RefreshCcw className="w-3 h-3 text-amber-500 animate-spin" />
-                  )}
-                </div>
-              </div>
-            )) : (
-              <div className="p-8 text-center border border-dashed border-line rounded-xl">
-                <p className="text-sm font-bold text-text-muted opacity-50 uppercase tracking-widest">{t("noActivityRecorded", "No Activity Recorded")}</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </ScrollReveal>
+
 
       {/* ── QR Scan IP Audit Log — Modern & Premium (Light & Dark Theme) ───────────────────────────────────────── */}
       <ScrollReveal direction="up" distance={30} delay={0.85}>
@@ -580,13 +579,51 @@ export function AdminPageV2() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-center">
+            <div className="flex items-center gap-2.5 self-start sm:self-center flex-wrap">
               <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-50 dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-xs">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span><strong className="font-mono text-slate-900 dark:text-white">{toLocalDigits(qrStats.scanned, locale)}</strong> {t("scansRecorded", "scans recorded")}</span>
               </span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setClearError(null);
+                  setShowClearConfirm(true);
+                }}
+                disabled={qrSessions.length === 0 || isClearingLogs}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border border-rose-200/80 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-50/80 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs active:scale-95 cursor-pointer"
+                title={qrSessions.length === 0 ? t("noLogsToClear", "No logs to clear") : t("clearAllLogs", "Clear All Logs")}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{t("clearAllLogs", "Clear All Logs")}</span>
+              </button>
             </div>
           </div>
+
+          {/* Feedback message banner */}
+          <AnimatePresence>
+            {clearFeedback && (
+              <motion.div
+                initial={{ opacity: 0, y: -6, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: -6, height: 0 }}
+                className="mb-5 p-3 rounded-xl bg-emerald-50/90 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/25 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center justify-between gap-2 shadow-xs"
+              >
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>{clearFeedback}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setClearFeedback(null)}
+                  className="p-1 rounded-md text-emerald-600 dark:text-emerald-400 hover:opacity-75 transition-opacity cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Minimal Search & Segmented Filter Toolbar */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
@@ -822,6 +859,77 @@ export function AdminPageV2() {
           </div>
         </div>
       </ScrollReveal>
+
+      {/* ── Clear QR Audit Logs Confirmation Modal ── */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+              onClick={() => !isClearingLogs && setShowClearConfirm(false)}
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-md bg-white dark:bg-[#0c1222] border border-slate-200 dark:border-white/10 rounded-[2rem] p-6 sm:p-7 shadow-2xl overflow-hidden z-10"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 flex items-center justify-center shrink-0 text-rose-600 dark:text-rose-400">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                    {t("clearAuditLogsTitle", "Clear All Audit Logs?")}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5 leading-relaxed">
+                    {t("clearAuditLogsDesc", "This will permanently delete all")} <strong className="text-rose-600 dark:text-rose-400 font-bold">{toLocalDigits(qrSessions.length, locale)}</strong> {t("clearAuditLogsDesc2", "recorded audit sessions from Cloud Firestore, including scan timestamps, IP handshakes, and verification telemetry. This action cannot be undone.")}
+                  </p>
+                </div>
+              </div>
+
+              {clearError && (
+                <div className="mt-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs text-rose-700 dark:text-rose-300 font-semibold">
+                  {clearError}
+                </div>
+              )}
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={isClearingLogs}
+                  onClick={() => setShowClearConfirm(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-white/5 hover:bg-slate-200/70 dark:hover:bg-white/10 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {t("cancel", "Cancel")}
+                </button>
+                <button
+                  type="button"
+                  disabled={isClearingLogs}
+                  onClick={handleExecuteClearLogs}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500 shadow-md shadow-rose-600/25 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isClearingLogs ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>{t("clearing", "Clearing...")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t("yesClearAll", "Yes, Clear All Logs")}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showSafeSelector && (

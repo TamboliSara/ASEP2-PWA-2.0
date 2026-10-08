@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Package, ShieldCheck, Info, ChevronLeft, ChevronRight, Shield, AlertTriangle, Cpu } from "lucide-react";
 import { DepositForm } from "../components/forms/DepositForm";
-import { SafetyCapacityCard } from "../components/SafetyCapacityCard";
-import { useLockerController } from "../features/useLockerController";
+import { SafetyCapacityCard } from "../components/safety/SafetyCapacityCard";
+import { useLockerController } from "../features/locker/useLockerController";
 
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
-import { ScrollReveal } from "../components/ScrollReveal";
-import { TextReveal } from "../components/TextReveal";
+import { ScrollReveal } from "../components/effects/ScrollReveal";
+import { TextReveal } from "../components/effects/TextReveal";
 
 export function DonorPage() {
   const navigate = useNavigate();

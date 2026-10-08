@@ -4,8 +4,8 @@ import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
-import { ScrollReveal } from "../components/ScrollReveal";
-import { TextReveal } from "../components/TextReveal";
+import { ScrollReveal } from "../components/effects/ScrollReveal";
+import { TextReveal } from "../components/effects/TextReveal";
 
 export function SignInPageV2() {
   const navigate = useNavigate();

@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useRef } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { AppShell } from "./components/AppShell";
+import { AppShell } from "./components/navigation/AppShell";
 import { ConnectPage } from "./routes/ConnectPage";
 import { ModeSelectPage } from "./routes/ModeSelectPage";
 

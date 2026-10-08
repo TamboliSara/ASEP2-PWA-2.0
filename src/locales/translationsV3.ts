@@ -82,20 +82,20 @@ const sharedEnglishAdditions: TranslationDictionary = {
   donorAuthBody: "Secure biometric verification required.",
   initializingFaceId: "Initializing Face ID scanner...",
 
-  // QR Passkey
+  // QR Verification
   instantQrVerification: "Instant QR Verification",
-  scanWithPhoneForPasskey: "Scan with your phone to receive your passkey",
+  scanWithPhoneForPasskey: "Scan with your phone camera to verify instantly",
   enterMobileToGenerateQr: "Enter mobile number above to generate QR",
   newQr: "New QR",
   validFor: "Valid for",
   phoneConnected: "Phone Connected",
   phoneConnectedStep: "Phone connected to kiosk",
-  enter6DigitPasskey: "Enter 6-Digit Passkey",
+  enter6DigitPasskey: "Contactless QR Verification",
   scanQrStep1: "Scan QR with your phone camera",
-  scanQrStep2: "View 6-digit code on your phone",
-  scanQrStep3: "Enter the code below to verify",
+  scanQrStep2: "Detecting device network & IP",
+  scanQrStep3: "Instant confirmation — no code needed",
   ipProtectionNote: "Your IP address is stored in our system and is protected.",
-  changeNumber: "Change Number",
+  changeNumber: "Scan Again",
 
   // Biometrics
   identityVerification: "Identity Verification",
@@ -744,18 +744,18 @@ const hindiOverrides: TranslationDictionary = {
 
   // QR Passkey Hindi
   instantQrVerification: "त्वरित क्यूआर सत्यापन",
-  scanWithPhoneForPasskey: "पासकी प्राप्त करने के लिए अपने फ़ोन से स्कैन करें",
+  scanWithPhoneForPasskey: "तुरंत सत्यापित करने के लिए अपने फ़ोन से स्कैन करें",
   enterMobileToGenerateQr: "क्यूआर कोड बनाने के लिए मोबाइल नंबर दर्ज करें",
   newQr: "नया क्यूआर",
   validFor: "मान्य समय",
   phoneConnected: "फ़ोन कनेक्ट हो गया",
   phoneConnectedStep: "फ़ोन कियोस्क से कनेक्ट हो गया",
-  enter6DigitPasskey: "6-अंकों की पासकी दर्ज करें",
+  enter6DigitPasskey: "संपर्क रहित क्यूआर सत्यापन",
   scanQrStep1: "फ़ोन कैमरे से क्यूआर स्कैन करें",
-  scanQrStep2: "अपने फ़ोन पर 6-अंकों का कोड देखें",
-  scanQrStep3: "सत्यापित करने के लिए नीचे कोड दर्ज करें",
+  scanQrStep2: "डिवाइस नेटवर्क और आईपी का पता लगाना",
+  scanQrStep3: "त्वरित सत्यापन — किसी कोड की आवश्यकता नहीं",
   ipProtectionNote: "आपका आईपी पता सिस्टम में सुरक्षित रूप से दर्ज है।",
-  changeNumber: "नंबर बदलें",
+  changeNumber: "फिर से स्कैन करें",
 
   // Biometrics Hindi
   identityVerification: "पहचान सत्यापन",
@@ -1353,18 +1353,18 @@ const marathiOverrides: TranslationDictionary = {
 
   // QR Passkey Marathi
   instantQrVerification: "त्वरित क्यूआर सत्यापन",
-  scanWithPhoneForPasskey: "पासकीसाठी फोनने स्कॅन करा",
+  scanWithPhoneForPasskey: "त्वरित पडताळणीसाठी फोनने स्कॅन करा",
   enterMobileToGenerateQr: "QR कोड तयार करण्यासाठी मोबाइल नंबर प्रविष्ट करा",
   newQr: "नवीन क्यूआर",
   validFor: "वैध वेळ",
   phoneConnected: "फोन जोडला गेला",
   phoneConnectedStep: "फोन किऑस्कशी जोडला गेला",
-  enter6DigitPasskey: "6-अंकी पासकी प्रविष्ट करा",
+  enter6DigitPasskey: "संपर्कहीन QR पडताळणी",
   scanQrStep1: "फोन कॅमेऱ्याने QR स्कॅन करा",
-  scanQrStep2: "तुमच्या फोनवर ६-अंकी कोड पहा",
-  scanQrStep3: "पडताळणीसाठी खाली कोड प्रविष्ट करा",
+  scanQrStep2: "डिव्हाइस नेटवर्क आणि IP शोधत आहे",
+  scanQrStep3: "त्वरित पडताळणी — कोणत्याही कोडची आवश्यकता नाही",
   ipProtectionNote: "तुमचा IP पत्ता सिस्टीममध्ये सुरक्षितपणे नोंदवला आहे.",
-  changeNumber: "नंबर बदला",
+  changeNumber: "पुन्हा स्कॅन करा",
 
   // Biometrics Marathi
   identityVerification: "ओळख पडताळणी",

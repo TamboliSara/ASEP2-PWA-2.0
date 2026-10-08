@@ -111,7 +111,7 @@ export function DepositForm({
       }
 
       if (!isPhoneVerified) {
-        setValidationError(t("scanQrStep3") || "Please scan the QR code and enter the 6-digit passkey before proceeding.");
+        setValidationError(t("scanQrStep3") || "Please scan the QR code with your phone to verify before proceeding.");
         return;
       }
     }
@@ -358,7 +358,7 @@ export function DepositForm({
               cursor: state.donationDraft.isPhoneVerified ? 'pointer' : 'not-allowed',
               boxShadow: state.donationDraft.isPhoneVerified ? '0 10px 30px rgba(16, 185, 129, 0.25)' : 'none'
             }}
-            title={!state.donationDraft.isPhoneVerified ? "Please verify with the QR passkey first" : undefined}
+            title={!state.donationDraft.isPhoneVerified ? "Please scan the QR code with your phone to verify first" : undefined}
           >
             {isBusy ? t("submittingDeposit") : (
               state.donationDraft.isPhoneVerified ? (t("proceedToVerification") || "Proceed to Verification") : (t("verifyPhoneToProceed") || "Verify Phone to Proceed")
