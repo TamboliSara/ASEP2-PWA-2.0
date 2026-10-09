@@ -60,6 +60,8 @@ export interface DonationRecord {
   isPhoneVerified?: boolean;
   otpVerifiedAt?: string;
   phoneIp?: string;
+  chamberFoodImageUrl?: string;
+  visualFreshnessScore?: number;
 }
 
 export interface LockerEvent {
@@ -114,6 +116,25 @@ export interface AdminUser {
   role: "admin" | "maintainer";
 }
 
+export interface ChamberCameraTelemetry {
+  isConnected: boolean;
+  isFoodPresent: boolean;
+  confidence: number;
+  detectedObjects: Array<{
+    label: string;
+    score: number;
+    bbox: [number, number, number, number]; // [x, y, width, height] normalized
+    category?: "fruit" | "vegetable" | "cooked_meal" | "container" | "beverage" | "bakery" | "general_item";
+  }>;
+  lastSnapshotUrl?: string;
+  lastSnapshotIso?: string;
+  visualFreshnessScore?: number; // 0-100
+  fps?: number;
+  sourceMode: "remote_phone" | "local_webcam" | "simulator";
+  torchActive?: boolean;
+  updatedAt: string;
+}
+
 export interface LockerState {
   lockerId: string;
   lockState: LockState;
@@ -129,6 +150,7 @@ export interface LockerState {
   bleConnected: boolean;
   lastSyncedAt?: string;
   pairedDeviceName?: string;
+  cameraTelemetry?: ChamberCameraTelemetry;
 }
 
 export interface SensorSnapshot {

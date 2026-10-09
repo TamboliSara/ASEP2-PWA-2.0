@@ -46,6 +46,8 @@ interface FoodHealthCardPremiumProps {
   insight?: string;
   className?: string;
   variant?: 'default' | 'compact';
+  chamberFoodImageUrl?: string;
+  visualScore?: number;
 }
 
 type MetricType = 'RISK' | 'QUALITY' | 'GAS' | 'TEMP';
@@ -60,7 +62,9 @@ export function FoodHealthCardPremium({
   shelfLifeHours = 10,
   insight = "Conditions Optimal: Food quality is stable for the next 8h+.",
   className = "",
-  variant = 'default'
+  variant = 'default',
+  chamberFoodImageUrl,
+  visualScore = 92
 }: FoodHealthCardPremiumProps) {
   const { t, locale } = useTranslation();
   const isCompact = variant === 'compact';
@@ -464,6 +468,19 @@ export function FoodHealthCardPremium({
             <p className={`${isCompact ? 'text-xs' : 'text-base'} font-bold leading-relaxed italic opacity-95`} style={{ color: colors.text }}>
               "{translateInsight(insight, locale)}"
             </p>
+
+            {chamberFoodImageUrl && (
+              <div className="flex items-center gap-3 mt-4 pt-3 border-t border-emerald-500/15">
+                <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-emerald-500/30 flex-shrink-0 shadow-md">
+                  <img src={chamberFoodImageUrl} alt="Chamber Food Inspection" className="w-full h-full object-cover" />
+                  <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[8px] font-mono text-emerald-400 text-center font-bold">10s CAM</span>
+                </div>
+                <div className="text-[11px] font-mono leading-tight">
+                  <span className="text-emerald-400 font-bold">Optical Inspection:</span> Surface integrity verified at {visualScore}%.
+                  <div className="text-[10px] text-slate-400 mt-0.5">YOLOv8 Dual-Sensor Fusion (10% Visual • 60% Gas • 30% Env)</div>
+                </div>
+              </div>
+            )}
           </motion.div>
         </div>
       </div>

@@ -345,6 +345,26 @@ The voice engine (`VoiceAssistant.tsx`) empowers hands-free accessibility for no
 * **Multilingual Natural Synthesis**: Employs the `SpeechSynthesis` API with auto-selected native neural voice profiles for English (`en-US` / `en-IN`), Hindi (`hi-IN`), and Marathi (`mr-IN`).
 * **Vocal Route & Telemetry Navigation**: Users can verbally issue queries such as *"What's in Chamber 4?"*, *"Which lockers are empty?"*, or *"I want to donate food"*, automatically driving the PWA navigation state.
 
+### 5.7 Smart Chamber Vision System (YOLOv8 ONNX Web + Dual-Redundant Sensor Fusion)
+The SAFE system features an embedded **In-Chamber Optical Node** mounted permanently inside the locker chamber, upgrading presence detection and freshness tracking with high-definition visual intelligence:
+* **Dedicated Optical Node (`/chamber-lens`)**:
+  - A smartphone or embedded camera board mounted permanently to the chamber interior.
+  - **Screen WakeLock API**: Keeps the browser process alive indefinitely inside the sealed compartment.
+  - **Hardware LED Torch Control**: Activates the physical camera flash to provide consistent high-lumen illumination inside the dark, sealed locker.
+  - **OLED Stealth Black Mode**: Reduces screen luminance to 0% with a single green heartbeat pixel, eliminating heat build-up and conserving battery inside the sealed locker.
+  - **Dual-Stream Transmission**: Ultra-low latency WebRTC P2P (<50ms) with seamless Firebase RTDB 320×240 compressed JPEG fallback (hotspot/firewall proof).
+* **Dual-Redundant Food Presence Architecture**:
+  - **Primary**: Real-time **YOLOv8 / YOLOv11 ONNX Web** running directly in the browser via WebGL/WASM acceleration with a sub-3ms canvas differential pre-detector. Detects food items, bowls, trays, meal containers, and packaging at 30–60 FPS with live animated bounding boxes.
+  - **Backup**: The physical **HC-SR04 ultrasonic sensor** is retained in the hardware and operates as an automatic failsafe backup in the PWA controller. If the camera is offline or misses, the distance threshold ($d < 34\text{cm}$) seamlessly verifies food presence so the locker cycle never gets stuck.
+* **Calibrated Multi-Modal Sensor Fusion Formula**:
+  During storage, the chamber camera captures snapshots strictly every **10 seconds** to assess visual degradation (browning, weeping, discoloration). The visual score is fused with the chemical gas array with minimal camera dependency:
+  $$\mathbf{Unified\ Health\ Score} = 0.10 \times \text{YOLO Visual Score} + 0.60 \times \text{BME688 Gas Volatiles} + 0.30 \times \text{Temp / Humidity}$$
+  - **BME688 Gas Volatiles (60%)**: Primary biochemical truth (biogenic amines, VOC resistance).
+  - **Temperature / Humidity (30%)**: Critical microbial growth kinetic factor.
+  - **YOLO Visual Inspection (10%)**: Auxiliary optical verification.
+* **Triple-Source Presenter Switcher**:
+  - The PWA features a 1-click toggle between **Remote Phone**, **Laptop Webcam**, and **Demo Simulator (pre-loaded fresh vs. aging meal clips)** to ensure flawless presentations in any environment.
+
 ---
 
 ## 6. End-to-End System Integration Summary

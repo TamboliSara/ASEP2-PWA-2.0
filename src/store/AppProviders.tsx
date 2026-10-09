@@ -52,7 +52,7 @@ export function AppProviders({ children }: PropsWithChildren) {
         hasCompletedPairing: hasPaired,
         hardwareMac:      savedMac,
         lockers: defaultState.lockers.map(l => l.lockerId === HARDWARE_LOCKER_ID ? { ...l, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : l.pairedDeviceName } : l),
-        isAdminAuthenticated: true
+        isAdminAuthenticated: false
       };
     } catch {
       return {
@@ -186,13 +186,15 @@ export function AppProviders({ children }: PropsWithChildren) {
         const fsOccupancy: string = data?.occupancyState ?? "empty";
         const hasDonation = !!data?.donation?.id;
 
-        // ── RTDB & Ultrasonic Sensor is ground truth ────────────────────────
-        // Limit: 34.0 cm. Distance >= 34.0 cm indicates an empty locker.
+        // ── Camera Vision (Primary) & Ultrasonic Sensor (Backup) ────────────────────────
         const rtdbLocker = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
+        const cam = rtdbLocker?.cameraTelemetry;
+        const isCamOccupied = cam?.isConnected ? cam.isFoodPresent : null;
         const isDistanceEmpty = typeof rtdbLocker?.telemetry?.distanceCm === "number" && rtdbLocker.telemetry.distanceCm >= 34.0;
+        const isPhysicallyOccupied = isCamOccupied !== null ? isCamOccupied : !isDistanceEmpty;
 
         // ── Occupied: restore donation from Firestore ONLY if physically occupied ───
-        if (!isDistanceEmpty && (fsOccupancy === "occupied" || fsOccupancy === "spoiled") && hasDonation) {
+        if (isPhysicallyOccupied && (fsOccupancy === "occupied" || fsOccupancy === "spoiled") && hasDonation) {
           const qualityScore = rtdbLocker?.foodQualityScore ?? (data?.item?.latestQualityScore ?? "fresh");
           const deadline     = rtdbLocker?.deadlineEstimate ?? (data?.prediction?.deadlineEstimate ?? {
             hoursRemaining: 36,
@@ -297,11 +299,20 @@ export function AppProviders({ children }: PropsWithChildren) {
         }
       }
 
-      // ── Physical Ultrasonic Occupancy Sensor Calibration ──────────────
-      // Limit: strictly 34.0 cm
-      // < 34.0 cm  => Occupied (food is physically present in chamber)
-      // >= 34.0 cm => Empty (chamber is vacant)
-      if (typeof domainTel.distanceCm === "number" && domainTel.distanceCm > 1.0) {
+      // ── Physical Camera Vision Sensor with Ultrasonic Backup ──────────────
+      const activeLocker = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
+      const cam = activeLocker?.cameraTelemetry;
+      const isCamActive = Boolean(cam?.isConnected);
+
+      if (isCamActive) {
+        if (cam?.isFoodPresent) {
+          patchData.occupancyState = "occupied";
+        } else {
+          patchData.occupancyState = "empty";
+          patchData.activeDonation = undefined;
+        }
+      } else if (typeof domainTel.distanceCm === "number" && domainTel.distanceCm > 1.0) {
+        // Automatic ultrasonic backup when camera is offline
         if (domainTel.distanceCm < 34.0) {
           patchData.occupancyState = "occupied";
         } else {
@@ -323,8 +334,12 @@ export function AppProviders({ children }: PropsWithChildren) {
         "empty";
 
       const curLocker = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
-      const isDistanceEmpty = typeof curLocker?.telemetry?.distanceCm === "number" && curLocker.telemetry.distanceCm >= 34.0;
-      const isOccupiedByDonation = Boolean(curLocker?.activeDonation) && !isDistanceEmpty;
+      const cam = curLocker?.cameraTelemetry;
+      const isCamActive = Boolean(cam?.isConnected);
+      const isPhysicallyEmpty = isCamActive 
+        ? !cam?.isFoodPresent 
+        : (typeof curLocker?.telemetry?.distanceCm === "number" && curLocker.telemetry.distanceCm >= 34.0);
+      const isOccupiedByDonation = Boolean(curLocker?.activeDonation) && !isPhysicallyEmpty;
 
       dispatch({
         type: "patch-locker",
@@ -332,7 +347,7 @@ export function AppProviders({ children }: PropsWithChildren) {
         locker: {
           lockState:      rtdbStatus.lock_state === "unlocked" ? "unlocked" : "locked",
           doorState:      rtdbStatus.door_state === "open"     ? "open"     : "closed",
-          occupancyState: isDistanceEmpty ? "empty" : (isOccupiedByDonation ? "occupied" : occState),
+          occupancyState: isPhysicallyEmpty ? "empty" : (isOccupiedByDonation ? "occupied" : occState),
           bleConnected:   true
         }
       });

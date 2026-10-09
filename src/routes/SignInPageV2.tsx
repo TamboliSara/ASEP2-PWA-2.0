@@ -1,21 +1,51 @@
-import { motion } from "framer-motion";
-import { Lock, Mail, ShieldCheck, ArrowRight } from "lucide-react";
-import type { FormEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Lock, Mail, ShieldCheck, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
 import { ScrollReveal } from "../components/effects/ScrollReveal";
 import { TextReveal } from "../components/effects/TextReveal";
 
-export function SignInPageV2() {
+interface SignInPageV2Props {
+  onSuccess?: () => void;
+}
+
+export function SignInPageV2({ onSuccess }: SignInPageV2Props = {}) {
   const navigate = useNavigate();
   const { state, dispatch } = useAppContext();
   const { t } = useTranslation();
+  const [email, setEmail] = useState("admin@ecolocker.local");
+  const [password, setPassword] = useState("password");
+  const [error, setError] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    dispatch({ type: "set-admin-auth", value: true });
-    navigate("/admin");
+    setIsVerifying(true);
+    setError("");
+
+    // Verification check: email format + password length
+    const emailOk = /^[^@]+@(admin\.)?ecolocker\.(local|com|app)$/i.test(email.trim());
+    const pwOk = password.trim().length >= 3;
+
+    if (!emailOk || !pwOk) {
+      setTimeout(() => {
+        setError(t("invalidCredentials", "Invalid administrator credentials. Must use an authorized @ecolocker.local account."));
+        setIsVerifying(false);
+      }, 400);
+      return;
+    }
+
+    setTimeout(() => {
+      dispatch({ type: "set-admin-auth", value: true });
+      setIsVerifying(false);
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate("/admin");
+      }
+    }, 400);
   }
 
   return (
@@ -111,7 +141,8 @@ export function SignInPageV2() {
                     </div>
                     <input 
                       type="email" 
-                      defaultValue="admin@ecolocker.local" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required 
                       style={{ paddingLeft: '4.5rem' }}
                       className="w-full pr-6 py-4 bg-panel/40 border border-line rounded-2xl focus:border-accent focus:ring-4 focus:ring-accent/10 transition-all text-text font-medium outline-none shadow-inner"
@@ -130,7 +161,8 @@ export function SignInPageV2() {
                     </div>
                     <input 
                       type="password" 
-                      defaultValue="password" 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       required 
                       style={{ paddingLeft: '4.5rem' }}
                       className="w-full pr-6 py-4 bg-panel/40 border border-line rounded-2xl focus:border-accent focus:ring-4 focus:ring-accent/10 transition-all text-text font-medium outline-none shadow-inner"
@@ -138,13 +170,37 @@ export function SignInPageV2() {
                   </div>
                 </div>
 
+                <AnimatePresence>
+                  {error && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      className="p-3.5 rounded-xl bg-danger/10 border border-danger/30 flex items-center gap-2.5 text-danger text-xs font-semibold"
+                    >
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{error}</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 <div className="pt-2">
                   <button 
-                    className="group relative flex items-center justify-center gap-3 w-full py-4.5 rounded-2xl bg-accent hover:bg-accent-hover text-white dark:text-black font-black text-base transition-all duration-300 shadow-[0_10px_40px_rgba(20,184,166,0.3)] hover:shadow-[0_15px_50px_rgba(20,184,166,0.4)] hover:-translate-y-1 active:translate-y-0"
+                    disabled={isVerifying}
+                    className="group relative flex items-center justify-center gap-3 w-full py-4.5 rounded-2xl bg-accent hover:bg-accent-hover disabled:opacity-70 text-white dark:text-black font-black text-base transition-all duration-300 shadow-[0_10px_40px_rgba(20,184,166,0.3)] hover:shadow-[0_15px_50px_rgba(20,184,166,0.4)] hover:-translate-y-1 active:translate-y-0 cursor-pointer"
                     type="submit"
                   >
-                    <span>{t("authenticate")}</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    {isVerifying ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>{t("verifying", "Verifying...")}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{t("authenticate", "Sign In")}</span>
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

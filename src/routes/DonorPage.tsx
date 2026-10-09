@@ -10,6 +10,7 @@ import { useAppContext } from "../store/AppContext";
 import { useTranslation } from "../store/useTranslation";
 import { ScrollReveal } from "../components/effects/ScrollReveal";
 import { TextReveal } from "../components/effects/TextReveal";
+import { ChamberVisionHud } from "../features/camera/ChamberVisionHud";
 
 export function DonorPage() {
   const navigate = useNavigate();
@@ -98,7 +99,7 @@ export function DonorPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/15 border border-accent/30">
                   <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
                   <span className="text-[11px] font-black uppercase tracking-widest text-accent">
@@ -108,21 +109,18 @@ export function DonorPage() {
                 <h3 className="text-xl sm:text-2xl font-black text-text">
                   Place Food in Locker
                 </h3>
-                <p className="text-xs sm:text-sm text-text-muted max-w-xs mx-auto leading-relaxed">
+                <p className="text-xs text-text-muted max-w-sm mx-auto leading-relaxed">
                   {state.syncMessage || "Open the locker door, place your food container inside, and push the door shut."}
                 </p>
               </div>
 
-              <div className="w-full p-3.5 rounded-xl bg-surface-soft border border-line/20 flex items-center justify-between text-xs text-text-muted">
-                <span className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Ultrasonic Detection
-                </span>
-                <span className="font-mono font-bold text-accent">
-                  {currentLocker?.telemetry?.distanceCm != null && currentLocker.telemetry.distanceCm > 0
-                    ? `${currentLocker.telemetry.distanceCm} cm ${currentLocker.telemetry.distanceCm < 34.0 ? '(Food Detected)' : '(Empty / Awaiting Item)'}`
-                    : "SCANNING..."}
-                </span>
+              {/* ── Live Chamber Vision HUD ── */}
+              <div className="w-full">
+                <ChamberVisionHud
+                  lockerId={currentLocker.lockerId}
+                  ultrasonicDistCm={currentLocker?.telemetry?.distanceCm}
+                  isDonorMode={true}
+                />
               </div>
 
             </motion.div>
@@ -153,8 +151,8 @@ export function DonorPage() {
                 No Food Detected
               </p>
               <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.6)", margin: 0, lineHeight: 1.55 }}>
-                The sensor did not detect food inside the chamber. The locker has been re-locked automatically.
-                Please ensure your food container is placed directly under the ultrasonic sensor barrels and try again.
+                The optical vision system and backup sensor did not detect food inside the chamber. The locker has been re-locked automatically.
+                Please ensure your food container is placed inside the chamber and within view of the camera, then try again.
               </p>
             </div>
             <button

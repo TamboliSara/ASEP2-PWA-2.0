@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "gateway": "node scripts/phone-gateway.mjs",
     "emulators": "firebase emulators:start",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
@@ -25,6 +26,7 @@
     "jspdf-autotable": "^5.0.7",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.14.0",
+    "onnxruntime-web": "^1.30.0",
     "qrcode": "^1.5.4",
     "radix-ui": "^1.4.3",
     "react": "^18.3.1",
@@ -43,6 +45,7 @@
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.184.0",
     "@types/web-bluetooth": "^0.0.21",
+    "@vitejs/plugin-basic-ssl": "^1.2.0",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.5.0",
     "chart.js": "^4.4.7",

@@ -84,6 +84,14 @@ export function deviceRegistrationRef(lockerId: string) {
   return rtdbRef(`devices/${resolveLockerId(lockerId)}`);
 }
 
+export function chamberCameraRef(lockerId: string) {
+  return rtdbRef(`data_collection/camera/${resolveLockerId(lockerId)}`);
+}
+
+export function chamberCameraSignalingRef(lockerId: string) {
+  return rtdbRef(`data_collection/camera_signaling/${resolveLockerId(lockerId)}`);
+}
+
 // ── Anonymous Auth (auto sign-in for kiosk mode) ──────────────────
 if (auth) {
   signInAnonymously(auth).catch(console.error);

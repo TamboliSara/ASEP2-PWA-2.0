@@ -58,10 +58,10 @@ graph TD
     SubmitDeposit --> BLEUnlock["Send BLE / RTDB UNLOCK Command"]
     BLEUnlock --> PhysicalOpen["12V Solenoid Energizes: Door Opens"]
     PhysicalOpen --> PlaceFood["Donor Places Food inside Chamber"]
-    PlaceFood --> AutoRelock["5-Second Auto-Relock Timer Expires"]
-    AutoRelock --> UltrasonicCheck["ESP32 HC-SR04 Fires 3 Ultrasonic Pings"]
+    PlaceFood --> AutoRelock["Auto-Relock / Verification Window"]
+    AutoRelock --> VisionCheck["Smart Chamber Vision: YOLOv8 Identifies Food<br/>(Parallel HC-SR04 Ultrasonic Backup)"]
     
-    UltrasonicCheck --> FoodPresent{"Distance under 22cm?<br/>Food Detected?"}
+    VisionCheck --> FoodPresent{"YOLO Vision or Ultrasonic Backup<br/>Confirms Food?"}
     
     %% Ghost Donation Branch
     FoodPresent -- "NO (Ghost Deposit)" --> AcousticAlarm["Synthesize Local Acoustic Alarm"]

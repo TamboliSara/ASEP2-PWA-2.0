@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShieldCheck, 
-  BarChart3, 
   Box, 
   Database,
   Map as MapIcon,
@@ -29,12 +28,13 @@ import {
   ArrowUpRight,
   Trash2,
   AlertTriangle,
-  Loader2
+  Loader2,
+  TrendingUp,
+  CheckCircle2
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { StatusPill } from "../components/controls/StatusPill";
 import { SurfaceCard } from "../components/layout/SurfaceCard";
-import { MetricCardPremium } from "../components/safety/MetricCardPremium";
 import { Menu } from "../components/ui/fluid-menu";
 import { useLockerController } from "../features/locker/useLockerController";
 import { useTranslation } from "../store/useTranslation";
@@ -57,6 +57,7 @@ import { clearAllQrSessions, type QrSession } from "../services/qrSessionService
 import { subscribeTelemetry, rtdbToDomainTelemetry } from "../services/rtdb";
 import type { FleetLockerSummary, DonationRecord } from "../types/domain";
 import { ActiveCommunityCalendar } from "../features/calendar/ActiveCommunityCalendar";
+import { SignInPageV2 } from "./SignInPageV2";
 
 // Derive fleet data from real state for PDF generation
 function deriveFleetForPDF(lockers: any[]): FleetLockerSummary[] {
@@ -122,6 +123,17 @@ export function AdminPageV2() {
     dispatch({ type: "set-admin-auth", value: false });
     navigate("/");
   };
+
+  const [currentTime, setCurrentTime] = useState(() => 
+    new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ── QR Session IP audit log state ──
   const [qrSessions, setQrSessions] = useState<QrSession[]>([]);
@@ -384,6 +396,10 @@ export function AdminPageV2() {
     }
   };
 
+  if (!state.isAdminAuthenticated) {
+    return <SignInPageV2 />;
+  }
+
   return (
     <div className="page-grid admin-grid">
       <ScrollReveal direction="up" distance={40}>
@@ -393,15 +409,21 @@ export function AdminPageV2() {
           
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="hero-copy max-w-2xl">
-              
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-accent/10 border border-accent/25 text-[10px] font-black uppercase tracking-[0.2em] text-accent mb-3.5 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                <span>{t("missionControlTag", "Mission Control · Kiosk Delta")}</span>
+                <span className="opacity-30">|</span>
+                <span className="font-mono text-text-muted opacity-80">{t("iotSensorsActive", "Sensors Active")}</span>
+              </div>
+
               <TextReveal mode="words" direction="up" distance={20} delay={0.2}>
-                <h2 className="text-3xl md:text-4xl leading-[1.05] font-black tracking-tight mb-3 text-text drop-shadow-sm dark:drop-shadow-none">
-                  {t("adminTitle", "Maintenance and safety dashboard")}
+                <h2 className="text-3xl md:text-4xl lg:text-[40px] leading-[1.1] font-black tracking-tight mb-3 text-text drop-shadow-sm dark:drop-shadow-none">
+                  {t("adminTitle", "Maintenance & Safety Dashboard")}
                 </h2>
               </TextReveal>
               <TextReveal mode="block" direction="up" distance={20} delay={0.3} threshold={0.1}>
-                <p className="text-text-muted font-medium text-base md:text-[17px] leading-relaxed max-w-[500px]">
-                  {t("adminBody", "Monitor every locker, inspect active donations, and open the current kiosk for deeper cleaning or safety actions.")}
+                <p className="text-text-muted font-medium text-sm md:text-[15px] leading-relaxed max-w-[560px]">
+                  {t("adminBody", "Real-time IoT telemetry, AI spoilage prevention, and cold-chain locker orchestration. Inspect active chamber deposits, trigger sanitization, or conduct audit forensics.")}
                 </p>
               </TextReveal>
             </div>
@@ -412,6 +434,7 @@ export function AdminPageV2() {
                   to="/connect"
                   icon={<Settings2 className="w-5 h-5" />}
                   label={t("connectNav", "CONNECT")}
+                  sublabel={t("iotSettings", "IoT Gateway")}
                   accent="teal"
                   index={0}
                 />
@@ -420,6 +443,7 @@ export function AdminPageV2() {
                   onClick={() => setShowSafeSelector(true)}
                   icon={<Box className="w-6 h-6" />}
                   label={t("auditReport", "AUDIT REPORT")}
+                  sublabel={t("telemetryPdf", "Export PDF")}
                   accent="teal"
                   featured
                   index={1}
@@ -430,66 +454,238 @@ export function AdminPageV2() {
                 <HeroActionButton 
                   onClick={handleSignOut}
                   icon={<LogOut className="w-5 h-5" />}
-                  label={t("signOut", "SIGNOUT")}
+                  label={t("signOut", "SIGN OUT")}
+                  sublabel={t("exitConsole", "End Session")}
                   accent="rose"
                   index={2}
                 />
               </div>
             </div>
           </div>
+
+          {/* ── Unified Live Telemetry & Metrics Sub-Grid ── */}
+          <div className="relative z-10 mt-8 pt-6 border-t border-line/40 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Safe Readiness */}
+            {(() => {
+              const total = state.lockers.length;
+              const occupied = state.lockers.filter(l => l.occupancyState !== 'empty').length;
+              const available = total - occupied;
+              const readinessPct = total > 0 ? Math.round((available / total) * 100) : 0;
+              return (
+                <div className="p-6 sm:p-7 rounded-[2rem] bg-slate-50/80 hover:bg-slate-50/95 dark:bg-white/[0.03] dark:hover:bg-white/[0.05] border border-slate-200/90 dark:border-white/10 hover:border-amber-500/40 dark:hover:border-amber-500/40 transition-all duration-300 flex flex-col justify-between group shadow-sm hover:shadow-md relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-36 h-36 bg-amber-500/5 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-500/10 transition-colors" />
+
+                  {/* Header Row */}
+                  <div className="relative z-10 flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                        </span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">
+                          {t("safeReadiness", "SAFE Readiness")}
+                        </span>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                          {toLocalDigits(readinessPct, locale)}% {t("readyLabel", "Ready")}
+                        </span>
+                      </div>
+                      <h4 className="text-base sm:text-lg font-black text-text tracking-tight flex items-center gap-2">
+                        {t("missionAvailability", "Mission Availability")}
+                      </h4>
+                      <p className="text-xs text-text-muted font-medium mt-0.5">
+                        {t("autonomousAllocation", "Real-time locker allocation & cold-chain reserve")}
+                      </p>
+                    </div>
+
+                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-panel border border-line/80 dark:border-white/10 flex items-center justify-center text-amber-500 dark:text-amber-400 shadow-xs group-hover:scale-110 group-hover:border-amber-500/40 group-hover:shadow-[0_0_20px_rgba(245,158,11,0.2)] transition-all duration-300 shrink-0">
+                      <Layers className="w-5 h-5" />
+                    </div>
+                  </div>
+
+                  {/* Primary Metric Stat */}
+                  <div className="relative z-10 mt-5 flex items-baseline justify-between gap-3">
+                    <div className="flex items-baseline gap-2">
+                      <strong className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-text">
+                        {toLocalDigits(available, locale)}
+                      </strong>
+                      <span className="text-xl sm:text-2xl font-bold font-mono text-text-muted/50">
+                        /{toLocalDigits(total, locale)}
+                      </span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-text-muted ml-1">
+                        {t("chambersAvailable", "Units Ready")}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25 shadow-xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        LIVE
+                      </span>
+                      <span className="text-[10px] font-mono text-text-muted opacity-70 flex items-center gap-1">
+                        <Clock className="w-2.5 h-2.5 text-amber-500" />
+                        {currentTime}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Visual Segmented Locker Grid */}
+                  <div className="relative z-10 mt-4 p-3 rounded-2xl bg-white/70 dark:bg-black/20 border border-slate-200/70 dark:border-white/5">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-text-muted mb-2">
+                      <span>{t("lockerArrayState", "Chamber Bank Array (8 Units)")}</span>
+                      <span className="font-mono text-amber-600 dark:text-amber-400">{toLocalDigits(available, locale)} {t("freeSlots", "Free")}</span>
+                    </div>
+                    <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                      {state.lockers.map((locker, idx) => {
+                        const isOccupied = locker.occupancyState !== 'empty';
+                        const isSpoiled = locker.occupancyState === 'spoiled' || locker.foodQualityScore === 'spoilt';
+                        return (
+                          <div
+                            key={locker.lockerId || idx}
+                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-mono font-bold transition-all ${
+                              isSpoiled
+                                ? 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 shadow-xs'
+                                : isOccupied
+                                  ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 shadow-xs'
+                                  : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/25'
+                            }`}
+                            title={`Unit ${idx + 1}: ${isSpoiled ? 'Quarantined' : isOccupied ? 'Occupied' : 'Ready'}`}
+                          >
+                            <span className="text-[9px] opacity-75">U{toLocalDigits((idx + 1).toString().padStart(2, '0'), locale)}</span>
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full mt-1.5 ${
+                                isSpoiled ? 'bg-rose-500' : isOccupied ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'
+                              }`}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Telemetry Footer */}
+                  <div className="relative z-10 mt-4 pt-3.5 border-t border-slate-200/80 dark:border-white/5 flex items-center justify-between text-xs text-text-muted flex-wrap gap-2">
+                    <div className="flex items-center gap-3 font-semibold text-[11px] uppercase tracking-wider">
+                      <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                        <Activity className="w-3.5 h-3.5" />
+                        {toLocalDigits(occupied, locale)} {t("occupiedLabel", "OCCUPIED")}
+                      </span>
+                      <span className="opacity-30">|</span>
+                      <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        {toLocalDigits(available, locale)} {t("availableLabel", "READY")}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-text-muted">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>{t("coldChainOptimal", "Cold-Chain Optimal")}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Meals Served Today */}
+            <div className="p-6 sm:p-7 rounded-[2rem] bg-slate-50/80 hover:bg-slate-50/95 dark:bg-white/[0.03] dark:hover:bg-white/[0.05] border border-slate-200/90 dark:border-white/10 hover:border-emerald-500/40 dark:hover:border-emerald-500/40 transition-all duration-300 flex flex-col justify-between group shadow-sm hover:shadow-md relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
+
+              {/* Header Row */}
+              <div className="relative z-10 flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted">
+                      {t("mealsServedToday", "Meals Served Today")}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                      {t("zeroSpoilageBadge", "Zero Spoilage")}
+                    </span>
+                  </div>
+                  <h4 className="text-base sm:text-lg font-black text-text tracking-tight flex items-center gap-2">
+                    {t("dailyImpactHeading", "Daily Nourishment Impact")}
+                  </h4>
+                  <p className="text-xs text-text-muted font-medium mt-0.5">
+                    {toLocalDigits(new Date().toLocaleDateString(locale === 'hi' ? 'hi-IN' : locale === 'mr' ? 'mr-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }), locale)}
+                  </p>
+                </div>
+
+                <div className="w-12 h-12 rounded-2xl bg-white dark:bg-panel border border-line/80 dark:border-white/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-xs group-hover:scale-110 group-hover:border-emerald-500/40 group-hover:shadow-[0_0_20px_rgba(16,184,129,0.2)] transition-all duration-300 shrink-0">
+                  <Database className="w-5 h-5" />
+                </div>
+              </div>
+
+              {/* Primary Metric Stat */}
+              <div className="relative z-10 mt-5 flex items-baseline justify-between gap-3">
+                <div className="flex items-baseline gap-2">
+                  <strong className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-text">
+                    {toLocalDigits(mealsServed, locale)}
+                  </strong>
+                  <span className="text-xs font-bold uppercase tracking-wider text-text-muted ml-1">
+                    {t("portionsRescued", "Portions Distributed")}
+                  </span>
+                </div>
+
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    LIVE
+                  </span>
+                  <span className="text-[10px] font-mono text-text-muted opacity-70 flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5 text-emerald-500" />
+                    {currentTime}
+                  </span>
+                </div>
+              </div>
+
+              {/* Visual Impact Progress & Goal Bar */}
+              <div className="relative z-10 mt-4 p-3.5 rounded-2xl bg-white/70 dark:bg-black/20 border border-slate-200/70 dark:border-white/5 flex flex-col gap-2.5">
+                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
+                  <span className="text-text-muted">{t("dailyTargetPill", "Daily Community Relief Target")}</span>
+                  <span className="font-mono text-emerald-700 dark:text-emerald-300 font-bold">
+                    {toLocalDigits(mealsServed, locale)} / {toLocalDigits(10, locale)} {t("mealsShort", "portions")}
+                  </span>
+                </div>
+                <div className="h-2.5 w-full bg-slate-200/70 dark:bg-white/5 rounded-full overflow-hidden relative">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, Math.max(12, (mealsServed / 10) * 100))}%` }}
+                    transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_12px_rgba(16,184,129,0.5)]"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-text-muted font-medium">
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {t("safetyVerified", "Safety Inspection Passed")}
+                  </span>
+                  <span className="font-mono text-[9px] opacity-75">{t("peerRelief", "Direct Community Pickup")}</span>
+                </div>
+              </div>
+
+              {/* Telemetry Footer */}
+              <div className="relative z-10 mt-4 pt-3.5 border-t border-slate-200/80 dark:border-white/5 flex items-center justify-between text-xs text-text-muted flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 font-semibold text-[11px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>
+                    {firestoreRetrievalCount !== null 
+                      ? `● ${t("liveSyncActive", "Cloud Firestore Real-Time Sync")}` 
+                      : `○ ${t("localGatewayLedger", "Local Gateway Ledger")}`}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-text-muted">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{t("zeroWasteMetricActive", "Zero Food Waste Protocol")}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
       </ScrollReveal>
-
-      <section className="admin-stats-bar grid grid-cols-1 md:grid-cols-3 gap-5">
-        <ScrollReveal direction="up" distance={30} delay={0.1}>
-          <MetricCardPremium 
-            title={t("totalDonations", "Total Donations")}
-            subtitle={firestoreDonationCount !== null ? t("liveFromFirebase", "Live from Firebase") : t("localCount", "Local Count")}
-            value={toLocalDigits(totalDonations, locale)}
-            trend={firestoreDonationCount !== null ? `● ${t("liveSync", "LIVE SYNC")}` : `○ ${t("localTrend", "LOCAL")}`}
-            trendDirection="up"
-            icon={<BarChart3 className="w-6 h-6" />}
-            bgIcon={<BarChart3 className="w-40 h-40" />}
-            accentColor="var(--accent)"
-            index={0}
-          />
-        </ScrollReveal>
-
-        <ScrollReveal direction="up" distance={30} delay={0.2}>
-          {(() => {
-            const total = state.lockers.length;
-            const occupied = state.lockers.filter(l => l.occupancyState !== 'empty').length;
-            const available = total - occupied;
-            return (
-              <MetricCardPremium 
-                title={t("safeReadiness", "SAFE Readiness")}
-                subtitle={t("missionAvailability", "Mission Availability")}
-                value={`${toLocalDigits(available, locale)}/${toLocalDigits(total, locale)}`}
-                trend={`${toLocalDigits(occupied, locale)} ${t("occupiedLabel", "OCCUPIED")} · ${toLocalDigits(available, locale)} ${t("availableLabel", "AVAILABLE")}`}
-                trendDirection={occupied > 0 ? "neutral" : "up"}
-                icon={<Layers className="w-6 h-6" />}
-                bgIcon={<Layers className="w-40 h-40" />}
-                accentColor="var(--accent-warm)"
-                index={1}
-              />
-            );
-          })()}
-        </ScrollReveal>
-
-        <ScrollReveal direction="up" distance={30} delay={0.3}>
-          <MetricCardPremium 
-            title={t("mealsServedToday", "Meals Served Today")}
-            subtitle={`${t("dailyImpact", "Daily Impact")} — ${toLocalDigits(new Date().toLocaleDateString(locale === 'hi' ? 'hi-IN' : locale === 'mr' ? 'mr-IN' : 'en-IN', { day: 'numeric', month: 'short', year: 'numeric' }), locale)}`}
-            value={toLocalDigits(mealsServed, locale)}
-            trend={firestoreRetrievalCount !== null ? `● ${t("liveSync", "LIVE SYNC")}` : `○ ${t("localTrend", "LOCAL")}`}
-            trendDirection="up"
-            icon={<Database className="w-6 h-6" />}
-            bgIcon={<Database className="w-40 h-40" />}
-            accentColor="var(--accent-bright)"
-            index={2}
-          />
-        </ScrollReveal>
-      </section>
       <div className="admin-content-layout flex flex-col gap-6 mt-6">
 
 
@@ -943,36 +1139,39 @@ export function AdminPageV2() {
   );
 }
 
-function HeroActionButton({ onClick, to, icon, label, accent = "teal", featured = false, index = 0 }: any) {
+function HeroActionButton({ onClick, to, icon, label, sublabel, accent = "teal", featured = false, index = 0 }: any) {
   const isRose = accent === "rose";
   
   const content = (
-    <div className="relative flex flex-col items-center justify-center gap-3">
-      <div className={`icon-container relative z-10 rounded-2xl flex items-center justify-center transition-all duration-700 border
-        bg-white dark:bg-panel border-line group-hover:border-transparent group-hover:scale-110 shadow-inner
-        ${featured ? 'w-16 h-16 text-accent' : 'w-12 h-12'}
-        ${isRose ? 'group-hover:bg-danger group-hover:text-white' : 'group-hover:bg-accent group-hover:text-white'}`}>
-        <div className={`transition-transform duration-700 group-hover:rotate-[8deg] ${featured ? 'scale-125' : ''}`}>
+    <div className="relative flex flex-col items-center justify-center gap-2">
+      <div className={`icon-container relative z-10 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border
+        bg-white dark:bg-panel border-line shadow-xs group-hover:scale-105
+        ${featured ? 'w-11 h-11 md:w-12 md:h-12 text-accent border-accent/40 shadow-[0_0_15px_rgba(20,184,166,0.2)]' : 'w-10 h-10 md:w-11 md:h-11'}
+        ${isRose ? 'group-hover:border-danger/60 group-hover:bg-danger/10 group-hover:text-danger text-danger' : 'group-hover:border-accent group-hover:bg-accent/10 group-hover:text-accent'}`}>
+        <div className="transition-transform duration-500 group-hover:rotate-6">
           {icon}
         </div>
         
-        {/* Glow behind icon */}
-        <div className={`absolute inset-0 rounded-2xl blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-500
+        {/* Subtle glow behind icon */}
+        <div className={`absolute inset-0 rounded-2xl blur-lg opacity-0 group-hover:opacity-30 transition-opacity duration-500
           ${isRose ? 'bg-danger' : 'bg-accent'}`} />
       </div>
       
       <div className="flex flex-col items-center text-center">
-        <span className={`text-[11px] font-black tracking-[0.25em] uppercase leading-tight transition-colors duration-300 max-w-[100px]
-          ${isRose ? 'text-danger/60 group-hover:text-danger' : 'text-text-muted group-hover:text-accent'}`}>
-          {label.split(' ').map((word: string, i: number) => (
-            <span key={i} className="block">{word}</span>
-          ))}
+        <span className={`text-[10px] md:text-[11px] font-black tracking-[0.18em] uppercase leading-tight transition-colors duration-300 whitespace-nowrap
+          ${featured ? 'text-accent font-black' : isRose ? 'text-text-muted group-hover:text-danger' : 'text-text-muted group-hover:text-accent'}`}>
+          {label}
         </span>
+        {sublabel && (
+          <span className="text-[9px] font-semibold text-text-muted/60 tracking-normal mt-0.5 whitespace-nowrap hidden sm:block">
+            {sublabel}
+          </span>
+        )}
         {featured && (
           <motion.div 
-            animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+            animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="w-1.5 h-1.5 rounded-full bg-accent mt-2 shadow-[0_0_8px_rgba(20,184,166,0.6)]" 
+            className="w-1.5 h-1.5 rounded-full bg-accent mt-1 shadow-[0_0_8px_rgba(20,184,166,0.8)]" 
           />
         )}
       </div>
@@ -982,14 +1181,14 @@ function HeroActionButton({ onClick, to, icon, label, accent = "teal", featured 
   const wrapperProps = {
     initial: { opacity: 0, scale: 0.9, y: 15 },
     animate: { opacity: 1, scale: 1, y: 0 },
-    transition: { delay: 0.1 * index, duration: 0.8, ease: [0.16, 1, 0.3, 1] as const },
-    whileHover: { y: -6 },
-    whileTap: { scale: 0.95 },
-    className: `group relative flex items-center justify-center rounded-[2.8rem] transition-all duration-700 overflow-hidden
-      bg-panel-elevated/30 backdrop-blur-3xl border border-line/40
-      hover:bg-panel-elevated/60 hover:border-accent/40 hover:shadow-[0_25px_60px_rgba(0,0,0,0.4)]
-      ${featured ? 'px-12 py-8 min-w-[180px]' : 'px-8 py-6 min-w-[150px]'}
-      ${isRose ? 'hover:border-danger/40 hover:shadow-danger/10' : 'hover:shadow-accent/10'}`
+    transition: { delay: 0.1 * index, duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
+    whileHover: { y: -4 },
+    whileTap: { scale: 0.96 },
+    className: `group relative flex items-center justify-center rounded-2xl md:rounded-[1.75rem] transition-all duration-300 overflow-hidden cursor-pointer
+      bg-panel-elevated/40 backdrop-blur-xl border border-line/60
+      hover:bg-panel-elevated/80 hover:shadow-md
+      ${featured ? 'px-6 py-4 md:px-7 md:py-4.5 border-accent/40 bg-accent/[0.04]' : 'px-5 py-3.5 md:px-6 md:py-4'}
+      ${isRose ? 'hover:border-danger/50 hover:shadow-danger/10' : 'hover:border-accent/50 hover:shadow-accent/10'}`
   };
 
   if (to) {
@@ -998,9 +1197,7 @@ function HeroActionButton({ onClick, to, icon, label, accent = "teal", featured 
         <Link to={to} className="w-full h-full flex items-center justify-center z-10">
           {content}
         </Link>
-        {/* Background Technical Decoration */}
-        <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-accent/5 rounded-full blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+        <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
       </motion.div>
     );
   }
@@ -1010,11 +1207,8 @@ function HeroActionButton({ onClick, to, icon, label, accent = "teal", featured 
       <div className="relative z-10">
         {content}
       </div>
-      {/* Decorative scanline */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[1.5s] ease-in-out pointer-events-none" />
-      {/* Background Technical Decoration */}
-      <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-accent/5 rounded-full blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+      <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
     </motion.button>
   );
 }

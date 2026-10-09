@@ -1136,6 +1136,8 @@ export function KioskPage() {
                 temp={telemetry.internalTempC}
                 shelfLifeHours={Math.round(displayHoursRemaining)}
                 insight={agentInsight}
+                chamberFoodImageUrl={donation?.chamberFoodImageUrl || currentLocker?.cameraTelemetry?.lastSnapshotUrl}
+                visualScore={donation?.visualFreshnessScore || currentLocker?.cameraTelemetry?.visualFreshnessScore}
               />
             ) : (
               <div className="empty-chart-placeholder-luxe" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '350px', background: 'rgba(255,255,255,0.02)', borderRadius: '2rem', border: '1px dashed rgba(255,255,255,0.1)' }}>
