@@ -6453,7 +6453,7 @@ textarea:focus {
   width: 100%;
   max-width: 600px;
   max-height: 85vh;
-  overflow-y: auto;
+  overflow: hidden;
   border-radius: 24px;
   padding: 0;
   background: var(--panel);

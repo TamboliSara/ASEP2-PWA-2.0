@@ -201,7 +201,7 @@
   color: var(--text, #ffffff);
 }
 
-/* ── Fullscreen SVG Spotlight Overlay & High-Tech Cutout ── */
+/* ── Hardware-Accelerated Spotlight Overlay & High-Tech Cutout ── */
 .tour-spotlight-backdrop {
   position: fixed;
   inset: 0;
@@ -212,20 +212,18 @@
   overflow: hidden;
 }
 
-.tour-spotlight-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
+.tour-spotlight-frame,
 .tour-highlight-frame {
   position: fixed;
   z-index: 99992;
   border-radius: 18px;
   pointer-events: none;
   box-sizing: border-box;
+  box-shadow: 0 0 0 9999px rgba(3, 7, 18, 0.78);
+  transition: top 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
+              left 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
+              width 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
+              height 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: top, left, width, height;
   transform: translateZ(0);
 }
@@ -237,23 +235,25 @@
   border: 2px solid var(--accent, #14b8a6);
   box-shadow: 
     0 0 0 1px rgba(var(--accent-rgb, 20, 184, 166), 0.4),
-    0 0 30px rgba(var(--accent-rgb, 20, 184, 166), 0.6),
-    inset 0 0 20px rgba(var(--accent-rgb, 20, 184, 166), 0.2);
+    0 0 25px rgba(var(--accent-rgb, 20, 184, 166), 0.5),
+    inset 0 0 16px rgba(var(--accent-rgb, 20, 184, 166), 0.15);
 }
 
 .tour-frame-pulse {
   position: absolute;
-  inset: -6px;
-  border-radius: calc(18px + 6px);
+  inset: -5px;
+  border-radius: calc(18px + 5px);
   border: 1.5px dashed var(--accent, #14b8a6);
-  opacity: 0.6;
+  opacity: 0.55;
   animation: tourPulseRing 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 @keyframes tourPulseRing {
-  0% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.03); opacity: 0.2; }
-  100% { transform: scale(1); opacity: 0.8; }
+  0% { transform: scale(1) translateZ(0); opacity: 0.7; }
+  50% { transform: scale(1.025) translateZ(0); opacity: 0.2; }
+  100% { transform: scale(1) translateZ(0); opacity: 0.7; }
 }
 
 /* Sci-Fi / Luxe Targeting Corner Brackets */
@@ -300,7 +300,8 @@
   z-index: 99999;
   width: min(390px, calc(100vw - 2rem));
   pointer-events: auto;
-  transition: top 0.5s cubic-bezier(0.22, 1, 0.36, 1), left 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: top 0.35s cubic-bezier(0.16, 1, 0.3, 1), 
+              left 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: top, left;
   transform: translateZ(0);
 }
