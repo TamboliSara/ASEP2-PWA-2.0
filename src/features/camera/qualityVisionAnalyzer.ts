@@ -13,12 +13,16 @@ import type { FoodQualityScore, SensorTelemetry } from "../../types/domain";
 export interface MultiModalAssessment {
   unifiedHealthScore: number; // 0..100
   qualityStage: FoodQualityScore;
-  visualScore: number;        // 0..100 (10% weight)
-  gasScore: number;           // 0..100 (60% weight)
-  tempHumidityScore: number;  // 0..100 (30% weight)
+  visualScore: number;        // 0..100
+  gasScore: number;           // 0..100
+  tempHumidityScore: number;  // 0..100
   detectedFoodLabel: string;
   visualObservations: string[];
   assessedAt: string;
+  deadlineEstimate?: {
+    hoursRemaining: number;
+    absoluteIso: string;
+  };
 }
 
 /**
@@ -61,8 +65,63 @@ export function calculateTempHumidityScore(telemetry?: SensorTelemetry): number 
 }
 
 /**
+ * Dynamic AI Model Weight Distributor (Ensemble Surrogate)
+ * Replaces hardcoded food categories with a dynamic statistical heuristic based on sensor variance.
+ * 
+ * Strategy:
+ * - BME688 is the undisputed primary source of truth for quality.
+ * - Camera Vision is primarily used to detect occupancy (food vs trash).
+ * - Camera only acts as a strong quality backup when BME688 is weak (e.g., sealed containers).
+ */
+export function determineDynamicWeights(gasScore: number, visualScore: number, visionConfidence = 0.9) {
+  // 1. Baseline: BME688 Dominance
+  let gasWeight = 0.75;
+  let visualWeight = 0.05;
+  let tempHumWeight = 0.20;
+
+  // 2. Anomaly: Strong Volatiles (BME688 Absolute Truth)
+  if (gasScore < 45) {
+    gasWeight = 0.85;
+    visualWeight = 0.00; // Ignore camera completely if gas is strongly spoilt
+    tempHumWeight = 0.15;
+  } 
+  // 3. Sealed Container Anomaly (BME is blind, but Camera confidently sees decay)
+  else if (gasScore > 85 && visualScore < 65 && visionConfidence >= 0.75) {
+    // Gases are trapped, so we shift reliance to the visual model
+    visualWeight = 0.55;
+    gasWeight = 0.15;
+    tempHumWeight = 0.30;
+  }
+  // 4. Transitional Degradation
+  else if (gasScore >= 45 && gasScore <= 85) {
+    gasWeight = 0.65;
+    visualWeight = 0.15;
+    tempHumWeight = 0.20;
+  }
+
+  return { visual: visualWeight, gas: gasWeight, tempHum: tempHumWeight };
+}
+
+export function calculateConsumptionDeadline(unifiedHealthScore: number, tempHumScore: number, qualityStage: FoodQualityScore): number {
+  if (qualityStage === "spoilt") return 0;
+  
+  // Max baseline for fresh food is ~48 hours
+  const baseHours = (unifiedHealthScore / 100) * 48;
+  const tempMultiplier = tempHumScore / 100;
+  
+  // Minimum 2 hours if not spoilt, max scales with temp score
+  let estimatedHours = Math.max(2, Math.round(baseHours * tempMultiplier));
+  
+  // Aging food shouldn't stay more than 12h
+  if (qualityStage === "aging") {
+    estimatedHours = Math.min(estimatedHours, 12); 
+  }
+  return estimatedHours;
+}
+
+/**
  * Computes the unified sensor fusion health score.
- * Formula: 0.10 * Visual + 0.60 * Gas + 0.30 * TempHumidity
+ * Dynamically applies weights depending on food context and sensor anomalies.
  */
 export function computeMultiModalQuality(
   visualScore: number,
@@ -72,8 +131,10 @@ export function computeMultiModalQuality(
   const gasScore = calculateGasScore(telemetry);
   const tempHumScore = calculateTempHumidityScore(telemetry);
 
-  // Calibrated weights: 10% Visual, 60% Gas, 30% Temp/Humidity
-  const weighted = (visualScore * 0.10) + (gasScore * 0.60) + (tempHumScore * 0.30);
+  // Apply context-aware Case-Based Strategy based on sensor variance
+  const weights = determineDynamicWeights(gasScore, visualScore, 0.9);
+
+  const weighted = (visualScore * weights.visual) + (gasScore * weights.gas) + (tempHumScore * weights.tempHum);
   const unifiedHealthScore = Math.min(100, Math.max(0, Math.round(weighted)));
 
   let qualityStage: FoodQualityScore = "fresh";
@@ -83,7 +144,12 @@ export function computeMultiModalQuality(
     qualityStage = "aging";
   }
 
+  const hoursRemaining = calculateConsumptionDeadline(unifiedHealthScore, tempHumScore, qualityStage);
+  const absoluteIso = new Date(Date.now() + hoursRemaining * 3600 * 1000).toISOString();
+
   const visualObservations: string[] = [];
+  visualObservations.push(`Context Strategy applied: Visual (${Math.round(weights.visual*100)}%), Gas (${Math.round(weights.gas*100)}%), Temp/Hum (${Math.round(weights.tempHum*100)}%)`);
+
   if (visualScore >= 80) {
     visualObservations.push("Surface visual integrity optimal, zero mold or weeping.");
   } else if (visualScore >= 60) {
@@ -106,7 +172,11 @@ export function computeMultiModalQuality(
     tempHumidityScore: tempHumScore,
     detectedFoodLabel: foodLabel,
     visualObservations,
-    assessedAt: new Date().toISOString()
+    assessedAt: new Date().toISOString(),
+    deadlineEstimate: {
+      hoursRemaining,
+      absoluteIso
+    }
   };
 }
 
