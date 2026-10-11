@@ -6,7 +6,7 @@
  */
 import React from "react"
 import { SlideButton } from "@/components/ui/slide-button"
-import { FoodHealthCardPremium } from "./FoodHealthCardPremium"
+import { FoodHealthCardPremium } from "./food/FoodHealthCardPremium"
 
 export const DemoOne = () => {
   return (

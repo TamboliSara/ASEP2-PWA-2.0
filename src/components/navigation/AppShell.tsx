@@ -56,8 +56,8 @@ export function AppShell({ children }: PropsWithChildren) {
     }
   }, [isVisualizer, state.themeMode]);
 
-  // Standalone mobile page for QR code scanners: show ONLY the OTP passkey without kiosk navbar or widgets
-  if (location.pathname === "/qr-scan") {
+  // Standalone mobile pages: show clean standalone UI without kiosk navbar or widgets
+  if (location.pathname === "/qr-scan" || location.pathname === "/chamber-lens") {
     return <>{children}</>;
   }
 

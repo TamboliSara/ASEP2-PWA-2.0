@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useRef } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { AppShell } from "./components/AppShell";
+import { AppShell } from "./components/navigation/AppShell";
 import { ConnectPage } from "./routes/ConnectPage";
 import { ModeSelectPage } from "./routes/ModeSelectPage";
 
@@ -13,6 +13,7 @@ const VisualizerPage = lazy(() => import("./routes/VisualizerPage").then(m => ({
 const QrScanPage = lazy(() => import("./routes/QrScanPage").then(m => ({ default: m.QrScanPage })));
 const DemoOne = lazy(() => import("./components/demo").then(m => ({ default: m.DemoOne })));
 const AlertDemo = lazy(() => import("./components/ui/alert-demo"));
+const ChamberCamPage = lazy(() => import("./routes/ChamberCamPage").then(m => ({ default: m.ChamberCamPage })));
 
 function PageLoader() {
   return (
@@ -40,7 +41,8 @@ export default function App() {
       "/admin": "SAFE — Admin Panel",
       "/admin/sign-in": "SAFE — Sign In",
       "/connect": "SAFE — Connect",
-      "/qr-scan": "SAFE — Donor Verification"
+      "/qr-scan": "SAFE — Donor Verification",
+      "/chamber-lens": "SAFE — Chamber Optical Node"
     };
     document.title = titles[location.pathname] || "SAFE";
 
@@ -58,6 +60,7 @@ export default function App() {
         themeMode: state.themeMode === "dark" ? "light" : "dark"
       });
     };
+
     const handleSetLight = () => dispatch({ type: "set-theme-mode", themeMode: "light" });
     const handleSetDark = () => dispatch({ type: "set-theme-mode", themeMode: "dark" });
 
@@ -72,6 +75,19 @@ export default function App() {
     };
   }, [state.themeMode, dispatch]);
 
+  const isStandalone = location.pathname === "/chamber-lens" || location.pathname === "/qr-scan";
+
+  if (isStandalone) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/chamber-lens" element={<ChamberCamPage />} />
+          <Route path="/qr-scan" element={<QrScanPage />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   return (
     <AppShell>
       <Suspense fallback={<PageLoader />}>
@@ -84,8 +100,6 @@ export default function App() {
           <Route path="/admin" element={<AdminPageV2 />} />
           <Route path="/admin/sign-in" element={<SignInPageV2 />} />
           <Route path="/welcome" element={<LandingPage />} />
-          {/* QR Scan landing — accessible without pairing (phone opens this) */}
-          <Route path="/qr-scan" element={<QrScanPage />} />
           <Route path="/demo" element={<DemoOne />} />
           <Route path="/visualizer" element={<VisualizerPage />} />
           <Route path="/demo/alerts" element={<AlertDemo />} />

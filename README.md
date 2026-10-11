@@ -22,7 +22,7 @@
 3. **Decentralized In-Browser Biometric Verification**: Client-side **Face-API** running on WebGL/WASM extracting anonymous 128-dimensional facial descriptors to enforce community anti-hoarding limits ($\le 2$ meals/person/day).
 4. **Mobile QR Remote Donor Verification**: Donors can scan a dynamic session QR code with their mobile device (`/qr-scan`) to verify their identity and phone via SMS OTP (Fast2SMS) remotely without touching public kiosk inputs.
 5. **Interactive System Tour**: Built-in 8-step guided interactive walkthrough (`WebsiteTour`) highlighting telemetry status, chambers, biometric guards, and accessibility tools.
-6. **Autonomous Ultrasonic Ghost-Donation Defense**: **HC-SR04** ultrasonic depth profiling that triggers a localized acoustic alarm and revokes cloud records if an empty compartment is closed.
+6. **Smart In-Chamber Vision System**: Embedded in-chamber optical node (`/chamber-lens`) executing real-time client-side **YOLOv8 ONNX Web** food presence detection, 10-second quality snapshots, and dual-redundant **HC-SR04** ultrasonic sensor backup.
 7. **Interactive 3D CAD & Digital Twin**: High-fidelity 3D models created in Spline 3D paired with real-time Three.js WebGL digital twin rendering.
 8. **Progressive Web Application (PWA)**: Offline-first React 18 / TypeScript application with AI Food Health Advisor, multilingual neural voice assistant (EN/HI/MR), and real-time geospatial fleet management (Leaflet).
 
@@ -35,8 +35,9 @@
 | Route | View | Description |
 | :--- | :--- | :--- |
 | `/` | **Mode Select** | Kiosk launcher: Donor Mode, Receiver Dashboard, Interactive Tour, 3D Digital Twin |
-| `/donate` | **Donor Registration** | Food metadata cataloging, dietary tags, and dual OTP / Mobile QR verification |
-| `/receive` | **Kiosk Receiver** | Live chamber grid, QI spoilage gauges, face-biometric anti-hoarding retrieval |
+| `/donate` | **Donor Registration** | Food metadata cataloging, dietary tags, and live Chamber Vision HUD with YOLOv8 tracking |
+| `/receive` | **Kiosk Receiver** | Live chamber grid, QI spoilage gauges, face-biometric anti-hoarding retrieval, 10s chamber photo |
+| `/chamber-lens` | **Chamber Optical Node** | Embedded in-locker phone camera interface with hardware LED torch, wake-lock & OLED stealth |
 | `/qr-scan` | **Mobile QR Session** | Donor phone portal for contactless identity and OTP verification |
 | `/visualizer` | **3D Digital Twin** | Interactive WebGL/Three.js spatial locker visualization and telemetry overlay |
 | `/admin` | **Fleet Command V2** | Geospatial fleet map (Leaflet), sensor diagnostics, audit logs, and PDF export |

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -79,120 +79,90 @@ function getTargetBounds(targetEl: HTMLElement): { top: number; left: number; wi
 }
 
 /**
- * High-precision collision-free tooltip placement calculator.
- * Strictly guarantees that the tooltip never overlaps the spotlight cutout.
+ * Zero-collision tooltip placement engine.
+ * STRICT GUARANTEE: Tooltip NEVER overlaps the spotlight frame under any circumstance.
  */
 function computeTooltipPosition(
   target: RectBounds,
   preferredPos: "top" | "bottom" | "left" | "right" | "auto" = "bottom",
-  dimensions: CardDimensions = { width: 390, height: 480 }
+  dimensions: CardDimensions = { width: 390, height: 260 }
 ): TooltipPosition {
   const zoom = getHtmlZoom();
   const winW = window.innerWidth / zoom;
   const winH = window.innerHeight / zoom;
   const margin = 16;
-  const gap = 24; // strict safety clearance between spotlight frame and tooltip
+  const gap = 20; // safe clearance between spotlight frame and tooltip
 
   const tooltipW = Math.min(dimensions.width || 390, winW - margin * 2);
-  const tooltipH = dimensions.height || 480;
+  const tooltipH = dimensions.height || 260;
 
-  // Collision overlap tester
-  const testCandidate = (top: number, left: number): boolean => {
-    const cardRight = left + tooltipW;
-    const cardBottom = top + tooltipH;
-    const targetRight = target.left + target.width;
-    const targetBottom = target.top + target.height;
-
-    const xOverlap = left < (targetRight + gap) && cardRight > (target.left - gap);
-    const yOverlap = top < (targetBottom + gap) && cardBottom > (target.top - gap);
-    return xOverlap && yOverlap;
+  // STRICT GUARANTEES:
+  // makeBottom: top MUST be >= target.top + target.height + gap (NEVER overlaps target!)
+  const makeBottom = (): TooltipPosition => {
+    const top = target.top + target.height + gap;
+    const idealLeft = target.left + (target.width - tooltipW) / 2;
+    const left = Math.max(margin, Math.min(winW - tooltipW - margin, idealLeft));
+    return { top: Math.round(top), left: Math.round(left), placement: "bottom" };
   };
 
-  // Determine candidate order based on preference
-  const order: ("top" | "bottom" | "left" | "right")[] = [];
-  if (preferredPos && preferredPos !== "auto") {
-    order.push(preferredPos);
-  }
-  ["top", "bottom", "right", "left"].forEach(p => {
-    if (!order.includes(p as any)) order.push(p as any);
-  });
-
-  // 1. Try placements where tooltip fits strictly inside viewport without any target overlap
-  for (const placement of order) {
-    let top = margin;
-    let left = margin;
-
-    if (placement === "top") {
-      top = target.top - gap - tooltipH;
-      const idealLeft = target.left + (target.width - tooltipW) / 2;
-      left = Math.max(margin, Math.min(winW - tooltipW - margin, idealLeft));
-    } else if (placement === "bottom") {
-      top = target.top + target.height + gap;
-      const idealLeft = target.left + (target.width - tooltipW) / 2;
-      left = Math.max(margin, Math.min(winW - tooltipW - margin, idealLeft));
-    } else if (placement === "left") {
-      left = target.left - gap - tooltipW;
-      const idealTop = target.top + (target.height - tooltipH) / 2;
-      top = Math.max(margin, Math.min(winH - tooltipH - margin, idealTop));
-    } else if (placement === "right") {
-      left = target.left + target.width + gap;
-      const idealTop = target.top + (target.height - tooltipH) / 2;
-      top = Math.max(margin, Math.min(winH - tooltipH - margin, idealTop));
-    }
-
-    const fitsInViewport = 
-      top >= margin && 
-      (top + tooltipH) <= (winH - margin) && 
-      left >= margin && 
-      (left + tooltipW) <= (winW - margin);
-
-    const hasOverlap = testCandidate(top, left);
-
-    if (fitsInViewport && !hasOverlap) {
-      return { top, left, placement };
-    }
-  }
-
-  // 2. Fallback: find placement that guarantees zero overlap even if shifted slightly
-  for (const placement of order) {
-    if (placement === "top" && target.top - gap - tooltipH >= margin) {
-      const top = target.top - gap - tooltipH;
-      const idealLeft = target.left + (target.width - tooltipW) / 2;
-      const left = Math.max(margin, Math.min(winW - tooltipW - margin, idealLeft));
-      return { top, left, placement };
-    }
-    if (placement === "bottom" && target.top + target.height + gap + tooltipH <= winH - margin) {
-      const top = target.top + target.height + gap;
-      const idealLeft = target.left + (target.width - tooltipW) / 2;
-      const left = Math.max(margin, Math.min(winW - tooltipW - margin, idealLeft));
-      return { top, left, placement };
-    }
-    if (placement === "right" && target.left + target.width + gap + tooltipW <= winW - margin) {
-      const left = target.left + target.width + gap;
-      const idealTop = target.top + (target.height - tooltipH) / 2;
-      const top = Math.max(margin, Math.min(winH - tooltipH - margin, idealTop));
-      return { top, left, placement };
-    }
-    if (placement === "left" && target.left - gap - tooltipW >= margin) {
-      const left = target.left - gap - tooltipW;
-      const idealTop = target.top + (target.height - tooltipH) / 2;
-      const top = Math.max(margin, Math.min(winH - tooltipH - margin, idealTop));
-      return { top, left, placement };
-    }
-  }
-
-  // 3. Absolute fallback: place at bottom or top with zero overlap guaranteed
-  const safeTop = target.top - gap - tooltipH >= margin
-    ? target.top - gap - tooltipH
-    : Math.min(winH - tooltipH - margin, target.top + target.height + gap);
-  const idealLeft = target.left + (target.width - tooltipW) / 2;
-  const safeLeft = Math.max(margin, Math.min(winW - tooltipW - margin, idealLeft));
-
-  return { 
-    top: Math.max(margin, safeTop), 
-    left: safeLeft, 
-    placement: safeTop < target.top ? "top" : "bottom" 
+  // makeTop: top + tooltipH MUST be <= target.top - gap (NEVER overlaps target!)
+  const makeTop = (): TooltipPosition => {
+    const top = target.top - gap - tooltipH;
+    const idealLeft = target.left + (target.width - tooltipW) / 2;
+    const left = Math.max(margin, Math.min(winW - tooltipW - margin, idealLeft));
+    return { top: Math.round(top), left: Math.round(left), placement: "top" };
   };
+
+  const makeRight = (): TooltipPosition => {
+    const left = target.left + target.width + gap;
+    const idealTop = target.top + (target.height - tooltipH) / 2;
+    const top = Math.max(margin, Math.min(winH - tooltipH - margin, idealTop));
+    return { top: Math.round(top), left: Math.round(left), placement: "right" };
+  };
+
+  const makeLeft = (): TooltipPosition => {
+    const left = target.left - gap - tooltipW;
+    const idealTop = target.top + (target.height - tooltipH) / 2;
+    const top = Math.max(margin, Math.min(winH - tooltipH - margin, idealTop));
+    return { top: Math.round(top), left: Math.round(left), placement: "left" };
+  };
+
+  const spaceBelow = winH - margin - (target.top + target.height + gap);
+  const spaceAbove = target.top - gap - margin;
+  const spaceRight = winW - margin - (target.left + target.width + gap);
+  const spaceLeft = target.left - gap - margin;
+
+  const fitsBottom = spaceBelow >= tooltipH;
+  const fitsTop = spaceAbove >= tooltipH;
+  const fitsRight = spaceRight >= tooltipW;
+  const fitsLeft = spaceLeft >= tooltipW;
+
+  // 1. Try preferred position if it fits inside viewport without overlap
+  if (preferredPos === "bottom" && fitsBottom) return makeBottom();
+  if (preferredPos === "top" && fitsTop) return makeTop();
+  if (preferredPos === "right" && fitsRight) return makeRight();
+  if (preferredPos === "left" && fitsLeft) return makeLeft();
+
+  // 2. Check alternative sides that fit inside viewport
+  if (preferredPos === "right" || preferredPos === "left") {
+    if (fitsRight) return makeRight();
+    if (fitsLeft) return makeLeft();
+    if (fitsBottom) return makeBottom();
+    if (fitsTop) return makeTop();
+  } else {
+    if (fitsBottom) return makeBottom();
+    if (fitsTop) return makeTop();
+    if (fitsRight) return makeRight();
+    if (fitsLeft) return makeLeft();
+  }
+
+  // 3. Fallback: neither side fits entirely within viewport height.
+  // Choose whichever side has MORE space, while STILL STRICTLY GUARANTEEING ZERO OVERLAP!
+  if (spaceBelow >= spaceAbove) {
+    return makeBottom();
+  } else {
+    return makeTop();
+  }
 }
 
 export function WebsiteTour() {
@@ -209,31 +179,31 @@ export function WebsiteTour() {
   const [targetRect, setTargetRect] = useState<RectBounds | null>(null);
 
   const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isTransitioningRef = useRef(false);
   const currentElementRef = useRef<HTMLElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [tooltipSize, setTooltipSize] = useState<CardDimensions>({
-    width: 390,
-    height: 480
-  });
 
-  useLayoutEffect(() => {
-    if (!tooltipRef.current) return;
-    const zoom = getHtmlZoom();
-    const rect = tooltipRef.current.getBoundingClientRect();
-    const w = Math.round(rect.width / zoom);
-    const h = Math.round(rect.height / zoom);
-    if (w > 50 && h > 50) {
-      setTooltipSize(prev => {
-        if (Math.abs(prev.width - w) > 2 || Math.abs(prev.height - h) > 2) {
-          return { width: w, height: h };
-        }
-        return prev;
-      });
-    }
+  const [tooltipDimensions, setTooltipDimensions] = useState<CardDimensions>({
+    width: 390,
+    height: 260
   });
 
   const steps: TourStep[] = activePath === "donor" ? getDonorTourSteps(t) : getReceiverTourSteps(t);
   const currentStep = activePath ? steps[currentStepIndex] : null;
+
+  // Measure rendered tooltip dimensions dynamically when step changes
+  useEffect(() => {
+    if (tooltipRef.current) {
+      const zoom = getHtmlZoom();
+      const rect = tooltipRef.current.getBoundingClientRect();
+      const w = Math.round(rect.width / zoom);
+      const h = Math.round(rect.height / zoom);
+      if (w > 100 && h > 100) {
+        setTooltipDimensions({ width: w, height: h });
+      }
+    }
+  }, [currentStepIndex, activePath]);
 
   // ── Show Prompt automatically ONLY for first time when user opens website ──
   const TOUR_SEEN_STORAGE_KEY = "safe_has_seen_tour_prompt_v1";
@@ -276,7 +246,6 @@ export function WebsiteTour() {
     if (path === "donor") {
       let emptyLocker = state.lockers.find(l => !l.activeDonation);
       if (!emptyLocker) {
-        // Free chamber-1 if all happen to be occupied
         dispatch({
           type: "patch-locker",
           id: "chamber-1",
@@ -318,6 +287,7 @@ export function WebsiteTour() {
     setIsCompleted(false);
     setTargetRect(null);
     currentElementRef.current = null;
+    isTransitioningRef.current = false;
   }, []);
 
   const handleReturnToMainMenu = useCallback(() => {
@@ -339,6 +309,7 @@ export function WebsiteTour() {
 
     // Route navigation if needed
     if (location.pathname !== currentStep.route) {
+      isTransitioningRef.current = true;
       navigate(currentStep.route);
       return;
     }
@@ -368,11 +339,39 @@ export function WebsiteTour() {
                         Boolean(element.closest(".voice-assistant-container")) ||
                         Boolean(element.closest(".help-widget-trigger"));
 
+        isTransitioningRef.current = true;
+        if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
+        transitionTimeoutRef.current = setTimeout(() => {
+          isTransitioningRef.current = false;
+        }, 400);
+
         if (!isFixed) {
-          try {
-            element.scrollIntoView({ behavior: "smooth", block: "center" });
-          } catch {
-            element.scrollIntoView(true);
+          const rect = element.getBoundingClientRect();
+          const winH = window.innerHeight;
+          const pref = currentStep.position || "bottom";
+          const neededSpaceBelow = rect.height + 20 + 260;
+
+          // Intelligently position viewport so BOTH target element AND tooltip card are comfortably visible
+          const needsScroll = 
+            (pref === "bottom" && (rect.top < 90 || rect.top + neededSpaceBelow > winH - 20)) ||
+            (pref === "top" && (rect.top - 260 - 20 < 90 || rect.bottom > winH - 80)) ||
+            (rect.top < 80 || rect.bottom > winH - 80);
+
+          if (needsScroll) {
+            if (pref === "bottom") {
+              // Position element near the top (below fixed header ~100px) so the tooltip has maximum room below it
+              const targetScroll = Math.max(0, window.scrollY + rect.top - 105);
+              window.scrollTo({ top: targetScroll, behavior: "smooth" });
+            } else if (pref === "top") {
+              const targetScroll = Math.max(0, window.scrollY + rect.bottom - (winH - 50));
+              window.scrollTo({ top: targetScroll, behavior: "smooth" });
+            } else {
+              try {
+                element.scrollIntoView({ behavior: "smooth", block: "center" });
+              } catch {
+                element.scrollIntoView(true);
+              }
+            }
           }
         }
 
@@ -389,20 +388,21 @@ export function WebsiteTour() {
           const winH = window.innerHeight / zoom;
 
           setTargetRect({
-            top: Math.max(6, top),
-            left: Math.max(6, left),
-            width: Math.min(winW - left - 6, width),
-            height: Math.min(winH - top - 6, height)
+            top: Math.max(6, Math.round(top)),
+            left: Math.max(6, Math.round(left)),
+            width: Math.min(winW - left - 6, Math.round(width)),
+            height: Math.min(winH - top - 6, Math.round(height))
           });
         };
 
         measureTarget();
-        // Recalculate once smooth scroll settles
-        setTimeout(measureTarget, 320);
+        // Settle updates smoothly after potential scroll
+        setTimeout(measureTarget, 160);
+        setTimeout(measureTarget, 360);
       } else if (attempts < maxAttempts) {
-        retryTimerRef.current = setTimeout(findAndPosition, 80);
+        retryTimerRef.current = setTimeout(findAndPosition, 60);
       } else {
-        // Fallback: center in screen with zoom compensation
+        // Fallback: center in screen
         currentElementRef.current = null;
         const zoom = getHtmlZoom();
         const winW = window.innerWidth / zoom;
@@ -433,12 +433,15 @@ export function WebsiteTour() {
     };
   }, [activePath, currentStepIndex, location.pathname, setupStepTarget, currentStep]);
 
-  // ── Continuous Scroll / Resize Tracking (Throttled & Thresholded) ──
+  // ── Passive Throttled Scroll / Resize Tracking (Zero Lag) ──
   useEffect(() => {
     if (!activePath) return;
 
     let ticking = false;
     const handleScrollOrResize = () => {
+      // Pause updates while transitioning steps to avoid animation fighting
+      if (isTransitioningRef.current) return;
+
       if (!ticking) {
         window.requestAnimationFrame(() => {
           const el = currentElementRef.current;
@@ -453,18 +456,18 @@ export function WebsiteTour() {
             const winW = window.innerWidth / zoom;
             const winH = window.innerHeight / zoom;
 
-            const newTop = Math.max(6, top);
-            const newLeft = Math.max(6, left);
-            const newWidth = Math.min(winW - left - 6, width);
-            const newHeight = Math.min(winH - top - 6, height);
+            const newTop = Math.max(6, Math.round(top));
+            const newLeft = Math.max(6, Math.round(left));
+            const newWidth = Math.min(winW - left - 6, Math.round(width));
+            const newHeight = Math.min(winH - top - 6, Math.round(height));
 
             setTargetRect(prev => {
               if (
                 !prev ||
-                Math.abs(prev.top - newTop) > 1.5 ||
-                Math.abs(prev.left - newLeft) > 1.5 ||
-                Math.abs(prev.width - newWidth) > 1.5 ||
-                Math.abs(prev.height - newHeight) > 1.5
+                Math.abs(prev.top - newTop) > 2 ||
+                Math.abs(prev.left - newLeft) > 2 ||
+                Math.abs(prev.width - newWidth) > 2 ||
+                Math.abs(prev.height - newHeight) > 2
               ) {
                 return { top: newTop, left: newLeft, width: newWidth, height: newHeight };
               }
@@ -482,6 +485,7 @@ export function WebsiteTour() {
     return () => {
       window.removeEventListener("resize", handleScrollOrResize);
       window.removeEventListener("scroll", handleScrollOrResize);
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
     };
   }, [activePath]);
 
@@ -521,10 +525,10 @@ export function WebsiteTour() {
   };
 
   const tooltipCoords: TooltipPosition = targetRect
-    ? computeTooltipPosition(targetRect, currentStep?.position, tooltipSize)
+    ? computeTooltipPosition(targetRect, currentStep?.position, tooltipDimensions)
     : {
-        top: Math.max(16, (window.innerHeight - 270) / 2),
-        left: Math.max(16, (window.innerWidth - 380) / 2),
+        top: Math.max(16, Math.round((window.innerHeight - 270) / 2)),
+        left: Math.max(16, Math.round((window.innerWidth - 380) / 2)),
         placement: "bottom"
       };
 
@@ -550,65 +554,25 @@ export function WebsiteTour() {
         }}
       />
 
-      {/* 2. Fullscreen SVG Cutout Mask Backdrop + Glowing Tech Frame */}
+      {/* 2. Hardware-Accelerated Spotlight Frame (Box-Shadow Cutout, 60fps locked) */}
       <AnimatePresence>
         {activePath && targetRect && (
           <motion.div
-            key="spotlight-backdrop"
-            className="tour-spotlight-backdrop"
-            style={{
-              width: `${100 / getHtmlZoom()}vw`,
-              height: `${100 / getHtmlZoom()}vh`
-            }}
+            key="spotlight-frame-container"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35 }}
+            transition={{ duration: 0.25 }}
+            className="tour-spotlight-backdrop"
           >
-            <svg
-              className="tour-spotlight-svg"
-              width="100%"
-              height="100%"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <defs>
-                <mask id="tour-spotlight-mask">
-                  <rect x="0" y="0" width="100%" height="100%" fill="#ffffff" />
-                  <rect
-                    x={targetRect.left}
-                    y={targetRect.top}
-                    width={targetRect.width}
-                    height={targetRect.height}
-                    rx={18}
-                    ry={18}
-                    fill="#000000"
-                    style={{
-                      transition: "x 0.52s cubic-bezier(0.22, 1, 0.36, 1), y 0.52s cubic-bezier(0.22, 1, 0.36, 1), width 0.52s cubic-bezier(0.22, 1, 0.36, 1), height 0.52s cubic-bezier(0.22, 1, 0.36, 1)"
-                    }}
-                  />
-                </mask>
-              </defs>
-              <rect
-                x="0"
-                y="0"
-                width="100%"
-                height="100%"
-                fill="rgba(3, 7, 18, 0.78)"
-                mask="url(#tour-spotlight-mask)"
-              />
-            </svg>
-
-            {/* Glowing High-Tech Neon Framing Box with Sci-Fi Corner Accents */}
-            <motion.div
-              className="tour-highlight-frame"
-              initial={false}
-              animate={{
-                top: targetRect.top,
-                left: targetRect.left,
-                width: targetRect.width,
-                height: targetRect.height,
+            <div
+              className="tour-spotlight-frame"
+              style={{
+                top: `${targetRect.top}px`,
+                left: `${targetRect.left}px`,
+                width: `${targetRect.width}px`,
+                height: `${targetRect.height}px`,
               }}
-              transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className="tour-frame-border" />
               <div className="tour-frame-pulse" />
@@ -616,64 +580,74 @@ export function WebsiteTour() {
               <div className="tour-frame-corner top-right" />
               <div className="tour-frame-corner bottom-left" />
               <div className="tour-frame-corner bottom-right" />
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 3. Floating Interactive Tooltip Card (Zero-Overlap Guaranteed) */}
+      {/* 3. Floating Interactive Tooltip Card (Zero-Overlap Guaranteed, Fluid Gliding) */}
       <AnimatePresence>
         {activePath && currentStep && (
           <motion.div
-            key={`tooltip-${currentStep.id}`}
+            key="tour-tooltip-wrap"
             className="tour-tooltip-wrap"
             style={{
-              top: tooltipCoords.top,
-              left: tooltipCoords.left
+              top: `${tooltipCoords.top}px`,
+              left: `${tooltipCoords.left}px`
             }}
-            initial={{ opacity: 0, scale: 0.94, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 8 }}
-            transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.25 }}
           >
             <div className="tour-tooltip-card" ref={tooltipRef}>
-              {/* Header Topbar */}
-              <div className="tour-tooltip-topbar">
-                <div className="tour-badge-pill">
-                  <Sparkles size={11} />
-                  <span>{activePath === "donor" ? t("donorTour", "Donor Tour") : t("receiverTour", "Receiver Tour")}</span>
-                </div>
-                <div className="tour-step-counter">
-                  {t("step", "STEP")} {toLocalDigits(currentStepIndex + 1, locale)} {t("of", "OF")} {toLocalDigits(steps.length, locale)}
-                </div>
-              </div>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentStep.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                >
+                  {/* Header Topbar */}
+                  <div className="tour-tooltip-topbar">
+                    <div className="tour-badge-pill">
+                      <Sparkles size={11} />
+                      <span>{activePath === "donor" ? t("donorTour", "Donor Tour") : t("receiverTour", "Receiver Tour")}</span>
+                    </div>
+                    <div className="tour-step-counter">
+                      {t("step", "STEP")} {toLocalDigits(currentStepIndex + 1, locale)} {t("of", "OF")} {toLocalDigits(steps.length, locale)}
+                    </div>
+                  </div>
 
-              {/* Progress Line */}
-              <div className="tour-progress-track">
-                <div
-                  className="tour-progress-fill"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
+                  {/* Progress Line */}
+                  <div className="tour-progress-track">
+                    <div
+                      className="tour-progress-fill"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
 
-              {/* Title & Icon */}
-              <div className="tour-tooltip-header">
-                <div className="tour-tooltip-icon">
-                  <IconComponent size={18} />
-                </div>
-                <h3 className="tour-tooltip-title">{currentStep.title}</h3>
-              </div>
+                  {/* Title & Icon */}
+                  <div className="tour-tooltip-header">
+                    <div className="tour-tooltip-icon">
+                      <IconComponent size={18} />
+                    </div>
+                    <h3 className="tour-tooltip-title">{currentStep.title}</h3>
+                  </div>
 
-              {/* Description */}
-              <p className="tour-tooltip-desc">{currentStep.description}</p>
+                  {/* Description */}
+                  <p className="tour-tooltip-desc">{currentStep.description}</p>
 
-              {/* Action Hint */}
-              {currentStep.actionHint && (
-                <div className="tour-action-hint">
-                  <Lightbulb size={13} />
-                  <span>{currentStep.actionHint}</span>
-                </div>
-              )}
+                  {/* Action Hint */}
+                  {currentStep.actionHint && (
+                    <div className="tour-action-hint">
+                      <Lightbulb size={13} />
+                      <span>{currentStep.actionHint}</span>
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
 
               {/* Bottom Actions Bar */}
               <div className="tour-tooltip-actions">

@@ -226,7 +226,7 @@ export class BleService {
   }
 
   async startSanitization(): Promise<LockerEvent> {
-    // Sanitization is UV-C / ventilation — future hardware feature; BLE notification only
+    // Air-refresh & cleaning cycle completed notification
     return this.createEvent("cycle_complete", "Sanitization cycle initiated.");
   }
 

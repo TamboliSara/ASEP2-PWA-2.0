@@ -8,6 +8,17 @@ function ipMiddlewarePlugin() {
   return {
     name: "ip-middleware",
     configureServer(server: any) {
+      if (server.httpServer) {
+        server.httpServer.on("secureConnection", (socket: any) => {
+          socket.on("error", (err: any) => {
+            if (err?.code === "ECONNRESET" || err?.code === "ECONNABORTED") return;
+          });
+        });
+        server.httpServer.on("clientError", (err: any, socket: any) => {
+          if (err?.code === "ECONNRESET" || !socket?.writable) return;
+          socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
+        });
+      }
       server.middlewares.use("/api/client-ip", (req: any, res: any) => {
         const rawIp =
           req.headers["cf-connecting-ip"] ||
@@ -30,7 +41,7 @@ export default defineConfig({
   server: {
     host: true,           // bind to 0.0.0.0
     port: 5173,
-    allowedHosts: true    // allow ALL hosts (Cloudflare tunnels, proxies, local IPs)
+    allowedHosts: true
   },
   preview: {
     host: true,
@@ -92,10 +103,14 @@ export default defineConfig({
             if (id.includes('chart.js') || id.includes('react-chartjs-2')) return 'vendor-charts';
             if (id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
             if (id.includes('leaflet') || id.includes('react-leaflet')) return 'vendor-leaflet';
+            if (id.includes('onnxruntime-web')) return 'vendor-onnx';
             return 'vendor';
           }
         }
       }
     }
+  },
+  optimizeDeps: {
+    exclude: ['onnxruntime-web']
   }
 });

@@ -1,7 +1,7 @@
 import React, { memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity } from "lucide-react";
-import { StatusPill } from "../../components/StatusPill";
+import { StatusPill } from "../../components/controls/StatusPill";
 import { getQualityLabel } from "../../utils/safety";
 import { useTranslation } from "../../store/useTranslation";
 import { toLocalDigits } from "../../utils/format";

@@ -13,8 +13,7 @@ import {
   Info, 
   Activity, 
   ScanFace, 
-  PlaneTakeoff, 
-  Bluetooth 
+  PlaneTakeoff 
 } from "lucide-react";
 
 export type TourPath = "donor" | "receiver";
@@ -48,7 +47,7 @@ export function getDonorTourSteps(t: (key: string, fallback?: string) => string)
       title: t("donorTourStep1Title", "1. Select Donor Mode"),
       description: t("donorTourStep1Desc", "Start here to donate fresh surplus meals. Sliding this card arms the kiosk and pre-selects an available, sanitized compartment ready for drop-off."),
       icon: HeartHandshake,
-      position: "top",
+      position: "bottom",
       actionHint: t("donorTourStep1Hint", "Arms an available locker")
     },
     {
@@ -92,64 +91,44 @@ export function getDonorTourSteps(t: (key: string, fallback?: string) => string)
       actionHint: t("donorTourStep5Hint", "Ultrasonic presence detection")
     },
     {
-      id: "donor-esp32-status",
-      targetSelector: "[data-tour='nav-esp32'], .action-pill-esp32",
-      route: "/donate",
-      title: t("donorTourStep6Title", "6. ESP32 (3D4C) Hardware Telemetry"),
-      description: t("donorTourStep6Desc", "Monitors the live IoT hardware connection with Chamber 1's ESP32-S3 microcontroller. Real-time BLE heartbeat, WiFi synchronization, and solenoid lock state are streamed continuously."),
-      icon: Bluetooth,
-      position: "bottom",
-      actionHint: t("donorTourStep6Hint", "Live ESP32 (3D4C) Microcontroller")
-    },
-    {
       id: "donor-tour-trigger",
       targetSelector: "[data-tour='nav-tour-trigger'], .action-pill-tour",
       route: "/donate",
-      title: t("donorTourStep7Title", "7. Interactive Tour Button"),
-      description: t("donorTourStep7Desc", "Need a refresher? Tap the Tour button anytime to replay this step-by-step interactive walkthrough across the entire platform."),
+      title: t("donorTourStep6Title", "6. Interactive Tour Button"),
+      description: t("donorTourStep6Desc", "Need a refresher? Tap the Tour button anytime to replay this step-by-step interactive walkthrough across the entire platform."),
       icon: PlaneTakeoff,
       position: "bottom",
-      actionHint: t("donorTourStep7Hint", "Relaunch Guided Tour Anytime")
-    },
-    {
-      id: "donor-3d-model",
-      targetSelector: "[data-tour='nav-3d-model'], .action-pill-visualizer",
-      route: "/donate",
-      title: t("donorTourStep8Title", "8. 3D CAD Model Visualizer"),
-      description: t("donorTourStep8Desc", "Directly beside the tour button, tap this 3D icon to open the interactive digital twin. Inspect exploded 3D CAD models of the food chamber, sensors, and chassis."),
-      icon: Box,
-      position: "bottom",
-      actionHint: t("donorTourStep8Hint", "Interactive 3D Digital Twin")
+      actionHint: t("donorTourStep6Hint", "Relaunch Guided Tour Anytime")
     },
     {
       id: "universal-language",
       targetSelector: "[data-tour='universal-language'], .action-pill-en, [data-tour='nav-capsule-bar'], .action-list-luxe",
       route: "/donate",
-      title: t("donorTourStep9Title", "9. Multilingual Access & Theme"),
-      description: t("donorTourStep9Desc", "Switch the entire application instantly between English, Hindi (हिंदी), and Marathi (मराठी) with a single tap at any time, or toggle dark and light ambient modes."),
+      title: t("donorTourStep7Title", "7. Multilingual Access & Theme"),
+      description: t("donorTourStep7Desc", "Switch the entire application instantly between English, Hindi (हिंदी), and Marathi (मराठी) with a single tap at any time, or toggle dark and light ambient modes."),
       icon: Globe,
       position: "bottom",
-      actionHint: t("donorTourStep9Hint", "EN • HI • MR & Day/Night Toggle")
+      actionHint: t("donorTourStep7Hint", "EN • HI • MR & Day/Night Toggle")
     },
     {
       id: "universal-voice",
       targetSelector: "[data-tour='universal-voice'], .voice-assistant-trigger",
       route: "/donate",
-      title: t("donorTourStep10Title", "10. Hands-Free Voice Assistant"),
-      description: t("donorTourStep10Desc", "Need hands-free operation? Tap the microphone button or speak voice commands anytime to query compartment contents or check system status."),
+      title: t("donorTourStep8Title", "8. Hands-Free Voice Assistant"),
+      description: t("donorTourStep8Desc", "Need hands-free operation? Tap the microphone button or speak voice commands anytime to query compartment contents or check system status."),
       icon: Mic,
       position: "left",
-      actionHint: t("donorTourStep10Hint", "Voice commands & queries")
+      actionHint: t("donorTourStep8Hint", "Voice commands & queries")
     },
     {
       id: "universal-help",
       targetSelector: "[data-tour='universal-help'], .help-widget-trigger",
       route: "/donate",
-      title: t("donorTourStep11Title", "11. Help & Regulatory Standards"),
-      description: t("donorTourStep11Desc", "Tap the Help icon anytime to view step-by-step visual workflow diagrams and inspect comprehensive FDA FSMA & FSSAI Schedule 4 regulations."),
+      title: t("donorTourStep9Title", "9. Help & Regulatory Standards"),
+      description: t("donorTourStep9Desc", "Tap the Help icon anytime to view step-by-step visual workflow diagrams and inspect comprehensive FDA FSMA & FSSAI Schedule 4 regulations."),
       icon: HelpCircle,
       position: "right",
-      actionHint: t("donorTourStep11Hint", "Standards & workflow diagrams")
+      actionHint: t("donorTourStep9Hint", "Standards & workflow diagrams")
     }
   ];
 }
@@ -163,7 +142,7 @@ export function getReceiverTourSteps(t: (key: string, fallback?: string) => stri
       title: t("receiverTourStep1Title", "1. Select Receiver Mode"),
       description: t("receiverTourStep1Desc", "Looking for a fresh meal? Sliding this card opens the live Kiosk Dashboard showing verified, ready-to-consume food items available in the lockers."),
       icon: Utensils,
-      position: "top",
+      position: "bottom",
       actionHint: t("receiverTourStep1Hint", "Opens public distribution dashboard")
     },
     {
@@ -207,64 +186,44 @@ export function getReceiverTourSteps(t: (key: string, fallback?: string) => stri
       actionHint: t("receiverTourStep5Hint", "Biometric security & fair share limit")
     },
     {
-      id: "receiver-esp32-status",
-      targetSelector: "[data-tour='nav-esp32'], .action-pill-esp32",
-      route: "/receive",
-      title: t("receiverTourStep6Title", "6. ESP32 (3D4C) Hardware Telemetry"),
-      description: t("receiverTourStep6Desc", "Monitors the live IoT hardware connection with Chamber 1's ESP32-S3 microcontroller. Real-time BLE heartbeat, WiFi synchronization, and solenoid lock state are streamed continuously."),
-      icon: Bluetooth,
-      position: "bottom",
-      actionHint: t("receiverTourStep6Hint", "Live ESP32 (3D4C) Microcontroller")
-    },
-    {
       id: "receiver-tour-trigger",
       targetSelector: "[data-tour='nav-tour-trigger'], .action-pill-tour",
       route: "/receive",
-      title: t("receiverTourStep7Title", "7. Interactive Tour Button"),
-      description: t("receiverTourStep7Desc", "Need a refresher? Tap the Tour button anytime to replay this step-by-step interactive walkthrough across the entire platform."),
+      title: t("receiverTourStep6Title", "6. Interactive Tour Button"),
+      description: t("receiverTourStep6Desc", "Need a refresher? Tap the Tour button anytime to replay this step-by-step interactive walkthrough across the entire platform."),
       icon: PlaneTakeoff,
       position: "bottom",
-      actionHint: t("receiverTourStep7Hint", "Relaunch Guided Tour Anytime")
-    },
-    {
-      id: "receiver-3d-model",
-      targetSelector: "[data-tour='nav-3d-model'], .action-pill-visualizer",
-      route: "/receive",
-      title: t("receiverTourStep8Title", "8. 3D CAD Model Visualizer"),
-      description: t("receiverTourStep8Desc", "Directly beside the tour button, tap this 3D icon to open the interactive digital twin. Inspect exploded 3D CAD models of the food chamber, sensors, and chassis."),
-      icon: Box,
-      position: "bottom",
-      actionHint: t("receiverTourStep8Hint", "Interactive 3D Digital Twin")
+      actionHint: t("receiverTourStep6Hint", "Relaunch Guided Tour Anytime")
     },
     {
       id: "universal-language-recv",
       targetSelector: "[data-tour='universal-language'], .action-pill-en, [data-tour='nav-capsule-bar'], .action-list-luxe",
       route: "/receive",
-      title: t("receiverTourStep9Title", "9. Multilingual Access & Theme"),
-      description: t("receiverTourStep9Desc", "Switch the entire application instantly between English, Hindi (हिंदी), and Marathi (मराठी) with a single tap at any time, or toggle dark and light ambient modes."),
+      title: t("receiverTourStep7Title", "7. Multilingual Access & Theme"),
+      description: t("receiverTourStep7Desc", "Switch the entire application instantly between English, Hindi (हिंदी), and Marathi (मराठी) with a single tap at any time, or toggle dark and light ambient modes."),
       icon: Globe,
       position: "bottom",
-      actionHint: t("receiverTourStep9Hint", "EN • HI • MR & Day/Night Toggle")
+      actionHint: t("receiverTourStep7Hint", "EN • HI • MR & Day/Night Toggle")
     },
     {
       id: "universal-voice-recv",
       targetSelector: "[data-tour='universal-voice'], .voice-assistant-trigger",
       route: "/receive",
-      title: t("receiverTourStep10Title", "10. Hands-Free Voice Assistant"),
-      description: t("receiverTourStep10Desc", "Need hands-free operation? Tap the microphone button or speak voice commands anytime to query compartment contents or check system status."),
+      title: t("receiverTourStep8Title", "8. Hands-Free Voice Assistant"),
+      description: t("receiverTourStep8Desc", "Need hands-free operation? Tap the microphone button or speak voice commands anytime to query compartment contents or check system status."),
       icon: Mic,
       position: "left",
-      actionHint: t("receiverTourStep10Hint", "Voice commands & queries")
+      actionHint: t("receiverTourStep8Hint", "Voice commands & queries")
     },
     {
       id: "universal-help-recv",
       targetSelector: "[data-tour='universal-help'], .help-widget-trigger",
       route: "/receive",
-      title: t("receiverTourStep11Title", "11. Help & Regulatory Standards"),
-      description: t("receiverTourStep11Desc", "Tap the Help icon anytime to view step-by-step visual workflow diagrams and inspect comprehensive FDA FSMA & FSSAI Schedule 4 regulations."),
+      title: t("receiverTourStep9Title", "9. Help & Regulatory Standards"),
+      description: t("receiverTourStep9Desc", "Tap the Help icon anytime to view step-by-step visual workflow diagrams and inspect comprehensive FDA FSMA & FSSAI Schedule 4 regulations."),
       icon: HelpCircle,
       position: "right",
-      actionHint: t("receiverTourStep11Hint", "Standards & workflow diagrams")
+      actionHint: t("receiverTourStep9Hint", "Standards & workflow diagrams")
     }
   ];
 }

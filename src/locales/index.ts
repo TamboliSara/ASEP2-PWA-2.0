@@ -4,4 +4,3 @@
  */
 export { translationsV3 } from "./translationsV3";
 export { translationsV2, type TranslationDictionary } from "./translationsV2";
-export { translations } from "./translations";

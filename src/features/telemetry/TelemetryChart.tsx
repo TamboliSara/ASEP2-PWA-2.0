@@ -21,7 +21,7 @@ export function TelemetryChart({ deadlineHours = 12 }: { deadlineHours?: number 
   const { state: appState } = useAppContext();
   const themeMode = appState.themeMode;
   const chartRef = useRef<any>(null);
-  const [selectedMetrics, setSelectedMetrics] = useState<MetricType[]>(["risk", "quality", "temp"]);
+  const [selectedMetrics, setSelectedMetrics] = useState<MetricType[]>(["risk"]);
 
   // Get actual locker telemetry
   const currentLocker = appState.lockers.find(l => l.lockerId === appState.selectedLockerId) || appState.lockers[0];

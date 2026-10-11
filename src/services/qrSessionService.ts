@@ -21,6 +21,9 @@ import {
   setDoc,
   updateDoc,
   getDoc,
+  getDocs,
+  collection,
+  writeBatch,
   onSnapshot,
   serverTimestamp,
   type Unsubscribe
@@ -158,20 +161,33 @@ export async function fetchClientIp(): Promise<string> {
 }
 
 /**
- * Called by the kiosk when a new QR passkey session is initialized.
+ * Called by the kiosk when a new QR verification session is initialized.
  * Generates initial session state with "pending" status and 60s TTL.
  */
 export async function createQrSession(
   sessionId: string,
-  passkey: string,
-  phone: string,
-  donorName: string,
+  phoneOrPasskey: string,
+  donorNameOrPhone?: string,
+  optionalDonorName?: string,
   expiresInSeconds: number = 60
 ): Promise<void> {
   if (!db) return;
   try {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + expiresInSeconds * 1000).toISOString();
+
+    // Support both signatures:
+    // (sessionId, passkey, phone, donorName) OR (sessionId, phone, donorName)
+    let phone = phoneOrPasskey;
+    let donorName = donorNameOrPhone || "";
+    let passkey = "";
+
+    if (optionalDonorName !== undefined) {
+      // Called with 4 params: (sessionId, passkey, phone, donorName)
+      passkey = phoneOrPasskey;
+      phone = donorNameOrPhone || "";
+      donorName = optionalDonorName;
+    }
 
     await setDoc(
       doc(db, "qr_sessions", sessionId),
@@ -199,10 +215,8 @@ export async function createQrSession(
 
 /**
  * Called by the phone's landing page (/qr-scan) after scanning the QR code.
- * Captures the phone's client IP and records that the phone is actively connected.
- * 
- * NOTE: This sets status = "scanned" and verified = false.
- * Verification is ONLY completed when the donor enters the 6-digit OTP on the kiosk screen.
+ * Captures the phone's client IP and instantly completes verification.
+ * No passkey or manual code entry required from donor!
  */
 export async function recordQrScan(
   sessionId: string,
@@ -216,40 +230,66 @@ export async function recordQrScan(
     console.warn("[QrSession] fetchClientIp failed, using fallback:", err);
   }
 
+  const nowIso = new Date().toISOString();
+
+  // Instant cross-tab broadcast for same-device simulation or desktop testing
+  try {
+    if (typeof window !== "undefined") {
+      const payload = {
+        sessionId,
+        phoneIp,
+        phone: phone || "",
+        verified: true,
+        verifiedAt: nowIso,
+        status: "verified"
+      };
+      if ("BroadcastChannel" in window) {
+        const bc = new BroadcastChannel("safe_qr_channel");
+        bc.postMessage(payload);
+        bc.close();
+      }
+      try {
+        localStorage.setItem("safe_qr_verified_event", JSON.stringify(payload));
+      } catch {}
+    }
+  } catch {}
+
   if (!db) return phoneIp;
 
   try {
     const docData: any = {
       sessionId,
-      status: "scanned" as QrSessionStatus,
-      scannedAt: new Date().toISOString(),
+      status: "verified" as QrSessionStatus,
+      scannedAt: nowIso,
       phoneIp,
       userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "Unknown",
-      verified: false,
+      verified: true,
+      verifiedAt: nowIso,
       _scanTs: serverTimestamp(),
+      _verifyTs: serverTimestamp(),
       _serverTs: serverTimestamp()
     };
     if (phone) docData.phone = phone;
     if (passkey) docData.passkey = passkey;
 
     await setDoc(doc(db, "qr_sessions", sessionId), docData, { merge: true });
-    console.log(`[QrSession] Recorded QR scan for session ${sessionId} with IP ${phoneIp}`);
+    console.log(`[QrSession] Verified QR scan for session ${sessionId} with IP ${phoneIp}`);
   } catch (err) {
     console.warn("[QrSession] Failed to record scan in qr_sessions:", err);
   }
 
-  // Attempt to write an audit log to activeLogs (optional, safe fallback if unauthenticated)
+  // Record audit log
   try {
     const { addDoc, collection } = await import("firebase/firestore");
     await addDoc(collection(db, "activeLogs"), {
       lockerId: "kiosk-delta",
       type: "qr_verification",
-      detail: `Donor scanned QR code. Handshake established with IP: ${phoneIp}${phone ? ` (Phone: +91 ${phone})` : ""}`,
+      detail: `Donor scanned QR code. Contactless verification confirmed via IP: ${phoneIp}${phone ? ` (Phone: +91 ${phone})` : ""}`,
       phoneIp,
       phone: phone || null,
       sessionId,
-      status: "scanned",
-      createdAt: new Date().toISOString(),
+      status: "verified",
+      createdAt: nowIso,
       syncState: "synced"
     });
   } catch {}
@@ -342,24 +382,116 @@ export async function rotateQrPasskey(
 
 /**
  * Kiosk or mobile page subscribes to this — calls onUpdate whenever the session doc changes in realtime.
+ * Also listens to cross-tab BroadcastChannel and storage events for zero-latency local simulation.
  */
 export function subscribeQrSession(
   sessionId: string,
   onUpdate: (session: QrSession | null) => void
 ): Unsubscribe {
-  if (!db) return () => {};
-  return onSnapshot(
-    doc(db, "qr_sessions", sessionId),
-    (snap) => {
-      if (!snap.exists()) {
+  let unsubFirestore: Unsubscribe = () => {};
+
+  if (db) {
+    unsubFirestore = onSnapshot(
+      doc(db, "qr_sessions", sessionId),
+      (snap) => {
+        if (!snap.exists()) {
+          onUpdate(null);
+          return;
+        }
+        onUpdate(snap.data() as QrSession);
+      },
+      (err) => {
+        console.warn("[QrSession] Subscription error:", err);
         onUpdate(null);
-        return;
       }
-      onUpdate(snap.data() as QrSession);
-    },
-    (err) => {
-      console.warn("[QrSession] Subscription error:", err);
-      onUpdate(null);
+    );
+  }
+
+  // Cross-tab broadcast listener for instant local reactions
+  let bc: BroadcastChannel | null = null;
+  const handleBcMessage = (event: MessageEvent) => {
+    if (event.data?.sessionId === sessionId) {
+      onUpdate({
+        sessionId,
+        passkey: "",
+        phone: event.data.phone || "",
+        donorName: "",
+        status: "verified",
+        createdAt: new Date().toISOString(),
+        phoneIp: event.data.phoneIp,
+        verified: true,
+        verifiedAt: event.data.verifiedAt || new Date().toISOString()
+      });
     }
-  );
+  };
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === "safe_qr_verified_event" && event.newValue) {
+      try {
+        const data = JSON.parse(event.newValue);
+        if (data.sessionId === sessionId) {
+          onUpdate({
+            sessionId,
+            passkey: "",
+            phone: data.phone || "",
+            donorName: "",
+            status: "verified",
+            createdAt: new Date().toISOString(),
+            phoneIp: data.phoneIp,
+            verified: true,
+            verifiedAt: data.verifiedAt || new Date().toISOString()
+          });
+        }
+      } catch {}
+    }
+  };
+
+  if (typeof window !== "undefined") {
+    if ("BroadcastChannel" in window) {
+      try {
+        bc = new BroadcastChannel("safe_qr_channel");
+        bc.onmessage = handleBcMessage;
+      } catch {}
+    }
+    window.addEventListener("storage", handleStorage);
+  }
+
+  return () => {
+    unsubFirestore();
+    if (bc) {
+      bc.close();
+      bc = null;
+    }
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", handleStorage);
+    }
+  };
 }
+
+/**
+ * Permanently deletes all recorded QR audit sessions from Cloud Firestore.
+ */
+export async function clearAllQrSessions(): Promise<{ success: boolean; count: number; error?: string }> {
+  if (!db) return { success: false, count: 0, error: "Database not initialized" };
+  try {
+    const snap = await getDocs(collection(db, "qr_sessions"));
+    if (snap.empty) {
+      return { success: true, count: 0 };
+    }
+
+    const batchSize = 400;
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += batchSize) {
+      const batch = writeBatch(db);
+      const chunk = docs.slice(i, i + batchSize);
+      chunk.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    return { success: true, count: snap.size };
+  } catch (err: any) {
+    console.error("[QrSession] Failed to clear all sessions:", err);
+    return { success: false, count: 0, error: err?.message || "Failed to clear logs" };
+  }
+}
+

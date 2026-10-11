@@ -1,3 +1,7 @@
+/**
+ * format.ts
+ * Formatting and localization utilities for SAFE Locker PWA.
+ */
 const DEVANAGARI_DIGITS = ["०", "१", "२", "३", "४", "५", "६", "७", "८", "९"];
 
 /**
