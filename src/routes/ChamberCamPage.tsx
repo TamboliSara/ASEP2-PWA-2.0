@@ -60,7 +60,8 @@ export function ChamberCamPage() {
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || 
     (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
   const allowDesktop = searchParams.get("allowDesktop") === "true";
-  const isDesktopBlocked = !isMobile && !allowDesktop;
+  const [deviceOverride, setDeviceOverride] = useState(false);
+  const isBlocked = !isMobile && !allowDesktop && !deviceOverride;
 
   const [displacedByOtherDevice, setDisplacedByOtherDevice] = useState(false);
   const [detectedItem, setDetectedItem] = useState<DetectedObject | null>(null);
@@ -477,7 +478,7 @@ export function ChamberCamPage() {
   }, [lockerId, sessionId]);
 
   useEffect(() => {
-    if (isDesktopBlocked) {
+    if (isBlocked) {
       // Clear any camera state previously sent by this tab or desktop
       set(chamberCameraRef(lockerId), {
         connected: false,
@@ -503,7 +504,7 @@ export function ChamberCamPage() {
         lastHeartbeat: 0
       }).catch(() => {});
     };
-  }, [lockerId, isDesktopBlocked]);
+  }, [lockerId, isBlocked]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -630,21 +631,33 @@ export function ChamberCamPage() {
 
       {/* ── Main Viewfinder & Controls ── */}
       <main className="flex-1 flex flex-col p-4 gap-4 max-w-md mx-auto w-full">
-        {isDesktopBlocked ? (
+        {isBlocked ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4 my-auto">
             <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400">
               <Smartphone className="w-8 h-8" />
             </div>
             <div>
               <h2 className="text-base font-bold text-white">Chamber Optical Node</h2>
-              <p className="text-xs text-emerald-400 font-mono mt-1">Locker #1 Dedicated Smartphone Mount</p>
+              <p className="text-xs text-emerald-400 font-mono mt-1">Locker #1 Optical Sensor Mount</p>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
-              This node is strictly reserved for the <strong className="text-white">smartphone mounted inside Locker #1</strong>.
-              Desktop webcam broadcast is disabled so the chamber vision feed only accepts the real phone camera.
+              This node connects the camera optical sensor mounted inside Locker #1. Any mobile phone, tablet, or external camera device can be used.
             </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setDeviceOverride(true);
+                startCamera();
+              }}
+              className="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Camera className="w-4 h-4" />
+              <span>Use This Device Camera (Tablet / Laptop / PC)</span>
+            </button>
+
             <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 text-left space-y-2 text-xs text-slate-300 w-full">
-              <div className="font-semibold text-emerald-400 font-mono uppercase text-[10px]">How to Pair Your Phone:</div>
+              <div className="font-semibold text-emerald-400 font-mono uppercase text-[10px]">Mobile Phone Procedure:</div>
               <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-slate-400">
                 <li>Go to the <strong>Connect</strong> page on the Kiosk.</li>
                 <li>Scan the <strong>Node 2 QR Code</strong> with your mobile phone camera.</li>

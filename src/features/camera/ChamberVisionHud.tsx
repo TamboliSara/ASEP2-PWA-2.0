@@ -28,6 +28,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useChamberCamera, type CameraSourceMode } from "./useChamberCamera";
+import { getInitialHost, fetchServerIp } from "../../services/network";
 
 interface ChamberVisionHudProps {
   lockerId: string;
@@ -65,14 +66,24 @@ export function ChamberVisionHud({
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [resolvedPhoneUrl, setResolvedPhoneUrl] = useState<string>("");
 
-  // Generate QR code for phone mounting with accessible LAN IP (HTTPS on port 5174)
+  // Generate QR code for phone mounting with dynamic accessible LAN IP (HTTPS on port 5174)
   useEffect(() => {
-    const host = "192.168.0.109";
-    const phoneUrl = `https://${host}:5174/chamber-lens?locker=${lockerId}`;
-    setResolvedPhoneUrl(phoneUrl);
-    QRCode.toDataURL(phoneUrl, { margin: 1, width: 240 })
-      .then(setQrCodeDataUrl)
-      .catch(console.error);
+    const activeHost = getInitialHost();
+    const updatePhoneUrl = (host: string) => {
+      const phoneUrl = `https://${host}:5174/chamber-lens?locker=${lockerId}`;
+      setResolvedPhoneUrl(phoneUrl);
+      QRCode.toDataURL(phoneUrl, { margin: 1, width: 240 })
+        .then(setQrCodeDataUrl)
+        .catch(console.error);
+    };
+
+    updatePhoneUrl(activeHost);
+
+    fetchServerIp().then(info => {
+      if (info?.ip && (activeHost === "localhost" || activeHost === "127.0.0.1")) {
+        updatePhoneUrl(info.ip);
+      }
+    });
   }, [lockerId]);
 
   const detected = cameraTelemetry?.detectedObjects?.[0];

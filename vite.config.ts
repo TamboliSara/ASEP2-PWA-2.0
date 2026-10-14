@@ -4,6 +4,8 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import tailwindcss from "@tailwindcss/vite";
 
+import os from "node:os";
+
 function ipMiddlewarePlugin() {
   return {
     name: "ip-middleware",
@@ -19,6 +21,31 @@ function ipMiddlewarePlugin() {
           socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
         });
       }
+
+      // Return server's dynamic LAN IP(s) for QR code pairing from any device
+      server.middlewares.use("/api/server-ip", (_req: any, res: any) => {
+        const interfaces = os.networkInterfaces();
+        const addresses: { address: string; name: string }[] = [];
+        let primaryIp = "localhost";
+
+        for (const name of Object.keys(interfaces)) {
+          for (const iface of interfaces[name] || []) {
+            if (iface.family === "IPv4" && !iface.internal) {
+              if (!iface.address.startsWith("169.254.")) {
+                addresses.push({ address: iface.address, name });
+                if (primaryIp === "localhost") {
+                  primaryIp = iface.address;
+                }
+              }
+            }
+          }
+        }
+
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.end(JSON.stringify({ ip: primaryIp, allIps: addresses }));
+      });
+
       server.middlewares.use("/api/client-ip", (req: any, res: any) => {
         const rawIp =
           req.headers["cf-connecting-ip"] ||
