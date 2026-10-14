@@ -66,24 +66,13 @@ export function ChamberVisionHud({
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [resolvedPhoneUrl, setResolvedPhoneUrl] = useState<string>("");
 
-  // Generate QR code for phone mounting with dynamic accessible LAN IP (HTTPS on port 5174)
+  // Generate Cloud Universal QR code (100% IP independent, accessible anywhere)
   useEffect(() => {
-    const activeHost = getInitialHost();
-    const updatePhoneUrl = (host: string) => {
-      const phoneUrl = `https://${host}:5174/chamber-lens?locker=${lockerId}`;
-      setResolvedPhoneUrl(phoneUrl);
-      QRCode.toDataURL(phoneUrl, { margin: 1, width: 240 })
-        .then(setQrCodeDataUrl)
-        .catch(console.error);
-    };
-
-    updatePhoneUrl(activeHost);
-
-    fetchServerIp().then(info => {
-      if (info?.ip && (activeHost === "localhost" || activeHost === "127.0.0.1")) {
-        updatePhoneUrl(info.ip);
-      }
-    });
+    const phoneUrl = `https://asep-10fe3.web.app/chamber-lens?locker=${lockerId}`;
+    setResolvedPhoneUrl(phoneUrl);
+    QRCode.toDataURL(phoneUrl, { margin: 1, width: 240 })
+      .then(setQrCodeDataUrl)
+      .catch(console.error);
   }, [lockerId]);
 
   const detected = cameraTelemetry?.detectedObjects?.[0];

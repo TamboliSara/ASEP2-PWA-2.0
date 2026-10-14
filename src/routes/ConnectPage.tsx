@@ -74,6 +74,7 @@ export function ConnectPage() {
   const [showAdvancedMac, setShowAdvancedMac] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [resolvedPhoneUrl, setResolvedPhoneUrl] = useState<string>("");
+  const [pairingNetworkMode, setPairingNetworkMode] = useState<"cloud" | "local">("cloud");
   const [qrProtocolMode, setQrProtocolMode] = useState<"https" | "http">("https");
   const [copiedLink, setCopiedLink] = useState(false);
   const [forceShowQr, setForceShowQr] = useState(false);
@@ -141,15 +142,20 @@ export function ConnectPage() {
     }
   }, []);
 
-  // Generate accessible phone pairing URL for the Chamber Lens adapting to current host & protocol
+  // Generate accessible phone pairing URL for the Chamber Lens (Cloud Universal vs Local LAN)
   useEffect(() => {
-    const port = qrProtocolMode === "https" ? "5174" : (window.location.port || "5173");
-    const phoneUrl = `${qrProtocolMode}://${hostIp}:${port}/chamber-lens?locker=${HARDWARE_LOCKER_ID}`;
+    let phoneUrl = "";
+    if (pairingNetworkMode === "cloud") {
+      phoneUrl = `https://asep-10fe3.web.app/chamber-lens?locker=${HARDWARE_LOCKER_ID}`;
+    } else {
+      const port = qrProtocolMode === "https" ? "5174" : (window.location.port || "5173");
+      phoneUrl = `${qrProtocolMode}://${hostIp}:${port}/chamber-lens?locker=${HARDWARE_LOCKER_ID}`;
+    }
     setResolvedPhoneUrl(phoneUrl);
     QRCode.toDataURL(phoneUrl, { margin: 1, width: 260 })
       .then(setQrCodeDataUrl)
       .catch(console.error);
-  }, [hostIp, qrProtocolMode]);
+  }, [pairingNetworkMode, hostIp, qrProtocolMode]);
 
   const steps = useMemo(() => [
     { text: "ESP32 Bluetooth Bridge", subtitle: "Door Solenoid & BLE Beacon", icon: Bluetooth, key: "ble_discovery", active: isRealHardwarePaired },
@@ -493,21 +499,52 @@ export function ConnectPage() {
                 )}
 
                 {sourceMode === "remote_phone" && (!isPhoneConnected || forceShowQr) && (
-                  <div className="inline-flex items-center text-[10px] font-mono rounded-lg bg-black/[0.03] dark:bg-white/[0.05] p-0.5 border border-black/5 dark:border-white/10">
-                    <button
-                      type="button"
-                      onClick={() => setQrProtocolMode("https")}
-                      className={`px-2 py-0.5 rounded ${qrProtocolMode === "https" ? "bg-accent text-slate-950 font-bold" : "text-slate-500 dark:text-slate-400"}`}
-                    >
-                      HTTPS
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setQrProtocolMode("http")}
-                      className={`px-2 py-0.5 rounded ${qrProtocolMode === "http" ? "bg-accent text-slate-950 font-bold" : "text-slate-500 dark:text-slate-400"}`}
-                    >
-                      HTTP
-                    </button>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="inline-flex items-center text-[10px] font-mono rounded-lg bg-black/[0.03] dark:bg-white/[0.05] p-0.5 border border-black/5 dark:border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setPairingNetworkMode("cloud")}
+                        className={`px-2 py-0.5 rounded transition-all ${
+                          pairingNetworkMode === "cloud"
+                            ? "bg-emerald-500 text-slate-950 font-black shadow-sm"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        }`}
+                        title="100% IP Independent — Works on any phone anywhere via Google Cloud"
+                      >
+                        Cloud (Universal)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPairingNetworkMode("local")}
+                        className={`px-2 py-0.5 rounded transition-all ${
+                          pairingNetworkMode === "local"
+                            ? "bg-emerald-500 text-slate-950 font-black shadow-sm"
+                            : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                        }`}
+                        title="Direct local Wi-Fi gateway for offline demos"
+                      >
+                        Local Wi-Fi
+                      </button>
+                    </div>
+
+                    {pairingNetworkMode === "local" && (
+                      <div className="inline-flex items-center text-[10px] font-mono rounded-lg bg-black/[0.03] dark:bg-white/[0.05] p-0.5 border border-black/5 dark:border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => setQrProtocolMode("https")}
+                          className={`px-2 py-0.5 rounded ${qrProtocolMode === "https" ? "bg-accent text-slate-950 font-bold" : "text-slate-500 dark:text-slate-400"}`}
+                        >
+                          HTTPS
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setQrProtocolMode("http")}
+                          className={`px-2 py-0.5 rounded ${qrProtocolMode === "http" ? "bg-accent text-slate-950 font-bold" : "text-slate-500 dark:text-slate-400"}`}
+                        >
+                          HTTP
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -747,11 +784,19 @@ export function ConnectPage() {
                       )}
                     </div>
 
-                    <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                      <li>Scan this QR with the phone kept inside <strong>Locker #1</strong>.</li>
-                      <li>Tap <strong>Proceed</strong> if prompted for local SSL & grant camera access.</li>
-                      <li>Turn on <strong>Torch</strong>, tap <strong>OLED Stealth</strong>, place on shelf & close door.</li>
-                    </ol>
+                    {pairingNetworkMode === "cloud" ? (
+                      <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                        <li>Scan this QR with <strong>any phone anywhere</strong> (home Wi-Fi, 4G, or 5G).</li>
+                        <li>Tap <strong>Allow Camera</strong> when prompted (Google Cloud SSL — zero warnings).</li>
+                        <li>Turn on <strong>Torch</strong>, place on shelf & close door — live feed syncs in real-time!</li>
+                      </ol>
+                    ) : (
+                      <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                        <li>Scan this QR with a phone on the <strong>same Wi-Fi / hotspot</strong>.</li>
+                        <li>Tap <strong>Proceed</strong> if prompted for local SSL & grant camera access.</li>
+                        <li>Turn on <strong>Torch</strong>, tap <strong>OLED Stealth</strong>, place on shelf & close door.</li>
+                      </ol>
+                    )}
 
                     {/* Device-Adaptable Host & Utility Actions */}
                     <div className="pt-1.5 space-y-2">
@@ -762,23 +807,30 @@ export function ConnectPage() {
                           className="px-2.5 py-1 rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-[10px] font-mono text-slate-700 dark:text-white flex items-center gap-1 transition-colors"
                         >
                           <Copy size={11} />
-                          <span>{copiedLink ? "Copied!" : "Copy URL"}</span>
+                          <span>{copiedLink ? "Copied!" : pairingNetworkMode === "cloud" ? "Copy Universal Link" : "Copy URL"}</span>
                         </button>
 
-                        {/* Dynamic Host IP Pill */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomHostInput(hostIp);
-                            setIsEditingHost(prev => !prev);
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-[10px] font-mono flex items-center gap-1.5 transition-colors"
-                          title="Click to change network IP or select from active interfaces"
-                        >
-                          <Globe size={11} className="text-emerald-500 shrink-0" />
-                          <span>IP: <strong className="font-bold">{hostIp}</strong></span>
-                          <Edit2 size={10} className="opacity-70" />
-                        </button>
+                        {pairingNetworkMode === "cloud" ? (
+                          <div className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-mono flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Cloud Universal • 100% IP Independent</span>
+                          </div>
+                        ) : (
+                          /* Dynamic Host IP Pill for local mode */
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomHostInput(hostIp);
+                              setIsEditingHost(prev => !prev);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-[10px] font-mono flex items-center gap-1.5 transition-colors"
+                            title="Click to change network IP or select from active interfaces"
+                          >
+                            <Globe size={11} className="text-emerald-500 shrink-0" />
+                            <span>IP: <strong className="font-bold">{hostIp}</strong></span>
+                            <Edit2 size={10} className="opacity-70" />
+                          </button>
+                        )}
                       </div>
 
                       {/* Interactive Network Interface Selector / Custom IP Input */}
