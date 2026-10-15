@@ -28,6 +28,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useChamberCamera, type CameraSourceMode } from "./useChamberCamera";
+import { getInitialHost, fetchServerIp } from "../../services/network";
 
 interface ChamberVisionHudProps {
   lockerId: string;
@@ -65,10 +66,9 @@ export function ChamberVisionHud({
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [resolvedPhoneUrl, setResolvedPhoneUrl] = useState<string>("");
 
-  // Generate QR code for phone mounting with accessible LAN IP (HTTPS on port 5174)
+  // Generate Cloud Universal QR code (100% IP independent, accessible anywhere)
   useEffect(() => {
-    const host = "192.168.0.109";
-    const phoneUrl = `https://${host}:5174/chamber-lens?locker=${lockerId}`;
+    const phoneUrl = `https://asep-10fe3.web.app/chamber-lens?locker=${lockerId}`;
     setResolvedPhoneUrl(phoneUrl);
     QRCode.toDataURL(phoneUrl, { margin: 1, width: 240 })
       .then(setQrCodeDataUrl)
