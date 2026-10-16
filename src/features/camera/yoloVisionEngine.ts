@@ -42,23 +42,52 @@ export interface VisionInferenceResult {
 }
 
 /**
- * Validates whether an RGB pixel falls into the universal human skin chrominance locus.
- * Based on the Kovac, Peer, Chai-Ngan model:
- * YCbCr: Cr ∈ [132, 175], Cb ∈ [77, 128], with R > G > B ordering and bounded Δ(R-G).
+ * Validates whether an RGB pixel falls into the human skin chrominance locus.
+ * Uses a tightened Kovac/Peer/Chai-Ngan YCbCr model with additional exclusion
+ * rules to prevent orange/yellow produce, carrots, bread, and warm-toned food
+ * from being misclassified as skin.
+ *
+ * Key guards:
+ *  - Tighter Cr ceiling (≤168 instead of 175) to exclude vivid orange produce
+ *  - Blue channel floor (b ≥ 30) — real skin always has some blue
+ *  - Hue-based exclusion: highly saturated orange/yellow (food hues) are rejected
+ *  - R−G spread guard: very high R vs G usually means fruit/food, not skin
  */
 function isHumanSkinPixel(r: number, g: number, b: number): boolean {
-  if (r < 55 || g < 35 || b < 25) return false;
-  if (r <= g || g < b - 18) return false;
-  const diffRG = r - g;
-  if (diffRG < 8 || diffRG > 95) return false;
+  // Basic luminance floor — reject near-black pixels
+  if (r < 60 || g < 38 || b < 30) return false;
 
+  // Blue must be present in human skin (oranges & produce lack blue)
+  if (b < 30) return false;
+
+  // R must dominate over G, but not by an overwhelming margin (fruit guard)
+  if (r <= g) return false;
+  const diffRG = r - g;
+  // Very large R−G gap (>80) is more characteristic of food/produce than skin
+  if (diffRG < 8 || diffRG > 80) return false;
+
+  // G must stay above B by a safe margin — prevents pure-red and near-infrared triggers
+  if (g < b - 15) return false;
+
+  // Luma check
   const Y = 0.299 * r + 0.587 * g + 0.114 * b;
-  if (Y < 35 || Y > 245) return false;
+  if (Y < 40 || Y > 240) return false;
 
   const Cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
   const Cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
 
-  return Cr >= 132 && Cr <= 175 && Cb >= 77 && Cb <= 128;
+  // Tightened Cr ceiling: 168 excludes vivid orange fruit; floor 135 avoids dark food
+  if (Cr < 135 || Cr > 168) return false;
+  if (Cb < 80 || Cb > 126) return false;
+
+  // Saturation check: highly saturated pixels (food colours) are excluded
+  const maxC = Math.max(r, g, b);
+  const minC = Math.min(r, g, b);
+  const sat = maxC > 0 ? (maxC - minC) / maxC : 0;
+  // Skin is moderately saturated (0.15–0.65). Very high saturation → food/produce
+  if (sat > 0.68) return false;
+
+  return true;
 }
 
 /**
@@ -485,13 +514,31 @@ class YoloVisionEngine {
         overlapsNeuralFace = computeIoU(rawBbox, this.lastFaceBbox) > 0.15;
       }
 
-      // Check anthropometric face traits
-      const isEdgeCvFace = 
-        blob.skinCellCount >= 4 &&
-        skinRatio >= 0.15 &&
-        centerY < 0.78 &&
-        aspect >= 0.45 && aspect <= 1.45;
+      // ── Anthropometric Person Detection (tightened thresholds) ──
+      //
+      // We require STRONG evidence of a person before classifying as such:
+      //  • Neural face detector confirmation (overlapsNeuralFace) is gold standard
+      //  • Edge-CV fallback requires all of: high skin ratio, enough skin cells,
+      //    upper-half position, correct face aspect, and low overall saturation
+      //    (to prevent brightly coloured food from masquerading as a person)
+      //
+      const blobAvgSat = (() => {
+        const maxC2 = Math.max(meanR, meanG, meanB);
+        const minC2 = Math.min(meanR, meanG, meanB);
+        return maxC2 > 0 ? (maxC2 - minC2) / maxC2 : 0;
+      })();
 
+      // Edge-CV face: much stricter — higher skin ratio, upper half of frame,
+      // correct aspect, low blob saturation (food is vivid; skin is muted)
+      const isEdgeCvFace =
+        blob.skinCellCount >= 8 &&           // need more confirmed skin cells
+        skinRatio >= 0.30 &&                 // at least 30% of blob is skin-coloured
+        centerY < 0.60 &&                    // must be in upper 60% (face region)
+        aspect >= 0.50 && aspect <= 1.35 &&  // face-like aspect ratio
+        blobAvgSat < 0.55 &&                 // food is vivid; skip if highly saturated
+        val > 0.25 && val < 0.92;            // not near-black or near-white
+
+      // A neural face detection always wins; edge-CV is the fallback
       const isPerson = overlapsNeuralFace || isEdgeCvFace;
 
       let label = "Detected Object";
@@ -501,8 +548,8 @@ class YoloVisionEngine {
       if (isPerson) {
         // ── Human Person / Operator ──
         label = "Person in View";
-        category = "general_item";
-        baseConfidence = 0.98;
+        category = "general_item";  // 'general_item' is intentionally NOT a food category
+        baseConfidence = 0.97;
 
         if (this.lastFaceBbox && overlapsNeuralFace) {
           const fb = this.lastFaceBbox;
@@ -679,20 +726,39 @@ class YoloVisionEngine {
       category: t.category
     }));
 
-    // Food is present if AT LEAST ONE detected item belongs to food/drink/container categories
-    const isFoodPresent = detectedObjects.some(obj => 
-      obj.category === "fruit" || 
-      obj.category === "vegetable" || 
-      obj.category === "cooked_meal" || 
-      obj.category === "container" || 
-      obj.category === "beverage" || 
+    // Food is present if AT LEAST ONE detected item belongs to food/drink/container categories.
+    // Explicitly excludes 'general_item' (persons, phones) — they are never food.
+    const isFoodPresent = detectedObjects.some(obj =>
+      obj.category === "fruit" ||
+      obj.category === "vegetable" ||
+      obj.category === "cooked_meal" ||
+      obj.category === "container" ||
+      obj.category === "beverage" ||
       obj.category === "bakery"
     );
+
+    // Sanity guard: if a person is detected, that object must never contribute
+    // to isFoodPresent. This is already guaranteed by category exclusion above,
+    // but we also strip any object labelled "Person in View" from confidence.
+    const personDetected = detectedObjects.some(obj => obj.label === "Person in View");
+    const effectiveConfidence = personDetected && !isFoodPresent ? 0 : undefined;
 
     let maxConfidence = 0;
     if (detectedObjects.length > 0) {
       this.emptyFrameCounter = 0;
-      maxConfidence = Math.max(...detectedObjects.map(o => o.score));
+      // Confidence reflects the best food detection, NOT a person-only detection
+      const foodObjects = detectedObjects.filter(o =>
+        o.category !== "general_item" || o.label !== "Person in View"
+      );
+      const foodOnlyObjects = detectedObjects.filter(o => o.category !== "general_item");
+      if (isFoodPresent && foodOnlyObjects.length > 0) {
+        maxConfidence = Math.max(...foodOnlyObjects.map(o => o.score));
+      } else if (foodObjects.length > 0) {
+        maxConfidence = Math.max(...foodObjects.map(o => o.score));
+      } else {
+        // Only persons/devices detected — confidence is 0 for food presence
+        maxConfidence = effectiveConfidence ?? 0;
+      }
     } else {
       this.emptyFrameCounter++;
       if (this.emptyFrameCounter > 6) {

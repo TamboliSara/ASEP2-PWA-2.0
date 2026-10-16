@@ -23,12 +23,12 @@ export function TextReveal({
   mode = "block",
   direction = "up",
   delay = 0,
-  duration = 0.6,
-  distance = 20,
+  duration = 0.5,
+  distance = 15,
   className = "",
-  once = false,
-  staggerChildren = 0.05,
-  threshold = 0.2
+  once = true,
+  staggerChildren = 0.04,
+  threshold = 0.1
 }: TextRevealProps) {
   
   const containerVariants: Variants = {
@@ -47,14 +47,12 @@ export function TextReveal({
       opacity: 0,
       x: direction === "left" ? distance : direction === "right" ? -distance : 0,
       y: direction === "up" ? distance : direction === "down" ? -distance : 0,
-      filter: "blur(8px)",
-      scale: 0.95
+      scale: 0.98
     },
     visible: {
       opacity: 1,
       x: 0,
       y: 0,
-      filter: "blur(0px)",
       scale: 1,
       transition: {
         duration,

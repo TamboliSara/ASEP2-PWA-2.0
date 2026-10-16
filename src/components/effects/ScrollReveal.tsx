@@ -21,20 +21,21 @@ export function ScrollReveal({
   type = "slide",
   direction = "up",
   delay = 0,
-  duration = 0.8,
-  distance = 50,
+  duration = 0.6,
+  distance = 30,
   className = "",
   style,
-  once = false,
-  threshold = 0.1,
+  once = true,
+  threshold = 0.05,
   parallax = 0,
   staggerChildren = 0
 }: ScrollRevealProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Parallax logic
+  // Parallax logic (only attach scroll listener if parallax is explicitly requested)
+  const hasParallax = parallax !== 0;
   const { scrollYProgress } = useScroll({
-    target: containerRef,
+    target: hasParallax ? containerRef : undefined,
     offset: ["start end", "end start"]
   });
 
@@ -51,16 +52,12 @@ export function ScrollReveal({
     }
     
     if (type === "zoom") {
-      initial.scale = 0.8;
-    }
-    
-    if (type === "blur" || type === "glitch") {
-      initial.filter = "blur(10px)";
+      initial.scale = 0.92;
     }
 
     if (type === "glitch") {
-      initial.skewX = direction === "left" || direction === "right" ? 10 : 0;
-      initial.skewY = direction === "up" || direction === "down" ? 5 : 0;
+      initial.skewX = direction === "left" || direction === "right" ? 6 : 0;
+      initial.skewY = direction === "up" || direction === "down" ? 3 : 0;
     }
     
     return initial;
@@ -73,7 +70,6 @@ export function ScrollReveal({
       x: 0,
       y: 0,
       scale: 1,
-      filter: "blur(0px)",
       skewX: 0,
       skewY: 0,
       transition: {
@@ -92,7 +88,7 @@ export function ScrollReveal({
       whileInView="visible"
       viewport={{ once, amount: threshold }}
       variants={variants}
-      style={{ y: parallax !== 0 ? yParallax : 0, ...style }}
+      style={{ y: hasParallax ? yParallax : 0, willChange: "transform, opacity", ...style }}
       className={`scroll-reveal ${className}`}
     >
       {children}

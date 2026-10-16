@@ -75,7 +75,19 @@ export function ChamberVisionHud({
       .catch(console.error);
   }, [lockerId]);
 
-  const detected = cameraTelemetry?.detectedObjects?.[0];
+  const allObjects = cameraTelemetry?.detectedObjects ?? [];
+  // Primary detection: prefer the highest-confidence food item
+  const foodDetected = allObjects.find(o =>
+    o.category === "fruit" ||
+    o.category === "vegetable" ||
+    o.category === "cooked_meal" ||
+    o.category === "container" ||
+    o.category === "beverage" ||
+    o.category === "bakery"
+  );
+  // Person detection: separate, never confused with food
+  const personDetected = allObjects.find(o => o.label === "Person in View");
+
   const isUltrasonicConfirmed = typeof ultrasonicDistCm === "number" && ultrasonicDistCm > 1.0 && ultrasonicDistCm < 34.0;
 
   return (
@@ -187,27 +199,55 @@ export function ChamberVisionHud({
           </div>
         )}
 
-        {/* ── YOLO Animated Bounding Box Overlay ── */}
+        {/* ── YOLO Animated Bounding Box Overlay: Food Detection ── */}
         <AnimatePresence>
-          {isFoodPresent && detected && (
+          {isFoodPresent && foodDetected && (
             <motion.div
+              key="food-bbox"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
               style={{
                 position: "absolute",
-                left: `${detected.bbox[0] * 100}%`,
-                top: `${detected.bbox[1] * 100}%`,
-                width: `${detected.bbox[2] * 100}%`,
-                height: `${detected.bbox[3] * 100}%`
+                left: `${foodDetected.bbox[0] * 100}%`,
+                top: `${foodDetected.bbox[1] * 100}%`,
+                width: `${foodDetected.bbox[2] * 100}%`,
+                height: `${foodDetected.bbox[3] * 100}%`
               }}
               className="border-2 border-emerald-400 rounded-xl pointer-events-none shadow-[0_0_15px_rgba(16,185,129,0.35)] flex flex-col justify-between p-1.5"
             >
               <div className="self-start px-2 py-0.5 rounded bg-emerald-500/90 text-slate-950 text-[10px] font-black tracking-wider uppercase font-mono shadow">
-                {detected.label} • {Math.round(confidence * 100)}%
+                {foodDetected.label} • {Math.round(confidence * 100)}%
               </div>
               <div className="self-end text-[9px] font-mono font-bold text-emerald-300 bg-slate-950/70 px-1.5 py-0.5 rounded">
                 Shelf Verified
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── YOLO Animated Bounding Box Overlay: Person Detection ── */}
+        <AnimatePresence>
+          {personDetected && (
+            <motion.div
+              key="person-bbox"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                position: "absolute",
+                left: `${personDetected.bbox[0] * 100}%`,
+                top: `${personDetected.bbox[1] * 100}%`,
+                width: `${personDetected.bbox[2] * 100}%`,
+                height: `${personDetected.bbox[3] * 100}%`
+              }}
+              className="border-2 border-amber-400 rounded-xl pointer-events-none shadow-[0_0_14px_rgba(251,191,36,0.35)] flex flex-col justify-between p-1.5"
+            >
+              <div className="self-start px-2 py-0.5 rounded bg-amber-400/90 text-slate-950 text-[10px] font-black tracking-wider uppercase font-mono shadow">
+                👤 Person in View • {Math.round((personDetected.score ?? 0.97) * 100)}%
+              </div>
+              <div className="self-end text-[9px] font-mono font-bold text-amber-300 bg-slate-950/70 px-1.5 py-0.5 rounded">
+                Not Food
               </div>
             </motion.div>
           )}

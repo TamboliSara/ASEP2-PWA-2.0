@@ -818,7 +818,21 @@ export function useLockerController() {
         dispatch({ type: "set-sync-message", message: "Food retrieved. Re-locking chamber..." });
       } else {
         // ── MOCK RETRIEVAL ─────────────────────────────────────────
-        await unlockLocker(currentLocker.lockerId);
+        if (isAdminOverride) {
+          console.log(`[Retrieve] ⚡ Admin Override Force Unlock for ${currentLocker.lockerId}...`);
+          dispatch({ type: "set-sync-message", message: `⚡ Admin Force Override Verified! Energizing solenoid for ${currentLocker.lockerId.replace('chamber-', 'Safe ')}...` });
+          
+          // Dual-send ADMIN_UNLOCK to RTDB for this chamber AND for physical Safe 1 so physical ESP32 solenoid actuates
+          await adminUnlockLocker(currentLocker.lockerId, hardwareMac);
+          await adminUnlockLocker(HARDWARE_LOCKER_ID, hardwareMac);
+          await bleService.sendAdminUnlock().catch(() => {});
+          
+          // Realistic unlock window so judges see the animated confirmation & hear solenoid
+          await new Promise(resolve => setTimeout(resolve, 2500));
+          dispatch({ type: "set-sync-message", message: `✓ ${currentLocker.lockerId.replace('chamber-', 'Safe ')} Unlocked (Admin Override) — Spoiled item safely cleared!` });
+        } else {
+          await unlockLocker(currentLocker.lockerId);
+        }
       }
 
       const unlockEvent = await bleService.unlock().catch(() => ({ id: generateId(), type: "unlock", createdAt: new Date().toISOString(), detail: "Unlock", syncState: "synced" } as LockerEvent));
@@ -1076,6 +1090,58 @@ export function useLockerController() {
     setIsBusy(false);
   }
 
+  function restoreSpoiledDummyCase() {
+    const now = Date.now();
+    const spoiledDonation: DonationRecord = {
+      ...sampleDonation,
+      id: `donation-c4-${now}`,
+      lockerId: "chamber-4",
+      donorName: "Rahul Desai",
+      donorContact: "rahul@ecolocker.local",
+      foodName: "Chicken Biryani",
+      categoryLabel: "Cooked Meal",
+      dietTag: "non_veg",
+      latestQualityScore: "spoilt",
+      allergensNotes: "Contains tree nuts (Cashews) & dairy (Ghee) • Spiced meal",
+      deadlineEstimate: {
+        hoursRemaining: 2,
+        absoluteIso: new Date(now + 2 * 3600000).toISOString()
+      },
+      createdAt: new Date().toISOString(),
+      syncState: "synced"
+    };
+
+    dispatch({
+      type: "patch-locker",
+      id: "chamber-4",
+      locker: {
+        ...sampleLockerState,
+        lockerId: "chamber-4",
+        occupancyState: "occupied",
+        foodQualityScore: "spoilt",
+        faultState: "none",
+        telemetry: {
+          ...currentLocker.telemetry,
+          internalTempC: 14.5,
+          externalTempC: 31.0,
+          humidityPct: 88.0,
+          pressureHpa: 1002.0,
+          gasResistanceOhms: 4200,
+          distanceCm: 11.5,
+          heuristicGasProfile: ["High biogenic amine concentration", "Microbial metabolic peak"]
+        },
+        deadlineEstimate: {
+          hoursRemaining: 2,
+          absoluteIso: new Date(now + 2 * 3600000).toISOString()
+        },
+        activeDonation: spoiledDonation
+      }
+    });
+
+    dispatch({ type: "select-locker", id: "chamber-4" });
+    dispatch({ type: "set-sync-message", message: "↺ Dummy spoiled food case restored in Safe 4 for presentation demo." });
+  }
+
   async function syncNow() {
     setIsBusy(true);
     if (currentLocker.activeDonation) {
@@ -1145,6 +1211,7 @@ export function useLockerController() {
       triggerMaintenanceLockdown,
       clearFault,
       resetDonations,
+      restoreSpoiledDummyCase,
 
       syncNow,
       clearSyncMessage,

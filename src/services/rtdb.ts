@@ -241,7 +241,19 @@ export async function sendCommand(
           body: bodyStr,
           keepalive: true
         })
-      ] : [])
+      ] : []),
+      fetch(`${base}/commands/94B5552C8890.json?auth=${secret}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: bodyStr,
+        keepalive: true
+      }),
+      fetch(`${base}/commands/E8F60A893D4C.json?auth=${secret}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: bodyStr,
+        keepalive: true
+      })
     ]).catch(() => {});
 
     // Asynchronously update Firebase SDK WebSocket in background without blocking caller

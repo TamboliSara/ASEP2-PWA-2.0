@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { motion, useMotionValue, useTransform, useDragControls, AnimatePresence } from "framer-motion";
 import { Check, ChevronRight } from "lucide-react";
 
@@ -13,31 +13,55 @@ interface SlideConfirmProps {
 export function SlideConfirm({ label, completedLabel = "Confirmed", disabled, onConfirm, className = "" }: SlideConfirmProps) {
   const [completed, setCompleted] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
+  const [dragWidth, setDragWidth] = useState(220);
   const x = useMotionValue(0);
   const dragControls = useDragControls();
 
-  const dragWidth = useMemo(() => {
-    if (!trackRef.current) return 200;
-    return trackRef.current.clientWidth - 58; // 52px thumb + 3px padding each side
-  }, [trackRef.current?.clientWidth]);
+  // Measure actual available track width dynamically
+  const updateDragWidth = useCallback(() => {
+    if (trackRef.current) {
+      const measured = trackRef.current.clientWidth - 58; // 52px thumb + 3px padding each side
+      if (measured > 60) {
+        setDragWidth(measured);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    updateDragWidth();
+    if (!trackRef.current) return;
+    const observer = new ResizeObserver(() => updateDragWidth());
+    observer.observe(trackRef.current);
+    return () => observer.disconnect();
+  }, [updateDragWidth]);
 
   // Dynamic transforms for premium feel
-  const opacity = useTransform(x, [0, dragWidth * 0.7], [1, 0.1]);
+  const opacity = useTransform(x, [0, dragWidth * 0.6], [1, 0.1]);
   const progressWidth = useTransform(x, (v) => v + 52);
   const trackColor = useTransform(x, [0, dragWidth], ["rgba(255,255,255,0.03)", "rgba(20,184,166,0.1)"]);
   const thumbRotate = useTransform(x, [0, dragWidth], [0, 180]);
   const labelX = useTransform(x, [0, dragWidth], [0, 20]);
 
-  const handleDragEnd = async () => {
-    const currentX = x.get();
-    if (currentX >= dragWidth * 0.95) {
-      setCompleted(true);
-      x.set(dragWidth);
+  const executeConfirm = async () => {
+    if (disabled || completed) return;
+    setCompleted(true);
+    x.set(dragWidth);
+    try {
       await onConfirm();
+    } finally {
       setTimeout(() => {
         setCompleted(false);
         x.set(0);
       }, 2000);
+    }
+  };
+
+  const handleDragEnd = async () => {
+    if (disabled || completed) return;
+    const currentX = x.get();
+    // Forgiving 70% threshold so users don't fail by stopping 1px short of 95%
+    if (currentX >= dragWidth * 0.70) {
+      await executeConfirm();
     } else {
       x.set(0);
     }
@@ -46,7 +70,14 @@ export function SlideConfirm({ label, completedLabel = "Confirmed", disabled, on
   return (
     <div 
       ref={trackRef}
+      onClick={() => {
+        // Tap/click fallback: if user clicks the button instead of dragging, execute action
+        if (!disabled && !completed && x.get() < 20) {
+          executeConfirm();
+        }
+      }}
       className={`premium-slider-container ${className} ${disabled ? "is-disabled" : ""} ${completed ? "is-complete" : ""}`}
+      style={{ cursor: disabled ? "not-allowed" : "pointer" }}
     >
       {/* Dynamic Background Fill */}
       <motion.div 
@@ -70,7 +101,7 @@ export function SlideConfirm({ label, completedLabel = "Confirmed", disabled, on
         drag="x"
         dragControls={dragControls}
         dragConstraints={{ left: 0, right: dragWidth }}
-        dragElastic={0.02}
+        dragElastic={0.05}
         dragMomentum={false}
         onDragEnd={handleDragEnd}
         style={{ x }}

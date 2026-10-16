@@ -2286,21 +2286,23 @@
               flex-shrink: 0;
             }
             
-            /* Cyber-Nature Card Redesign (Dark + Nature) */
+            /* Cyber-Nature Card Redesign (Dark + Nature) - Hardware Accelerated */
             .nature-card-redesign {
-              background: rgba(12, 14, 18, 0.85) !important;
-              backdrop-filter: blur(40px) saturate(180%) !important;
-              -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+              background: rgba(12, 14, 18, 0.88) !important;
+              backdrop-filter: blur(18px) saturate(140%) !important;
+              -webkit-backdrop-filter: blur(18px) saturate(140%) !important;
               border: 1px solid rgba(16, 185, 129, 0.2) !important;
               border-radius: 32px !important;
               box-shadow: 
-                0 20px 40px rgba(0, 0, 0, 0.4),
-                inset 0 0 40px rgba(16, 185, 129, 0.05) !important;
+                0 16px 36px rgba(0, 0, 0, 0.35),
+                inset 0 0 30px rgba(16, 185, 129, 0.05) !important;
               color: #F0F6FC !important;
               padding: 2.5rem !important;
               position: relative !important;
               overflow: hidden !important;
-              transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
+              will-change: transform;
+              transform: translateZ(0);
+              transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease !important;
             }
 
             .nature-card-redesign::before {
@@ -2813,10 +2815,11 @@
 
             /* Light Mode Overrides */
             :root[data-theme-mode="light"] .nature-card-redesign {
-              background: rgba(255, 255, 255, 0.8) !important;
-              backdrop-filter: blur(30px) saturate(150%) !important;
+              background: rgba(255, 255, 255, 0.88) !important;
+              backdrop-filter: blur(16px) saturate(140%) !important;
+              -webkit-backdrop-filter: blur(16px) saturate(140%) !important;
               border-color: rgba(16, 185, 129, 0.25) !important;
-              box-shadow: 0 30px 60px rgba(0, 0, 0, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.5) !important;
+              box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05), inset 0 0 0 1px rgba(255, 255, 255, 0.5) !important;
               color: #1F2937 !important;
             }
 

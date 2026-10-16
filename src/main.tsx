@@ -7,7 +7,19 @@ import { AppProviders } from "./store/AppProviders";
 import "./styles/global.css";
 import "./styles/enhancements.css";
 
-registerSW({ immediate: true });
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    updateSW(true);
+  },
+  onRegisteredSW(_swUrl, registration) {
+    if (registration) {
+      setInterval(() => {
+        registration.update();
+      }, 15000);
+    }
+  }
+});
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

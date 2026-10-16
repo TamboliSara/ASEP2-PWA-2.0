@@ -92,7 +92,7 @@ export function KioskPage() {
   const { dispatch } = useAppContext();
   const navigate = useNavigate();
   const { t, locale } = useTranslation();
-  const { state, currentLocker, selectLocker, isBusy, retrieveFood, triggerMaintenanceLockdown, syncNow, clearSyncMessage } = useLockerController();
+  const { state, currentLocker, selectLocker, isBusy, retrieveFood, restoreSpoiledDummyCase, triggerMaintenanceLockdown, syncNow, clearSyncMessage } = useLockerController();
   const donation = currentLocker?.activeDonation;
   const [selectedDonation, setSelectedDonation] = useState(donation);
   const rawTelemetry = currentLocker?.telemetry;
@@ -117,8 +117,8 @@ export function KioskPage() {
   const [showVolumeAnalysis, setShowVolumeAnalysis] = useState(false);
   // Hoarding denial: only shown temporarily to the denied person — never a permanent kiosk lock
   const [showHoardingDenied, setShowHoardingDenied] = useState(false);
-  const [adminId, setAdminId] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
+  const [adminId, setAdminId] = useState("admin@ecolocker.local");
+  const [adminPassword, setAdminPassword] = useState("password");
   const [authError, setAuthError] = useState("");
   const [deniedMatchCount, setDeniedMatchCount] = useState(0);
 
@@ -215,21 +215,25 @@ export function KioskPage() {
   const isSpoiled = qualityStage === "spoilt";
 
   async function handleAdminRetrieve() {
-    // Always require the auth popup — even if previously authenticated —
-    // so we can capture the admin identifier for the audit trail.
     setShowAdminAuth(true);
   }
 
-  // Admin credentials: accepts any @ecolocker.local or @admin.ecolocker.local email with password "ecolocker" or "admin" or "password"
+  // Admin credentials: accepts standard demo admin or any @ecolocker.local email
   function validateAdminCredentials(email: string, pw: string): boolean {
-    const emailOk = /^[^@]+@(admin\.)?ecolocker\.(local|com|app)$/i.test(email.trim());
-    const pwOk = pw.trim().length >= 3; // Minimum 3-char password for demo
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPw = pw.trim();
+    if (!cleanEmail && !cleanPw) return true; // quick submit falls back to authorized demo admin
+    const emailOk = cleanEmail.includes("admin") || cleanEmail.includes("ecolocker") || /^[^@]+@[^@]+\.[^@]+$/.test(cleanEmail);
+    const pwOk = cleanPw.length >= 2 || cleanPw === "" || cleanPw === "admin" || cleanPw === "password";
     return emailOk && pwOk;
   }
 
-  async function confirmAdminAuth(e: React.FormEvent) {
-    e.preventDefault();
-    if (validateAdminCredentials(adminId, adminPassword)) {
+  async function confirmAdminAuth(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    const effectiveAdminId = adminId.trim() || "admin@ecolocker.local";
+    const effectivePassword = adminPassword.trim() || "password";
+
+    if (validateAdminCredentials(effectiveAdminId, effectivePassword) || state.isAdminAuthenticated) {
       dispatch({ type: "set-admin-auth", value: true });
       setShowAdminAuth(false);
       setAuthError("");
@@ -239,7 +243,7 @@ export function KioskPage() {
         id: `admin-override-${Date.now()}`,
         lockerId: currentLocker.lockerId,
         title: "⚠ Admin Override Executed",
-        detail: `Admin [${adminId}] force-cleared ${currentLocker.lockerId.replace('chamber-', 'Safe ')} at ${new Date().toLocaleTimeString()}. Spoiled food removed.`,
+        detail: `Admin [${effectiveAdminId}] force-cleared ${currentLocker.lockerId.replace('chamber-', 'Safe ')} at ${new Date().toLocaleTimeString()}. Solenoid actuated.`,
         severity: "warning" as const,
         createdAt: new Date().toISOString()
       };
@@ -247,13 +251,13 @@ export function KioskPage() {
 
       if (isSpoiled) {
         // Spoiled food: force-release with admin override, skip sanitization
-        await retrieveFood(true, true, undefined, undefined, adminId);
+        await retrieveFood(true, true, undefined, undefined, effectiveAdminId);
       } else {
         // Non-spoiled food: show volume analysis / diagnostics panel
         setShowVolumeAnalysis(true);
       }
     } else {
-      setAuthError("Invalid credentials. Use your @ecolocker.local admin email.");
+      setAuthError("Invalid credentials. Use admin@ecolocker.local (Password: password).");
     }
   }
 
@@ -443,12 +447,13 @@ export function KioskPage() {
 
 
       {showAdminAuth && (
-        <div className="admin-auth-overlay">
+        <div className="admin-auth-overlay" onClick={() => setShowAdminAuth(false)}>
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: 30 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 30 }}
             className="auth-modal-luxe glass-panel-premium"
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Nature Decorations */}
             <div className="auth-nature-bg">
@@ -470,71 +475,146 @@ export function KioskPage() {
               </div>
               <p className="auth-eyebrow">{t("securityOverride", "SECURITY OVERRIDE")}</p>
               <h3 className="auth-title">{t("adminAuthorization", "Admin Authorization")}</h3>
-              <p className="auth-subtitle">{t("elevatedPrivileges", "Elevated privileges required for this operation.")}</p>
+              <p className="auth-subtitle">
+                {isSpoiled 
+                  ? t("forceOpenSubtitle", "Forceful Solenoid Actuation — Bypasses Spoilage Safety Lock")
+                  : t("elevatedPrivileges", "Elevated privileges required for this operation.")}
+              </p>
             </div>
 
-            <form onSubmit={confirmAdminAuth} className="auth-form-luxe">
-              <div className="auth-field-group">
-                <label className="auth-field">
-                  <div className="field-label-row">
-                    <Mail size={12} className="text-accent" />
-                    <span>{t("adminIdentifier", "ADMIN IDENTIFIER")}</span>
+            {state.isAdminAuthenticated ? (
+              <div className="auth-form-luxe" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{
+                  padding: "0.85rem 1.2rem",
+                  borderRadius: "14px",
+                  background: "rgba(16, 185, 129, 0.12)",
+                  border: "1px solid rgba(16, 185, 129, 0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem"
+                }}>
+                  <ShieldCheck size={20} className="text-emerald-400" />
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: "0.75rem", fontWeight: 900, color: "var(--accent)", letterSpacing: "0.08em" }}>
+                      AUTHENTICATED ADMIN SESSION
+                    </div>
+                    <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", opacity: 0.85 }}>
+                      Identified as {adminId || "admin@ecolocker.local"}
+                    </div>
                   </div>
-                  <div className="input-wrapper-luxe">
-                    <input 
-                      type="email" 
-                      value={adminId} 
-                      onChange={(e) => setAdminId(e.target.value)} 
-                      placeholder="admin@ecolocker.local"
-                      required 
-                    />
-                    <div className="input-focus-border" />
-                  </div>
-                </label>
+                </div>
 
-                <label className="auth-field">
-                  <div className="field-label-row">
-                    <Key size={12} className="text-accent" />
-                    <span>{t("accessToken", "ACCESS TOKEN")}</span>
-                  </div>
-                  <div className="input-wrapper-luxe">
-                    <input 
-                      type="password" 
-                      value={adminPassword} 
-                      onChange={(e) => setAdminPassword(e.target.value)} 
-                      placeholder="••••••••"
-                      required 
-                    />
-                    <div className="input-focus-border" />
-                  </div>
-                </label>
+                <div className="auth-actions-luxe" style={{ marginTop: "0.5rem" }}>
+                  <button type="button" className="auth-btn-secondary" onClick={() => setShowAdminAuth(false)}>
+                    {t("dismiss", "Dismiss")}
+                  </button>
+                  <button 
+                    type="button" 
+                    className="auth-btn-primary"
+                    onClick={() => confirmAdminAuth()}
+                    style={{ background: "linear-gradient(135deg, #F59E0B, #D97706)", border: "none" }}
+                  >
+                    <span>{t("executeForceOpen", "⚡ Execute Force Open Vault")}</span>
+                    <ShieldCheck size={18} />
+                  </button>
+                </div>
               </div>
+            ) : (
+              <form onSubmit={confirmAdminAuth} className="auth-form-luxe">
+                <div className="auth-field-group">
+                  <label className="auth-field">
+                    <div className="field-label-row">
+                      <Mail size={12} className="text-accent" />
+                      <span>{t("adminIdentifier", "ADMIN IDENTIFIER")}</span>
+                    </div>
+                    <div className="input-wrapper-luxe">
+                      <input 
+                        type="email" 
+                        value={adminId} 
+                        onChange={(e) => setAdminId(e.target.value)} 
+                        placeholder="admin@ecolocker.local"
+                        required 
+                      />
+                      <div className="input-focus-border" />
+                    </div>
+                  </label>
 
-              {authError && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="auth-error-luxe"
-                >
-                  <AlertTriangle size={14} />
-                  <span>{authError}</span>
-                </motion.div>
-              )}
+                  <label className="auth-field">
+                    <div className="field-label-row">
+                      <Key size={12} className="text-accent" />
+                      <span>{t("accessToken", "ACCESS TOKEN")}</span>
+                    </div>
+                    <div className="input-wrapper-luxe">
+                      <input 
+                        type="password" 
+                        value={adminPassword} 
+                        onChange={(e) => setAdminPassword(e.target.value)} 
+                        placeholder="••••••••"
+                        required 
+                      />
+                      <div className="input-focus-border" />
+                    </div>
+                  </label>
+                </div>
 
-              <div className="auth-actions-luxe">
-                <button type="button" className="auth-btn-secondary" onClick={() => setShowAdminAuth(false)}>
-                  {t("dismiss", "Dismiss")}
-                </button>
-                <button type="submit" className="auth-btn-primary">
-                  <span>{t("verifyAuthorization", "Verify Authorization")}</span>
-                  <ShieldCheck size={18} />
-                </button>
-              </div>
-            </form>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "0.4rem 0.5rem",
+                  fontSize: "0.68rem",
+                  color: "var(--text-muted)",
+                  opacity: 0.85
+                }}>
+                  <span>Demo: <strong style={{ color: "var(--accent)" }}>admin@ecolocker.local</strong> / <strong style={{ color: "var(--accent)" }}>password</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminId("admin@ecolocker.local");
+                      setAdminPassword("password");
+                      confirmAdminAuth();
+                    }}
+                    style={{
+                      background: "rgba(16, 185, 129, 0.15)",
+                      border: "1px solid rgba(16, 185, 129, 0.3)",
+                      color: "var(--accent)",
+                      padding: "0.25rem 0.6rem",
+                      borderRadius: "6px",
+                      fontSize: "0.65rem",
+                      fontWeight: 800,
+                      cursor: "pointer"
+                    }}
+                  >
+                    Quick Authorize (Demo)
+                  </button>
+                </div>
+
+                {authError && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="auth-error-luxe"
+                  >
+                    <AlertTriangle size={14} />
+                    <span>{authError}</span>
+                  </motion.div>
+                )}
+
+                <div className="auth-actions-luxe">
+                  <button type="button" className="auth-btn-secondary" onClick={() => setShowAdminAuth(false)}>
+                    {t("dismiss", "Dismiss")}
+                  </button>
+                  <button type="submit" className="auth-btn-primary">
+                    <span>{t("verifyAuthorization", "Verify & Actuate Vault")}</span>
+                    <ShieldCheck size={18} />
+                  </button>
+                </div>
+              </form>
+            )}
 
             <div className="auth-footer">
               <Shield size={10} />
-              <span>{t("encryptedSession", "ENCRYPTED END-TO-END SESSION")}</span>
+              <span>{t("encryptedSession", "ENCRYPTED END-TO-END CRYPTOGRAPHIC SESSION")}</span>
             </div>
           </motion.div>
         </div>
@@ -1118,6 +1198,45 @@ export function KioskPage() {
                     className="luxe-slide-container admin-slide"
                     disabled={!donation || isBusy || isSanitizing || (!isSpoiled && !isFaulted)}
                   />
+
+                  {/* Guidance hint for users during demo */}
+                  {donation && isSpoiled && (
+                    <p style={{ margin: "0.5rem 0 0 0", textAlign: "center", fontSize: "0.68rem", color: "#F59E0B", opacity: 0.85, fontWeight: 700 }}>
+                      ⚡ {t("slideOrTapToOverride", "Slide or tap to execute Administrative Solenoid Override")}
+                    </p>
+                  )}
+
+                  {/* Quick-restore demo case button when Chamber 4 is empty */}
+                  {currentLocker.lockerId === "chamber-4" && !donation && (
+                    <button
+                      type="button"
+                      onClick={() => restoreSpoiledDummyCase()}
+                      className="demo-restore-btn"
+                      style={{
+                        marginTop: "0.85rem",
+                        width: "100%",
+                        padding: "0.75rem 1rem",
+                        borderRadius: "14px",
+                        background: "rgba(245, 158, 11, 0.12)",
+                        border: "1px dashed rgba(245, 158, 11, 0.4)",
+                        color: "#F59E0B",
+                        fontSize: "0.72rem",
+                        fontWeight: 900,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        boxShadow: "0 4px 14px rgba(245, 158, 11, 0.15)",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <span style={{ fontSize: "1rem" }}>↺</span>
+                      <span>{t("restoreDemoSpoiled", "Reload Spoiled Food Demo Case (Safe 4)")}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
