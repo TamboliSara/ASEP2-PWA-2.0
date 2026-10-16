@@ -28,6 +28,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useChamberCamera, type CameraSourceMode } from "./useChamberCamera";
+import { yoloVisionEngine } from "./yoloVisionEngine";
 import { getInitialHost, fetchServerIp } from "../../services/network";
 
 interface ChamberVisionHudProps {
@@ -36,6 +37,7 @@ interface ChamberVisionHudProps {
   className?: string;
   compact?: boolean;
   isDonorMode?: boolean; // When true, provides a clean kiosk HUD for donors without developer controls
+  onVerified?: (data: { snapshotUrl: string; foodLabel: string; visualFreshnessScore: number }) => void;
 }
 
 export function ChamberVisionHud({
@@ -43,7 +45,8 @@ export function ChamberVisionHud({
   ultrasonicDistCm,
   className = "",
   compact = false,
-  isDonorMode = false
+  isDonorMode = false,
+  onVerified
 }: ChamberVisionHudProps) {
   const {
     videoRef,
@@ -65,6 +68,17 @@ export function ChamberVisionHud({
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [resolvedPhoneUrl, setResolvedPhoneUrl] = useState<string>("");
+
+  // Snapshot Capture & In-Chamber Verification States
+  const [capturedSnapshot, setCapturedSnapshot] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<{
+    isFood: boolean;
+    label: string;
+    confidence: number;
+    bbox?: [number, number, number, number];
+    errorReason?: string;
+  } | null>(null);
 
   // Generate Cloud Universal QR code (100% IP independent, accessible anywhere)
   useEffect(() => {
@@ -90,12 +104,144 @@ export function ChamberVisionHud({
 
   const isUltrasonicConfirmed = typeof ultrasonicDistCm === "number" && ultrasonicDistCm > 1.0 && ultrasonicDistCm < 34.0;
 
+  // ── Snapshot Capture & Verification Logic ──
+  const handleCaptureAndVerify = async (providedImage?: string) => {
+    setIsAnalyzing(true);
+    setVerificationResult(null);
+
+    let snapshot = providedImage || "";
+
+    // 1. Capture snapshot from active video stream if playing
+    if (!snapshot && videoRef.current && videoRef.current.readyState >= 2) {
+      try {
+        snapshot = yoloVisionEngine.captureSnapshot(videoRef.current, 0.85, 640);
+      } catch (e) {
+        console.warn("[HUD] captureSnapshot video error:", e);
+      }
+    }
+
+    // 2. Fallback to lastFrameDataUrl (RTDB phone frame or preset)
+    if (!snapshot && lastFrameDataUrl) {
+      snapshot = lastFrameDataUrl;
+    }
+
+    if (!snapshot) {
+      setIsAnalyzing(false);
+      setVerificationResult({
+        isFood: false,
+        label: "Camera Unready",
+        confidence: 0,
+        errorReason: "Optical stream not ready yet. Please ensure camera is connected or upload a photo."
+      });
+      return;
+    }
+
+    setCapturedSnapshot(snapshot);
+
+    try {
+      // Load snapshot into Image element for inference
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = snapshot;
+        setTimeout(resolve, 350);
+      });
+
+      // Reset temporal tracker for isolated snapshot evaluation
+      yoloVisionEngine.resetTracking();
+
+      const inference = await yoloVisionEngine.analyzeFrame(img);
+      console.log("[HUD Capture Analysis] YOLO Result:", inference);
+
+      const foodObj = inference.detectedObjects.find(o =>
+        o.category === "fruit" ||
+        o.category === "vegetable" ||
+        o.category === "cooked_meal" ||
+        o.category === "container" ||
+        o.category === "beverage" ||
+        o.category === "bakery"
+      );
+      const personObj = inference.detectedObjects.find(o => o.label === "Person in View");
+
+      const isFood = Boolean(inference.isFoodPresent && foodObj && foodObj.score >= 0.35);
+
+      if (isFood && foodObj) {
+        const foodLabel = foodObj.label;
+        const confidencePct = Math.round(foodObj.score * 100);
+        setVerificationResult({
+          isFood: true,
+          label: foodLabel,
+          confidence: confidencePct,
+          bbox: foodObj.bbox
+        });
+
+        // Trigger verified callback to lock locker and commit donation
+        if (onVerified) {
+          onVerified({
+            snapshotUrl: snapshot,
+            foodLabel,
+            visualFreshnessScore: inference.visualFreshnessScore || 95
+          });
+        }
+      } else {
+        let reason = "No food item detected inside the chamber.";
+        if (personObj) {
+          reason = "A person or hand was detected in view, not a food item.";
+        } else if (inference.detectedObjects.length === 0) {
+          reason = "The chamber shelf appears empty. Please place your food item inside.";
+        } else {
+          const names = inference.detectedObjects.map(o => o.label).join(", ");
+          reason = `Detected: ${names}. Not identified as a valid food item.`;
+        }
+
+        setVerificationResult({
+          isFood: false,
+          label: personObj ? "Person in View" : "No Food Item",
+          confidence: Math.round((personObj?.score || 0) * 100),
+          bbox: personObj?.bbox,
+          errorReason: reason
+        });
+      }
+    } catch (err: any) {
+      console.error("[HUD Capture Analysis] Error:", err);
+      setVerificationResult({
+        isFood: false,
+        label: "Analysis Error",
+        confidence: 0,
+        errorReason: "Failed to process photo. Please click Retake Photo and try again."
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleRetake = () => {
+    setCapturedSnapshot(null);
+    setVerificationResult(null);
+    setIsAnalyzing(false);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        handleCaptureAndVerify(dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className={`relative flex flex-col rounded-2xl overflow-hidden bg-slate-950/80 border border-slate-800/80 backdrop-blur-xl shadow-2xl ${className}`}>
       {/* ── Header Bar ── */}
       <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-900/60 border-b border-slate-800 text-xs">
         <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${isFoodPresent ? 'bg-emerald-400 animate-ping' : isPhoneConnected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+          <span className={`w-2 h-2 rounded-full ${verificationResult?.isFood ? 'bg-emerald-400' : isFoodPresent ? 'bg-emerald-400 animate-ping' : isPhoneConnected ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
           <span className="font-mono font-bold uppercase tracking-wider text-slate-200">
             {isDonorMode ? "Locker #1 In-Chamber Vision" : "Smart Chamber Vision"}
           </span>
@@ -108,7 +254,7 @@ export function ChamberVisionHud({
         {isDonorMode ? (
           <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px]">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>{isPhoneConnected ? "Optical Node Active" : "Sensor Standby"}</span>
+            <span>{isPhoneConnected ? "Optical Node Active" : "Camera Standby"}</span>
           </div>
         ) : (
           <div className="flex items-center gap-2">
@@ -142,46 +288,57 @@ export function ChamberVisionHud({
         )}
       </div>
 
-      {/* ── Live Viewfinder Container ── */}
+      {/* ── Live Viewfinder / Snapshot Container ── */}
       <div className="relative aspect-[16/10] bg-slate-950 flex items-center justify-center overflow-hidden">
-        {/* Real Video Element (WebRTC or Webcam) */}
-        <video
-          ref={attachVideoRef}
-          playsInline
-          muted
-          autoPlay
-          onLoadedMetadata={(e) => {
-            const el = e.currentTarget;
-            el.muted = true;
-            el.play().catch(() => {});
-          }}
-          className={`w-full h-full object-cover ${sourceMode === "simulator" ? "hidden" : "block"}`}
-        />
-
-        {/* Fallback frame (RTDB remote phone frames or Simulator canvas) */}
-        {lastFrameDataUrl && (sourceMode === "simulator" || !isStreaming) && (
+        {/* If user clicked snapshot: Display the captured photo */}
+        {capturedSnapshot ? (
           <img
-            src={lastFrameDataUrl}
-            alt="Chamber Optical Stream"
+            src={capturedSnapshot}
+            alt="Captured Chamber Food Snapshot"
             className="w-full h-full object-cover absolute inset-0"
           />
+        ) : (
+          <>
+            {/* Real Video Element (WebRTC or Webcam) */}
+            <video
+              ref={attachVideoRef}
+              playsInline
+              muted
+              autoPlay
+              onLoadedMetadata={(e) => {
+                const el = e.currentTarget;
+                el.muted = true;
+                el.play().catch(() => {});
+              }}
+              className={`w-full h-full object-cover ${sourceMode === "simulator" ? "hidden" : "block"}`}
+            />
+
+            {/* Fallback frame (RTDB remote phone frames or Simulator canvas) */}
+            {lastFrameDataUrl && (sourceMode === "simulator" || !isStreaming) && (
+              <img
+                src={lastFrameDataUrl}
+                alt="Chamber Optical Stream"
+                className="w-full h-full object-cover absolute inset-0"
+              />
+            )}
+
+            {/* Standby screen when phone is not yet streaming */}
+            {!isStreaming && !lastFrameDataUrl && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center gap-2 bg-slate-950 z-10">
+                <Camera className="w-8 h-8 text-emerald-400/40 animate-pulse" />
+                <div className="text-xs font-mono font-bold text-slate-300">
+                  In-Chamber Optical Sensor Standby
+                </div>
+                <p className="text-[10px] font-mono text-slate-500 max-w-xs">
+                  Positioned in Locker #1 • Place food inside and capture photo
+                </p>
+              </div>
+            )}
+          </>
         )}
 
-        {/* Standby screen when phone is not yet streaming */}
-        {!isStreaming && !lastFrameDataUrl && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center gap-2 bg-slate-950 z-10">
-            <Camera className="w-8 h-8 text-emerald-400/40 animate-pulse" />
-            <div className="text-xs font-mono font-bold text-slate-300">
-              In-Chamber Optical Sensor Standby
-            </div>
-            <p className="text-[10px] font-mono text-slate-500 max-w-xs">
-              Positioned in Locker #1 • Backup Ultrasonic Active ({ultrasonicDistCm ? `${ultrasonicDistCm.toFixed(1)} cm` : 'Armed'})
-            </p>
-          </div>
-        )}
-
-        {/* Simulator Preset Switcher Bar */}
-        {sourceMode === "simulator" && (
+        {/* Simulator Preset Switcher Bar (when in simulator mode and no photo captured yet) */}
+        {!capturedSnapshot && sourceMode === "simulator" && (
           <div className="absolute top-2 left-2 right-2 flex gap-1 z-20">
             {presets.map((p, idx) => (
               <button
@@ -199,59 +356,132 @@ export function ChamberVisionHud({
           </div>
         )}
 
-        {/* ── YOLO Animated Bounding Box Overlay: Food Detection ── */}
+        {/* ── Visual Scanning Laser when Analyzing Snapshot ── */}
         <AnimatePresence>
-          {isFoodPresent && foodDetected && (
+          {isAnalyzing && (
+            <>
+              <motion.div
+                key="laser-scan"
+                initial={{ top: "0%" }}
+                animate={{ top: ["0%", "92%", "0%"] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_#10b981] z-30 pointer-events-none"
+              />
+              <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center z-30 pointer-events-none">
+                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-emerald-500/40 text-emerald-300 font-mono text-xs shadow-xl">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                  <span>Analyzing Photo with YOLOv8...</span>
+                </div>
+              </div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* ── Bounding Box on Captured Snapshot: Verified Food ── */}
+        <AnimatePresence>
+          {capturedSnapshot && verificationResult?.isFood && verificationResult.bbox && (
             <motion.div
-              key="food-bbox"
+              key="verified-bbox"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
               style={{
                 position: "absolute",
-                left: `${foodDetected.bbox[0] * 100}%`,
-                top: `${foodDetected.bbox[1] * 100}%`,
-                width: `${foodDetected.bbox[2] * 100}%`,
-                height: `${foodDetected.bbox[3] * 100}%`
+                left: `${verificationResult.bbox[0] * 100}%`,
+                top: `${verificationResult.bbox[1] * 100}%`,
+                width: `${verificationResult.bbox[2] * 100}%`,
+                height: `${verificationResult.bbox[3] * 100}%`
               }}
-              className="border-2 border-emerald-400 rounded-xl pointer-events-none shadow-[0_0_15px_rgba(16,185,129,0.35)] flex flex-col justify-between p-1.5"
+              className="border-2 border-emerald-400 rounded-xl pointer-events-none shadow-[0_0_20px_rgba(16,185,129,0.5)] flex flex-col justify-between p-1.5 z-20"
             >
-              <div className="self-start px-2 py-0.5 rounded bg-emerald-500/90 text-slate-950 text-[10px] font-black tracking-wider uppercase font-mono shadow">
-                {foodDetected.label} • {Math.round(confidence * 100)}%
+              <div className="self-start px-2 py-0.5 rounded bg-emerald-500 text-slate-950 text-[10px] font-black tracking-wider uppercase font-mono shadow">
+                ✓ {verificationResult.label} • {verificationResult.confidence}%
               </div>
-              <div className="self-end text-[9px] font-mono font-bold text-emerald-300 bg-slate-950/70 px-1.5 py-0.5 rounded">
-                Shelf Verified
+              <div className="self-end text-[9px] font-mono font-bold text-emerald-300 bg-slate-950/80 px-1.5 py-0.5 rounded">
+                Food Verified
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ── YOLO Animated Bounding Box Overlay: Person Detection ── */}
+        {/* ── Bounding Box on Captured Snapshot: Rejected Non-Food / Person ── */}
         <AnimatePresence>
-          {personDetected && (
+          {capturedSnapshot && verificationResult && !verificationResult.isFood && verificationResult.bbox && (
             <motion.div
-              key="person-bbox"
+              key="rejected-bbox"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
               style={{
                 position: "absolute",
-                left: `${personDetected.bbox[0] * 100}%`,
-                top: `${personDetected.bbox[1] * 100}%`,
-                width: `${personDetected.bbox[2] * 100}%`,
-                height: `${personDetected.bbox[3] * 100}%`
+                left: `${verificationResult.bbox[0] * 100}%`,
+                top: `${verificationResult.bbox[1] * 100}%`,
+                width: `${verificationResult.bbox[2] * 100}%`,
+                height: `${verificationResult.bbox[3] * 100}%`
               }}
-              className="border-2 border-amber-400 rounded-xl pointer-events-none shadow-[0_0_14px_rgba(251,191,36,0.35)] flex flex-col justify-between p-1.5"
+              className="border-2 border-amber-400 rounded-xl pointer-events-none shadow-[0_0_15px_rgba(251,191,36,0.4)] flex flex-col justify-between p-1.5 z-20"
             >
-              <div className="self-start px-2 py-0.5 rounded bg-amber-400/90 text-slate-950 text-[10px] font-black tracking-wider uppercase font-mono shadow">
-                👤 Person in View • {Math.round((personDetected.score ?? 0.97) * 100)}%
-              </div>
-              <div className="self-end text-[9px] font-mono font-bold text-amber-300 bg-slate-950/70 px-1.5 py-0.5 rounded">
-                Not Food
+              <div className="self-start px-2 py-0.5 rounded bg-amber-400 text-slate-950 text-[10px] font-black tracking-wider uppercase font-mono shadow">
+                ⚠️ {verificationResult.label} • Not Food
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* ── Live Bounding Boxes (Only visible when NOT viewing a captured photo) ── */}
+        {!capturedSnapshot && (
+          <>
+            <AnimatePresence>
+              {isFoodPresent && foodDetected && (
+                <motion.div
+                  key="food-bbox"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  style={{
+                    position: "absolute",
+                    left: `${foodDetected.bbox[0] * 100}%`,
+                    top: `${foodDetected.bbox[1] * 100}%`,
+                    width: `${foodDetected.bbox[2] * 100}%`,
+                    height: `${foodDetected.bbox[3] * 100}%`
+                  }}
+                  className="border-2 border-emerald-400 rounded-xl pointer-events-none shadow-[0_0_15px_rgba(16,185,129,0.35)] flex flex-col justify-between p-1.5"
+                >
+                  <div className="self-start px-2 py-0.5 rounded bg-emerald-500/90 text-slate-950 text-[10px] font-black tracking-wider uppercase font-mono shadow">
+                    {foodDetected.label} • {Math.round(confidence * 100)}%
+                  </div>
+                  <div className="self-end text-[9px] font-mono font-bold text-emerald-300 bg-slate-950/70 px-1.5 py-0.5 rounded">
+                    Ready to Capture
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {personDetected && (
+                <motion.div
+                  key="person-bbox"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  style={{
+                    position: "absolute",
+                    left: `${personDetected.bbox[0] * 100}%`,
+                    top: `${personDetected.bbox[1] * 100}%`,
+                    width: `${personDetected.bbox[2] * 100}%`,
+                    height: `${personDetected.bbox[3] * 100}%`
+                  }}
+                  className="border-2 border-amber-400 rounded-xl pointer-events-none shadow-[0_0_14px_rgba(251,191,36,0.35)] flex flex-col justify-between p-1.5"
+                >
+                  <div className="self-start px-2 py-0.5 rounded bg-amber-400/90 text-slate-950 text-[10px] font-black tracking-wider uppercase font-mono shadow">
+                    👤 Person in View • {Math.round((personDetected.score ?? 0.97) * 100)}%
+                  </div>
+                  <div className="self-end text-[9px] font-mono font-bold text-amber-300 bg-slate-950/70 px-1.5 py-0.5 rounded">
+                    Not Food
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
 
         {/* ── Ambient HUD Reticles ── */}
         <div className="absolute inset-2 border border-slate-800/40 rounded-xl pointer-events-none flex flex-col justify-between p-2">
@@ -266,15 +496,103 @@ export function ChamberVisionHud({
         </div>
       </div>
 
+      {/* ── Interactive Photo Capture & Verification Control Bar ── */}
+      {isDonorMode && (
+        <div className="border-t border-slate-800 bg-slate-900/95 p-3 space-y-2.5">
+          {!capturedSnapshot ? (
+            <>
+              <div className="flex items-center gap-2 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-3 py-2 rounded-xl border border-emerald-500/20">
+                <Camera className="w-4 h-4 shrink-0 text-emerald-400 animate-pulse" />
+                <span>Place food inside the chamber & tap below to take a photo.</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleCaptureAndVerify()}
+                disabled={isAnalyzing}
+                className="w-full py-3.5 px-4 rounded-xl font-black text-xs sm:text-sm tracking-wider uppercase transition-all duration-200 flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:brightness-110 text-slate-950 shadow-[0_0_25px_rgba(16,185,129,0.35)] active:scale-[0.98]"
+              >
+                <Camera className="w-4 h-4 text-slate-950" />
+                <span>Take Photo of Donated Food</span>
+              </button>
+
+              <div className="flex items-center justify-center pt-0.5">
+                <label className="text-[10px] font-mono text-slate-400 hover:text-emerald-400 cursor-pointer flex items-center gap-1.5 transition-colors">
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Or snap / upload with phone camera</span>
+                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileUpload} />
+                </label>
+              </div>
+            </>
+          ) : isAnalyzing ? (
+            <div className="py-3 px-4 rounded-xl bg-slate-950/80 border border-slate-800 text-center space-y-1">
+              <div className="flex items-center justify-center gap-2 text-emerald-400 font-bold text-xs">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Inspecting Photo with YOLOv8 Neural Network...</span>
+              </div>
+              <p className="text-[10px] font-mono text-slate-400">
+                Evaluating food category, freshness, and chamber placement.
+              </p>
+            </div>
+          ) : verificationResult?.isFood ? (
+            <div className="py-2.5 px-3 rounded-xl bg-emerald-950/70 border border-emerald-600/50 text-center space-y-1 animate-in fade-in">
+              <div className="flex items-center justify-center gap-2 text-emerald-300 font-bold text-xs sm:text-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Food Verified: {verificationResult.label} ({verificationResult.confidence}%)</span>
+              </div>
+              <p className="text-[11px] font-mono text-emerald-400/90">
+                ✓ Locking chamber door & redirecting to Receiver Dashboard...
+              </p>
+            </div>
+          ) : (
+            <div className="py-3 px-3.5 rounded-xl bg-rose-950/60 border border-rose-600/40 space-y-2.5 animate-in fade-in">
+              <div className="flex items-start gap-2.5 text-rose-300 text-xs">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div className="flex-1 text-left">
+                  <span className="font-bold uppercase tracking-wider block text-[11px] text-rose-400">
+                    No Food Item Detected
+                  </span>
+                  <span className="text-[11px] text-slate-300 font-normal leading-tight block mt-0.5">
+                    {verificationResult?.errorReason}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleRetake}
+                  className="flex-1 py-2.5 px-3 rounded-xl font-bold text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 active:scale-[0.98]"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Retake Photo</span>
+                </button>
+                <label className="py-2.5 px-3 rounded-xl font-bold text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer active:scale-[0.98]">
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Upload</span>
+                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileUpload} />
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Dual-Redundant Sensor Status Footer ── */}
       <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-900/70 border-t border-slate-800 text-xs">
         {/* Primary: YOLO Vision */}
         <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-950/60 border border-slate-800/80">
-          <div className={`w-2.5 h-2.5 rounded-full ${isFoodPresent ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+          <div className={`w-2.5 h-2.5 rounded-full ${verificationResult?.isFood || isFoodPresent ? 'bg-emerald-400' : 'bg-slate-600'}`} />
           <div className="flex-1 min-w-0">
             <div className="text-[10px] text-slate-400 font-mono">PRIMARY: YOLO VISION</div>
             <div className="font-bold text-emerald-400 text-[11px] truncate">
-              {isFoodPresent ? `Food Detected (${Math.round(confidence * 100)}%)` : "Awaiting Placement"}
+              {verificationResult?.isFood
+                ? `Photo Verified (${verificationResult.confidence}%)`
+                : capturedSnapshot
+                ? "Verification Failed"
+                : isFoodPresent
+                ? `Ready to Click (${Math.round(confidence * 100)}%)`
+                : "Awaiting Photo Capture"}
             </div>
           </div>
         </div>
@@ -286,7 +604,7 @@ export function ChamberVisionHud({
             <div className="text-[10px] text-slate-400 font-mono">BACKUP: ULTRASONIC</div>
             <div className="font-bold text-slate-300 text-[11px] truncate font-mono">
               {typeof ultrasonicDistCm === "number" && ultrasonicDistCm > 0 
-                ? `${ultrasonicDistCm.toFixed(1)} cm ${isUltrasonicConfirmed ? '(Echo Confirmed)' : '(Empty)'}` 
+                ? `${ultrasonicDistCm.toFixed(1)} cm ${isUltrasonicConfirmed ? '(Echo Confirmed)' : '(Standby)'}` 
                 : "Armed / Standby"}
             </div>
           </div>

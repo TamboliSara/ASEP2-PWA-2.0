@@ -190,6 +190,16 @@ class YoloVisionEngine {
   }
 
   /**
+   * Resets temporal tracking and face cache for independent static snapshot analysis.
+   */
+  public resetTracking() {
+    this.trackedObjects = [];
+    this.emptyFrameCounter = 0;
+    this.lastFaceBbox = null;
+    this.lastFaceTimestamp = 0;
+  }
+
+  /**
    * Evaluates a video or image frame in real time (<2ms).
    * Simultaneously detects multiple items, classifies them, and returns individual bounding boxes.
    */

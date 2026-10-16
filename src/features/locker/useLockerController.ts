@@ -70,11 +70,23 @@ export function useLockerController() {
   const { t } = useTranslation();
   const [isBusy, setIsBusy] = useState(false);
   const manualConfirmRef = useRef(false);
+  const manualConfirmDataRef = useRef<{
+    snapshotUrl?: string;
+    foodLabel?: string;
+    visualFreshnessScore?: number;
+  } | null>(null);
   const wakeUpRef = useRef<(() => void) | null>(null);
 
-  function confirmDepositManually() {
-    console.log("[Deposit] 👆 User triggered manual food confirmation");
+  function confirmDepositManually(verifiedData?: {
+    snapshotUrl?: string;
+    foodLabel?: string;
+    visualFreshnessScore?: number;
+  }) {
+    console.log("[Deposit] 👆 User captured & verified food photo manually:", verifiedData);
     manualConfirmRef.current = true;
+    if (verifiedData) {
+      manualConfirmDataRef.current = verifiedData;
+    }
     dispatch({ type: "set-sync-message", message: "✓ Food confirmed! Securing chamber..." });
     if (wakeUpRef.current) {
       wakeUpRef.current();
@@ -404,124 +416,65 @@ export function useLockerController() {
           syncState: "synced"
         } as LockerEvent));
 
-        // ── INTELLIGENT DEPOSIT & ULTRASONIC VERIFICATION LOOP ──────────────
-        // 1. Solenoid unlocks cleanly on the first pulse without conflicting second unlocks.
-        // 2. Polls RTDB occupancy, ultrasonic distanceCm, and BLE notifications over a 25s window.
-        // 3. Sensor threshold calibrated: empty chamber is ~36.5cm. Any item >= 2.0cm tall
-        //    reduces measured distance to <= 34.5cm (solving the 22.0cm false rejection bug).
-        // 4. Immediately confirms deposit as soon as food presence is registered.
+        // ── USER-INITIATED PHOTO CAPTURE & AI VERIFICATION FLOW ───────────
+        // Per system requirement: Do NOT auto-detect or auto-confirm food.
+        // The solenoid remains unlocked while asking the user to click the photo of
+        // the donated food placed inside the chamber. Food is verified from that photo.
         manualConfirmRef.current = false;
+        manualConfirmDataRef.current = null;
         let isFoodConfirmed = false;
-        const TOTAL_WAIT_MS = 30000; // 30s generous window for human donor
+        const TOTAL_WAIT_MS = 60000; // 60s comfortable window for user to place food and click photo
         const loopStart = Date.now();
-        const baselineDist = (currentLocker.telemetry?.distanceCm && currentLocker.telemetry.distanceCm > 1.0)
-          ? currentLocker.telemetry.distanceCm
-          : 36.5;
 
         while (Date.now() - loopStart < TOTAL_WAIT_MS) {
-          if (manualConfirmRef.current) {
-            console.log("[Deposit] ✅ Immediate manual confirmation detected!");
+          const manualConfirmed = manualConfirmRef.current;
+          if (manualConfirmed) {
+            const verifiedData = manualConfirmDataRef.current as {
+              snapshotUrl?: string;
+              foodLabel?: string;
+              visualFreshnessScore?: number;
+            } | null;
+            const verifiedLabel = verifiedData?.foodLabel || "Donated Food Item";
+            const verifiedSnapshot = verifiedData?.snapshotUrl;
+            const verifiedScore = verifiedData?.visualFreshnessScore || 95;
+
+            console.log(`[Deposit] ✅ Food presence confirmed via User Photo Capture (${verifiedLabel})!`);
             isFoodConfirmed = true;
+
+            // Enrich donation record with real AI vision results from captured photo
+            donation.foodName = state.donationDraft.foodName || verifiedLabel;
+            donation.categoryLabel = verifiedLabel;
+            if (verifiedSnapshot) {
+              donation.chamberFoodImageUrl = verifiedSnapshot;
+            }
+            donation.visualFreshnessScore = verifiedScore;
             break;
           }
 
           const elapsed = Date.now() - loopStart;
           const remainingSec = Math.max(1, Math.ceil((TOTAL_WAIT_MS - elapsed) / 1000));
 
-          // Read latest sensor data from hardware & direct cloud camera state
-          const [occupancy, telemetry, camSnap] = await Promise.all([
-            getOccupancy(targetMac).catch(() => null),
+          // Fetch telemetry & camera state in background for HUD
+          const [telemetry, camSnap] = await Promise.all([
             getDeviceTelemetry(targetMac).catch(() => null),
             get(chamberCameraRef(HARDWARE_LOCKER_ID)).catch(() => null)
           ]);
 
           if (manualConfirmRef.current) {
-            console.log("[Deposit] ✅ Immediate manual confirmation detected after sensor check!");
-            isFoodConfirmed = true;
-            break;
+            continue;
           }
 
           const dist = telemetry?.distanceCm;
           const distStr = typeof dist === "number" && dist > 0 && dist < 400 ? `${dist.toFixed(1)} cm` : "Scanning...";
 
-          // ── Multi-Tier Food Detection Verification: React State + Phone RTDB + Frame Vision ──
-          const activeLocker = latestStateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
-          const cam = activeLocker?.cameraTelemetry;
-          const camRtdb = camSnap?.val();
+          dispatch({
+            type: "set-sync-message",
+            message: `Door unlocked! Place food inside chamber and click 'Take Photo' (${remainingSec}s) [Chamber #1]`
+          });
 
-          // 1. Direct camera confirmation from live React state
-          let cameraConfirmed = Boolean(cam?.isFoodPresent && (cam?.confidence ?? 0) >= 0.45);
-          let detectedLabel = cam?.detectedObjects?.[0]?.label;
-
-          // 2. Direct camera confirmation from phone's RTDB packet
-          if (!cameraConfirmed && camRtdb?.isFoodPresent) {
-            cameraConfirmed = true;
-            detectedLabel = camRtdb.detectedLabel || "Donated Food Item";
-          }
-
-          // 3. Fallback direct image frame inference
-          if (!cameraConfirmed && camRtdb?.latestFrame && typeof camRtdb.latestFrame === "string") {
-            try {
-              const img = new Image();
-              img.src = camRtdb.latestFrame;
-              await new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 60); });
-              if (img.complete && img.naturalWidth > 0) {
-                const res = await yoloVisionEngine.analyzeFrame(img);
-                if (res.isFoodPresent) {
-                  cameraConfirmed = true;
-                  detectedLabel = res.detectedObjects?.[0]?.label || "Donated Food Item";
-                }
-              }
-            } catch {}
-          }
-
-          const ultrasonicBackupConfirmed = typeof dist === "number" && dist > 1.0 && dist < 34.0;
-          const occupancyConfirmed = occupancy === "occupied";
-          const manualConfirmed = manualConfirmRef.current;
-
-          const detectionLabel = cameraConfirmed
-            ? `AI Vision: ${detectedLabel || "Food Item"} (${Math.round((cam?.confidence || 0.95) * 100)}%)`
-            : `Sensor Backup: ${distStr}`;
-
-          if (elapsed < 3000) {
-            dispatch({
-              type: "set-sync-message",
-              message: `Door unlocked! Place food inside (${remainingSec}s)... [${detectionLabel}]`
-            });
-          } else {
-            dispatch({
-              type: "set-sync-message",
-              message: `Food detected! Verifying seal (${remainingSec}s)... [${detectionLabel}]`
-            });
-          }
-
-          // Fast & seamless auto-confirmation (after at least 1.2s so user can place item)
-          const canAutoConfirm = elapsed >= 1200;
-
-          console.log(`[Deposit Poll] Elapsed: ${(elapsed / 1000).toFixed(1)}s, Cam: ${cameraConfirmed} (${detectedLabel}), DistBackup: ${ultrasonicBackupConfirmed}, Occupancy: "${occupancy}", canAutoConfirm: ${canAutoConfirm}`);
-
-          if (manualConfirmed || (canAutoConfirm && (cameraConfirmed || ultrasonicBackupConfirmed || occupancyConfirmed || bleOccupied))) {
-            const confirmedBy = cameraConfirmed 
-              ? `Chamber AI Optical Vision (${detectedLabel || 'Food Verified'})` 
-              : (ultrasonicBackupConfirmed ? `Ultrasonic Sensor Backup (${dist}cm)` : "Hardware Sensor");
-            console.log(`[Deposit] ✅ Food presence confirmed via ${confirmedBy}!`);
-            isFoodConfirmed = true;
-
-            // Enrich donation record with real AI vision results
-            if (detectedLabel) {
-              donation.foodName = state.donationDraft.foodName || detectedLabel;
-              donation.categoryLabel = detectedLabel;
-            }
-            if (cam?.lastSnapshotUrl || camRtdb?.latestFrame) {
-              donation.chamberFoodImageUrl = cam?.lastSnapshotUrl || camRtdb?.latestFrame;
-            }
-            donation.visualFreshnessScore = cam?.visualFreshnessScore || 95;
-            break;
-          }
-
-          // Abortable sleep: if user taps manual confirm, wakes up immediately!
+          // Abortable sleep: if user clicks photo and verification succeeds, wakes up immediately!
           await new Promise<void>(resolve => {
-            const timer = setTimeout(resolve, 500);
+            const timer = setTimeout(resolve, 400);
             wakeUpRef.current = () => {
               clearTimeout(timer);
               resolve();

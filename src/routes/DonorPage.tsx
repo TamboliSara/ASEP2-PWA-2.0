@@ -15,7 +15,7 @@ import { ChamberVisionHud } from "../features/camera/ChamberVisionHud";
 export function DonorPage() {
   const navigate = useNavigate();
   const { state, dispatch } = useAppContext();
-  const { currentLocker, submitDeposit, isBusy } = useLockerController();
+  const { currentLocker, submitDeposit, isBusy, confirmDepositManually } = useLockerController();
   const { t } = useTranslation();
   const [isFlowStarted, setIsFlowStarted] = useState(false);
   const [depositConfirmed, setDepositConfirmed] = useState(false);
@@ -27,12 +27,11 @@ export function DonorPage() {
     setDepositFailed(false);
     const donation = await submitDeposit(imageData);
     if (donation) {
-      // Real food confirmed by ultrasonic sensor — proceed to receiver dashboard
+      // Real food verified by in-chamber photo snapshot — proceed directly to receiver dashboard
       setDepositConfirmed(true);
-      window.setTimeout(() => navigate("/receive", { replace: true }), 900);
+      window.setTimeout(() => navigate("/receive#retrieve-item-card", { replace: true }), 900);
     } else {
-      // Ghost attempt: no food detected, deposit was cancelled by firmware.
-      // Reset the flow so the donor can try again cleanly.
+      // Ghost attempt: no food detected / cycle cancelled
       setDepositFailed(true);
       setIsFlowStarted(false);
     }
@@ -83,34 +82,34 @@ export function DonorPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md"
+            className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 15 }}
               transition={{ type: "spring", damping: 26, stiffness: 320 }}
-              className="w-full max-w-md p-6 sm:p-8 rounded-[2rem] bg-panel/95 border border-accent/40 shadow-2xl flex flex-col items-center text-center space-y-5"
+              className="w-full max-w-lg p-5 sm:p-6 rounded-[2rem] bg-panel/95 border border-accent/40 shadow-2xl flex flex-col items-center text-center space-y-4 my-auto max-h-[95vh] overflow-y-auto"
             >
               <div className="relative">
                 <div className="absolute inset-0 bg-accent/25 blur-2xl rounded-full scale-125 animate-pulse" />
-                <div className="relative w-16 h-16 rounded-2xl bg-accent/10 border border-accent/30 flex items-center justify-center text-accent">
-                  <Package className="w-8 h-8 animate-bounce" />
+                <div className="relative w-14 h-14 rounded-2xl bg-accent/10 border border-accent/30 flex items-center justify-center text-accent">
+                  <Package className="w-7 h-7 animate-bounce" />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/15 border border-accent/30">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-accent/15 border border-accent/30">
                   <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
                   <span className="text-[11px] font-black uppercase tracking-widest text-accent">
                     Solenoid Unlocked
                   </span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black text-text">
-                  Place Food in Locker
+                  Place Food & Click Photo
                 </h3>
                 <p className="text-xs text-text-muted max-w-sm mx-auto leading-relaxed">
-                  {state.syncMessage || "Open the locker door, place your food container inside, and push the door shut."}
+                  Open the door, place your food inside the chamber, and click "Take Photo of Donated Food" to verify.
                 </p>
               </div>
 
@@ -120,6 +119,7 @@ export function DonorPage() {
                   lockerId={currentLocker.lockerId}
                   ultrasonicDistCm={currentLocker?.telemetry?.distanceCm}
                   isDonorMode={true}
+                  onVerified={confirmDepositManually}
                 />
               </div>
 
