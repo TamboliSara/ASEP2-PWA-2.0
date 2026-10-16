@@ -14,6 +14,7 @@ import { useAppContext } from "../../store/AppContext";
 import { useTranslation } from "../../store/useTranslation";
 import { sampleAlert, sampleDonation, sampleLockerState } from "../../utils/mockData";
 import { generateMockReadings, persistMockReadings, clearMockReadings } from "../../utils/mockTelemetry";
+import { markLockerRetrieved, unmarkLockerRetrieved, clearAllRetrievedLockers } from "../../utils/retrievalStorage";
 import type { AlertRecord, DonationRecord, LockerEvent, PredictionSnapshot, SensorSnapshot } from "../../types/domain";
 
 const generateId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36));
@@ -535,6 +536,10 @@ export function useLockerController() {
 
         dispatch({ type: "set-sync-message", message: "Food verified! Securing chamber..." });
 
+        // Unmark retrieved state so the new donation is immediately active
+        unmarkLockerRetrieved(HARDWARE_LOCKER_ID);
+        unmarkLockerRetrieved(currentLocker.lockerId);
+
         // Food confirmed! Fire lock & status updates in parallel without blocking UI
         lockLocker(HARDWARE_LOCKER_ID, targetMac).catch(() => {});
         updateDeviceStatus(HARDWARE_LOCKER_ID, {
@@ -748,7 +753,44 @@ export function useLockerController() {
   async function retrieveFood(skipSanitization = false, isAdminOverride = false, imageData?: string, faceDescriptor?: number[], adminCredentials?: string) {
     setIsBusy(true);
 
+    const targetLockerId = currentLocker.lockerId;
     const activeDonation = currentLocker.activeDonation;
+    const targetMac = (hardwareMac && hardwareMac !== "SIMULATED" && hardwareMac !== "OFFLINE")
+      ? hardwareMac
+      : "E8F60A893D4C";
+
+    // ── 1. INSTANT OPTIMISTIC UI CLEAR ──────────────────────────────
+    // Immediately clear active donation so the dashboard updates instantaneously!
+    dispatch({
+      type: "patch-locker",
+      id: targetLockerId,
+      locker: {
+        activeDonation: undefined,
+        occupancyState: "empty",
+        sanitizationState: skipSanitization ? "complete" : "running",
+        doorState: "closed",
+        lockState: "locked",
+        foodQualityScore: "fresh",
+        faultState: "none"
+      }
+    });
+
+    // Mark as retrieved in persistent storage so local listeners/reloads keep it cleared
+    markLockerRetrieved(targetLockerId);
+
+    // Immediately push empty occupancy to RTDB so IoT listeners see empty
+    updateDeviceStatus(targetLockerId, {
+      occupancy: "empty",
+      lock_state: "locked",
+      door_state: "closed"
+    }).catch(() => {});
+    if (isHardwareLocker && targetMac) {
+      updateDeviceStatus(targetMac, {
+        occupancy: "empty",
+        lock_state: "locked",
+        door_state: "closed"
+      }).catch(() => {});
+    }
 
     try {
       if (isHardwareLocker) {
@@ -758,38 +800,36 @@ export function useLockerController() {
 
         if (isAdminOverride) {
           await adminUnlockLocker(HARDWARE_LOCKER_ID, hardwareMac);
-          await bleService.sendAdminUnlock();
+          await bleService.sendAdminUnlock().catch(() => {});
         } else {
           await unlockLocker(HARDWARE_LOCKER_ID, hardwareMac);
-          await bleService.sendUnlock();
+          await bleService.sendUnlock().catch(() => {});
         }
 
-        // Wait for ESP32 cycle
-        await new Promise(resolve => setTimeout(resolve, 9000));
+        // Crisp 1.2s physical actuation window (solenoid fires and re-locks without freezing UI)
+        await new Promise(resolve => setTimeout(resolve, 1200));
 
-        // After retrieval, occupancy should be empty
-        dispatch({ type: "set-sync-message", message: "Food retrieved. Re-locking chamber..." });
+        dispatch({ type: "set-sync-message", message: `SAFE 1 CLEARED: Access cycle complete.` });
       } else {
         // ── MOCK RETRIEVAL ─────────────────────────────────────────
         if (isAdminOverride) {
-          console.log(`[Retrieve] ⚡ Admin Override Force Unlock for ${currentLocker.lockerId}...`);
-          dispatch({ type: "set-sync-message", message: `⚡ Admin Force Override Verified! Energizing solenoid for ${currentLocker.lockerId.replace('chamber-', 'Safe ')}...` });
+          console.log(`[Retrieve] ⚡ Admin Override Force Unlock for ${targetLockerId}...`);
+          dispatch({ type: "set-sync-message", message: `⚡ Admin Force Override Verified! Energizing solenoid for ${targetLockerId.replace('chamber-', 'Safe ')}...` });
           
-          // Dual-send ADMIN_UNLOCK to RTDB for this chamber AND for physical Safe 1 so physical ESP32 solenoid actuates
-          await adminUnlockLocker(currentLocker.lockerId, hardwareMac);
+          await adminUnlockLocker(targetLockerId, hardwareMac);
           await adminUnlockLocker(HARDWARE_LOCKER_ID, hardwareMac);
           await bleService.sendAdminUnlock().catch(() => {});
           
-          // Realistic unlock window so judges see the animated confirmation & hear solenoid
-          await new Promise(resolve => setTimeout(resolve, 2500));
-          dispatch({ type: "set-sync-message", message: `✓ ${currentLocker.lockerId.replace('chamber-', 'Safe ')} Unlocked (Admin Override) — Spoiled item safely cleared!` });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          dispatch({ type: "set-sync-message", message: `✓ ${targetLockerId.replace('chamber-', 'Safe ')} Unlocked (Admin Override) — Spoiled item safely cleared!` });
         } else {
-          await unlockLocker(currentLocker.lockerId);
+          await unlockLocker(targetLockerId).catch(() => {});
+          await new Promise(resolve => setTimeout(resolve, 800));
         }
       }
 
       const unlockEvent = await bleService.unlock().catch(() => ({ id: generateId(), type: "unlock", createdAt: new Date().toISOString(), detail: "Unlock", syncState: "synced" } as LockerEvent));
-      await lockLocker(currentLocker.lockerId, isHardwareLocker ? hardwareMac : undefined);
+      await lockLocker(targetLockerId, isHardwareLocker ? hardwareMac : undefined).catch(() => {});
       const lockEvent   = await bleService.lock().catch(() => ({ id: generateId(), type: "lock", createdAt: new Date().toISOString(), detail: "Lock", syncState: "synced" } as LockerEvent));
 
       let sensorSnapshotId = generateId();
@@ -797,7 +837,7 @@ export function useLockerController() {
 
       const sensorSnapshot: SensorSnapshot = {
         id: sensorSnapshotId,
-        lockerId: currentLocker.lockerId,
+        lockerId: targetLockerId,
         donationId: activeDonation?.id,
         capturedAt: new Date().toISOString(),
         telemetry: currentLocker.telemetry,
@@ -805,7 +845,7 @@ export function useLockerController() {
       };
       const predictionSnapshot: PredictionSnapshot = {
         id: predictionSnapshotId,
-        lockerId: currentLocker.lockerId,
+        lockerId: targetLockerId,
         donationId: activeDonation?.id,
         capturedAt: new Date().toISOString(),
         qualityScore: currentLocker.foodQualityScore,
@@ -818,7 +858,7 @@ export function useLockerController() {
       // Call Cloud Function if deployed
       if (initiateRetrievalFn) {
         try {
-          await withTimeout(initiateRetrievalFn({ mac_address: currentLocker.lockerId }));
+          await withTimeout(initiateRetrievalFn({ mac_address: targetLockerId }));
         } catch (e) {
           console.error("Cloud function initiateRetrieval failed (non-blocking):", e);
         }
@@ -826,12 +866,12 @@ export function useLockerController() {
 
       // ── Sync retrieval to Firestore (donation update + retrievals collection) ──
       if (activeDonation) {
-        const lockerIndex = state.lockers.findIndex(l => l.lockerId === currentLocker.lockerId);
+        const lockerIndex = state.lockers.findIndex(l => l.lockerId === targetLockerId);
         try {
           await syncRetrieval({
             id: generateId(),
             donationId: activeDonation.id,
-            lockerId: currentLocker.lockerId,
+            lockerId: targetLockerId,
             lockerNumber: lockerIndex >= 0 ? lockerIndex + 1 : 0,
             foodName: activeDonation.foodName,
             qualityScoreAtRetrieval: currentLocker.foodQualityScore,
@@ -855,7 +895,7 @@ export function useLockerController() {
 
       // Start sanitization if needed
       if (!skipSanitization) {
-        await sanitizeLocker(currentLocker.lockerId);
+        await sanitizeLocker(targetLockerId).catch(() => {});
       }
 
       try {
@@ -874,7 +914,7 @@ export function useLockerController() {
       
       const retrievalEvent: LockerEvent = {
         id: generateId(),
-        lockerId: currentLocker.lockerId,
+        lockerId: targetLockerId,
         type: "unlock",
         createdAt: new Date().toISOString(),
         detail: `Item retrieved ${isAdminOverride ? "by Admin Override" : "by Receiver"}. Chamber vacated.`,
@@ -887,10 +927,10 @@ export function useLockerController() {
       console.error("[Retrieve] CRITICAL ERROR during retrieval flow:", err);
       dispatch({ type: "set-sync-message", message: `⚠️ Force override encountered an error, but locker was safely cleared.` });
     } finally {
-      // ALWAYS PATCH LOCKER TO EMPTY NO MATTER WHAT
+      // Re-assert empty state in local state and Firestore
       dispatch({
         type: "patch-locker",
-        id: currentLocker.lockerId,
+        id: targetLockerId,
         locker: {
           activeDonation: undefined, // Explicitly clear donation
           occupancyState: "empty",
@@ -902,8 +942,7 @@ export function useLockerController() {
         }
       });
       
-      // Also forcibly update the root state to ensure donation is wiped if patch-locker spread fails (fallback)
-      dispatch({ type: "set-sync-message", message: `SAFE ${currentLocker.lockerId.split('-')[1]?.toUpperCase() || '1'} CLEARED: Access cycle complete.` });
+      dispatch({ type: "set-sync-message", message: `SAFE ${targetLockerId.replace('chamber-', '')} CLEARED: Access cycle complete.` });
 
       // Sync the now-empty locker state to Firestore
       try {
@@ -1021,6 +1060,7 @@ export function useLockerController() {
     // so you can keep testing without re-pairing. Kill the terminal to reset pairing.
     
     // Rebuild fresh mock state with live deadlines (not stale module-load timestamps)
+    clearAllRetrievedLockers();
     const freshState = buildFreshInitialState();
     
     // Immediately restore the DB with the fresh mock state
@@ -1045,6 +1085,8 @@ export function useLockerController() {
 
   function restoreSpoiledDummyCase() {
     const now = Date.now();
+    unmarkLockerRetrieved("chamber-4");
+
     const spoiledDonation: DonationRecord = {
       ...sampleDonation,
       id: `donation-c4-${now}`,

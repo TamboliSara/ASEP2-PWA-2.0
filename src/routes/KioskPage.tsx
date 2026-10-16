@@ -94,7 +94,9 @@ export function KioskPage() {
   const { t, locale } = useTranslation();
   const { state, currentLocker, selectLocker, isBusy, retrieveFood, restoreSpoiledDummyCase, triggerMaintenanceLockdown, syncNow, clearSyncMessage } = useLockerController();
   const donation = currentLocker?.activeDonation;
-  const [selectedDonation, setSelectedDonation] = useState(donation);
+  const isChamberEmpty = !donation || currentLocker?.occupancyState === "empty";
+  const displayDonation = isChamberEmpty ? undefined : donation;
+
   const rawTelemetry = currentLocker?.telemetry;
   const telemetry = {
     internalTempC: rawTelemetry?.internalTempC != null ? rawTelemetry.internalTempC : 0,
@@ -123,10 +125,6 @@ export function KioskPage() {
   const [deniedMatchCount, setDeniedMatchCount] = useState(0);
 
   useEffect(() => {
-    setSelectedDonation(donation);
-  }, [currentLocker?.lockerId, donation]);
-
-  useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, []);
@@ -139,15 +137,6 @@ export function KioskPage() {
       return () => window.clearTimeout(timer);
     }
   }, [state.syncMessage, clearSyncMessage]);
-
-  const displayDonation = selectedDonation ?? donation;
-
-  // Guarantee UI drops sticky selected items when the physical safe becomes empty
-  useEffect(() => {
-    if (!donation && selectedDonation) {
-      setSelectedDonation(undefined);
-    }
-  }, [donation, selectedDonation]);
 
   useEffect(() => {
     const handleHashScroll = () => {
@@ -302,7 +291,6 @@ export function KioskPage() {
     const targetLocker = state.lockers[nextIndex];
     if (targetLocker) {
       selectLocker(targetLocker.lockerId);
-      setSelectedDonation(targetLocker.activeDonation);
     }
   };
 
@@ -844,7 +832,6 @@ export function KioskPage() {
 
           <FoodHeroV2
             donation={displayDonation}
-            onActiveItemChange={setSelectedDonation}
             onPrevLocker={() => navigateLocker(-1)}
             onNextLocker={() => navigateLocker(1)}
           />

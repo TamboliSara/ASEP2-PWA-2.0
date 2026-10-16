@@ -7,6 +7,7 @@ import { subscribeStatus, subscribeTelemetry, subscribeAllTelemetry, rtdbToDomai
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../services/firebase";
 import type { DonationRecord } from "../types/domain";
+import { getRetrievedLockers } from "../utils/retrievalStorage";
 
 const STORAGE_KEY      = "ecolocker-preferences";
 const PAIRING_KEY      = "ecolocker-pairing-done";
@@ -21,6 +22,18 @@ export function AppProviders({ children }: PropsWithChildren) {
     const savedMac     = (rawSavedMac && rawSavedMac !== "ECOLOCKERESP" && rawSavedMac !== "SIMULATED") ? rawSavedMac : "E8F60A893D4C";
     const isVisualizer = typeof window !== "undefined" && window.location.pathname === "/visualizer";
 
+    const retrievedSet = getRetrievedLockers();
+
+    const buildInitialLockers = () => defaultState.lockers.map(l => {
+      const isRetrieved = retrievedSet.has(l.lockerId);
+      const base = isRetrieved
+        ? { ...l, activeDonation: undefined, occupancyState: "empty" as const }
+        : l;
+      return base.lockerId === HARDWARE_LOCKER_ID
+        ? { ...base, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : base.pairedDeviceName }
+        : base;
+    });
+
     if (!saved) {
       if (isVisualizer) {
         localStorage.setItem(MAIN_THEME_KEY, defaultState.themeMode);
@@ -30,7 +43,7 @@ export function AppProviders({ children }: PropsWithChildren) {
         themeMode: isVisualizer ? "dark" : defaultState.themeMode,
         hasCompletedPairing: hasPaired,
         hardwareMac: savedMac,
-        lockers: defaultState.lockers.map(l => l.lockerId === HARDWARE_LOCKER_ID ? { ...l, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : l.pairedDeviceName } : l)
+        lockers: buildInitialLockers()
       };
     }
 
@@ -46,12 +59,10 @@ export function AppProviders({ children }: PropsWithChildren) {
         themeMode:        isVisualizer ? "dark" : userTheme,
         themePalette:     parsed.themePalette    ?? defaultState.themePalette,
         selectedLockerId: parsed.selectedLockerId ?? defaultState.selectedLockerId,
-        // NOTE: Lockers are NOT restored from localStorage — always use fresh defaultState.
-        // chamber-1 state comes from live RTDB/Firestore; mock lockers 2-8 come from initialAppState.
         donationHistory:  parsed.donationHistory ?? defaultState.donationHistory,
         hasCompletedPairing: hasPaired,
         hardwareMac:      savedMac,
-        lockers: defaultState.lockers.map(l => l.lockerId === HARDWARE_LOCKER_ID ? { ...l, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : l.pairedDeviceName } : l),
+        lockers: buildInitialLockers(),
         isAdminAuthenticated: false
       };
     } catch {
@@ -60,7 +71,7 @@ export function AppProviders({ children }: PropsWithChildren) {
         themeMode: isVisualizer ? "dark" : defaultState.themeMode,
         hasCompletedPairing: hasPaired,
         hardwareMac: savedMac,
-        lockers: defaultState.lockers.map(l => l.lockerId === HARDWARE_LOCKER_ID ? { ...l, bleConnected: hasPaired, pairedDeviceName: hasPaired ? (savedMac ? `EcoLocker ${savedMac}` : "EcoLocker ESP32-S3") : l.pairedDeviceName } : l)
+        lockers: buildInitialLockers()
       };
     }
   });
@@ -184,7 +195,22 @@ export function AppProviders({ children }: PropsWithChildren) {
 
         const data = snap.data();
         const fsOccupancy: string = data?.occupancyState ?? "empty";
-        const hasDonation = !!data?.donation?.id;
+        const hasDonation = !!data?.donation?.id && !data?.retrieval?.id;
+
+        // If this locker was retrieved in persistent storage or cloud says empty, strictly enforce empty
+        const retrievedSet = getRetrievedLockers();
+
+        if (retrievedSet.has(HARDWARE_LOCKER_ID) || fsOccupancy === "empty" || !hasDonation) {
+          const cur = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
+          if (cur?.occupancyState !== "empty" || cur?.activeDonation) {
+            dispatch({
+              type: "patch-locker",
+              id: HARDWARE_LOCKER_ID,
+              locker: { activeDonation: undefined, occupancyState: "empty" }
+            });
+          }
+          return;
+        }
 
         // ── Camera Vision (Primary) & Ultrasonic Sensor (Backup) ────────────────────────
         const rtdbLocker = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
@@ -229,10 +255,7 @@ export function AppProviders({ children }: PropsWithChildren) {
             }
           });
           console.log(`[AppProviders] ✅ Safe 1 donation restored from Firestore: "${restored.foodName}"`);
-        }
-
-        // ── Empty: both agree locker is vacant or sensor reads >= 34.0 cm ─────
-        else if (fsOccupancy === "empty" || isDistanceEmpty) {
+        } else if (fsOccupancy === "empty" || isDistanceEmpty) {
           const cur = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
           if (cur?.occupancyState !== "empty" || cur?.activeDonation) {
             dispatch({
@@ -301,23 +324,30 @@ export function AppProviders({ children }: PropsWithChildren) {
 
       // ── Physical Camera Vision Sensor with Ultrasonic Backup ──────────────
       const activeLocker = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
-      const cam = activeLocker?.cameraTelemetry;
-      const isCamActive = Boolean(cam?.isConnected);
+      const isRetrieved = getRetrievedLockers().has(HARDWARE_LOCKER_ID);
+      const hasActiveDonation = Boolean(activeLocker?.activeDonation) && !isRetrieved;
 
-      if (isCamActive) {
-        if (cam?.isFoodPresent) {
-          patchData.occupancyState = "occupied";
-        } else {
-          patchData.occupancyState = "empty";
-          patchData.activeDonation = undefined;
-        }
-      } else if (typeof domainTel.distanceCm === "number" && domainTel.distanceCm > 1.0) {
-        // Automatic ultrasonic backup when camera is offline
-        if (domainTel.distanceCm < 34.0) {
-          patchData.occupancyState = "occupied";
-        } else {
-          patchData.occupancyState = "empty";
-          patchData.activeDonation = undefined;
+      if (!hasActiveDonation) {
+        patchData.occupancyState = "empty";
+        patchData.activeDonation = undefined;
+      } else {
+        const cam = activeLocker?.cameraTelemetry;
+        const isCamActive = Boolean(cam?.isConnected);
+
+        if (isCamActive) {
+          if (cam?.isFoodPresent) {
+            patchData.occupancyState = "occupied";
+          } else {
+            patchData.occupancyState = "empty";
+            patchData.activeDonation = undefined;
+          }
+        } else if (typeof domainTel.distanceCm === "number" && domainTel.distanceCm > 1.0) {
+          if (domainTel.distanceCm < 34.0) {
+            patchData.occupancyState = "occupied";
+          } else {
+            patchData.occupancyState = "empty";
+            patchData.activeDonation = undefined;
+          }
         }
       }
 
@@ -327,19 +357,9 @@ export function AppProviders({ children }: PropsWithChildren) {
     const handleStatusUpdate = (rtdbStatus: any) => {
       if (!rtdbStatus) return;
 
-      const occState: "occupied" | "empty" | "processing" | "spoiled" =
-        rtdbStatus.occupancy === "occupied"   ? "occupied"   :
-        rtdbStatus.occupancy === "spoiled"    ? "spoiled"    :
-        rtdbStatus.occupancy === "processing" ? "processing" :
-        "empty";
-
       const curLocker = stateRef.current.lockers.find(l => l.lockerId === HARDWARE_LOCKER_ID);
-      const cam = curLocker?.cameraTelemetry;
-      const isCamActive = Boolean(cam?.isConnected);
-      const isPhysicallyEmpty = isCamActive 
-        ? !cam?.isFoodPresent 
-        : (typeof curLocker?.telemetry?.distanceCm === "number" && curLocker.telemetry.distanceCm >= 34.0);
-      const isOccupiedByDonation = Boolean(curLocker?.activeDonation) && !isPhysicallyEmpty;
+      const isRetrieved = getRetrievedLockers().has(HARDWARE_LOCKER_ID);
+      const isOccupiedByDonation = Boolean(curLocker?.activeDonation) && !isRetrieved;
 
       dispatch({
         type: "patch-locker",
@@ -347,7 +367,8 @@ export function AppProviders({ children }: PropsWithChildren) {
         locker: {
           lockState:      rtdbStatus.lock_state === "unlocked" ? "unlocked" : "locked",
           doorState:      rtdbStatus.door_state === "open"     ? "open"     : "closed",
-          occupancyState: isPhysicallyEmpty ? "empty" : (isOccupiedByDonation ? "occupied" : occState),
+          occupancyState: isOccupiedByDonation ? "occupied" : "empty",
+          activeDonation: isOccupiedByDonation ? curLocker?.activeDonation : undefined,
           bleConnected:   true
         }
       });

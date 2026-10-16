@@ -24,6 +24,7 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import type { AppState } from "../store/appState";
 import { sampleFleetLockers } from "../utils/mockData";
+import { getRetrievedLockers } from "../utils/retrievalStorage";
 
 export async function syncInitialState(state: AppState) {
   if (!db) {
@@ -36,19 +37,22 @@ export async function syncInitialState(state: AppState) {
   try {
     // ── 1. Sync all 8 chambers as self-contained documents ────────────
     //    Each chamber doc includes: state, donation, item, sensor, prediction, retrieval
+    const retrievedLockers = getRetrievedLockers();
     for (const locker of state.lockers) {
-      const d = locker.activeDonation;
+      const isRetrieved = retrievedLockers.has(locker.lockerId);
+      const d = isRetrieved ? undefined : locker.activeDonation;
       const hasDonation = !!d;
+      const effectiveOccupancy = isRetrieved ? "empty" : (hasDonation ? (locker.occupancyState || "occupied") : "empty");
 
       await setDoc(doc(db, "lockers", locker.lockerId), {
         // ── Chamber State ──
         lockerId: locker.lockerId,
-        occupancyState: locker.occupancyState,
+        occupancyState: effectiveOccupancy,
         lockState: locker.lockState,
         doorState: locker.doorState,
         sanitizationState: locker.sanitizationState,
-        foodQualityScore: locker.foodQualityScore,
-        faultState: locker.faultState,
+        foodQualityScore: isRetrieved ? "fresh" : locker.foodQualityScore,
+        faultState: isRetrieved ? "none" : locker.faultState,
         lastSyncedAt: locker.lastSyncedAt,
 
         // ── Donation Details (who donated, when, status) ──
@@ -101,7 +105,7 @@ export async function syncInitialState(state: AppState) {
 
     // ── 2. Also write flat audit copies to donations/, sensorSnapshots/, items/ ──
     for (const locker of state.lockers) {
-      if (locker.activeDonation) {
+      if (locker.activeDonation && !retrievedLockers.has(locker.lockerId)) {
         const d = locker.activeDonation;
         const itemStatus = locker.foodQualityScore === "spoilt" ? "spoiled" : "deposited";
 

@@ -183,8 +183,10 @@ export function FoodHeroV2({
   const badges = getBadges(activeItem, t, locale);
 
   useEffect(() => {
-    onActiveItemChange?.(activeItem);
-  }, [activeItem, onActiveItemChange]);
+    if (items && items.length > 1) {
+      onActiveItemChange?.(activeItem);
+    }
+  }, [activeItem, onActiveItemChange, items]);
 
   function cycle(direction: -1 | 1) {
     if (!heroItems?.length) return;

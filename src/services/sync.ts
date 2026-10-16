@@ -34,8 +34,18 @@ export async function syncSnapshot(snapshot: LockerState) {
   }
 
   try {
+    const isLockerEmpty = !snapshot.activeDonation || snapshot.occupancyState === "empty";
     await withTimeout(setDoc(doc(db, "lockers", snapshot.lockerId), {
       ...snapshot,
+      occupancyState: isLockerEmpty ? "empty" : (snapshot.occupancyState || "occupied"),
+      donation: isLockerEmpty ? null : snapshot.activeDonation,
+      item: isLockerEmpty ? null : (snapshot.activeDonation ? {
+        foodName: snapshot.activeDonation.foodName,
+        category: snapshot.activeDonation.categoryLabel,
+        dietTag: snapshot.activeDonation.dietTag,
+        allergensNotes: snapshot.activeDonation.allergensNotes || null,
+        qualityScore: snapshot.foodQualityScore || "fresh"
+      } : null),
       // Hardware lock fields — always explicit for RTDB-to-Firestore mirroring
       lockState: snapshot.lockState ?? "locked",
       doorState: snapshot.doorState ?? "closed",
@@ -334,26 +344,8 @@ export async function syncRetrieval(record: RetrievalRecord) {
   }
 
   try {
-    // 1. Upload receiver image to Storage (if present)
-    let receiverImageUrl: string | null = null;
-    if (record.receiverImageBase64) {
-      receiverImageUrl = await uploadImage(
-        record.receiverImageBase64,
-        `retrievals/${record.id}_receiver.jpg`
-      );
-    }
-
     const now = new Date().toISOString();
     const isAdminOverride = record.retrievedBy === "admin_override";
-
-    // ── Build embedded sub-documents ──────────────────────────────────
-    const receiverDoc = isAdminOverride ? null : {
-      retrievedAt: record.retrievedAt || now,
-      retrievedBy: record.retrievedBy,
-      qualityScoreAtRetrieval: record.qualityScoreAtRetrieval,
-      receiverImageBase64: record.receiverImageBase64 || null,
-      receiverImageUrl: receiverImageUrl || record.receiverImage || null
-    };
 
     const adminOverrideDoc = record.adminOverride
       ? {
@@ -364,58 +356,7 @@ export async function syncRetrieval(record: RetrievalRecord) {
 
     const finalStatus = isAdminOverride ? "admin_override" : "retrieved";
 
-    // ── 2. Update existing donations/ document (unchanged behaviour) ──
-    await withTimeout(
-      setDoc(
-        doc(db, "donations", record.donationId),
-        {
-          status: finalStatus,
-          _updatedAt: serverTimestamp(),
-          receiver: receiverDoc,
-          adminOverride: adminOverrideDoc
-        },
-        { merge: true }
-      )
-    );
-
-    // ── 3. Update the items/ document — permanent lifecycle record ────
-    //    Same doc ID as donationId. NEVER deleted, only updated.
-    await withTimeout(
-      setDoc(
-        doc(db, "items", record.donationId),
-        {
-          status: finalStatus,
-          _updatedAt: serverTimestamp(),
-
-          // Receiver block (null if admin override)
-          receiver: receiverDoc ? {
-            name: null, // captured from face scan — anonymous
-            imageUrl: receiverImageUrl || record.receiverImage || null,
-            retrievedAt: receiverDoc.retrievedAt,
-            freshnessAtRetrieval: record.qualityScoreAtRetrieval
-          } : null,
-
-          // Admin override block (null if normal retrieval)
-          adminOverride: adminOverrideDoc ? {
-            adminCredentials: adminOverrideDoc.adminCredentials,
-            overrideAt: adminOverrideDoc.overrideAt,
-            reason: "Spoiled food removed by admin"
-          } : null
-        },
-        { merge: true }
-      )
-    );
-
-    // ── 4. Write a retrievals/ document for audit trail (unchanged) ───
-    await withTimeout(
-      setDoc(doc(db, "retrievals", record.id), {
-        ...record,
-        receiverImageUrl: receiverImageUrl || record.receiverImage || null,
-        _syncedAt: serverTimestamp()
-      })
-    );
-
-    // ── 5. Update lockers/ doc — mark empty + show hardware lock state ─
+    // ── PRIORITY 1: Instantly mark lockers/ document EMPTY in Firestore ──
     await withTimeout(
       setDoc(
         doc(db, "lockers", record.lockerId),
@@ -438,9 +379,77 @@ export async function syncRetrieval(record: RetrievalRecord) {
         },
         { merge: true }
       )
-    );
+    ).catch(e => console.warn("[Sync] lockers/ empty sync warning:", e));
 
-    console.log(`[Sync] ✅ Retrieval synced: donations/${record.donationId}, items/${record.donationId}, retrievals/${record.id}`);
+    // ── PRIORITY 2: Upload receiver image non-blocking ──
+    let receiverImageUrl: string | null = null;
+    if (record.receiverImageBase64) {
+      try {
+        receiverImageUrl = await uploadImage(
+          record.receiverImageBase64,
+          `retrievals/${record.id}_receiver.jpg`
+        );
+      } catch (e) {
+        console.warn("[Sync] Optional receiver image upload bypassed:", e);
+      }
+    }
+
+    // ── Build embedded sub-documents ──────────────────────────────────
+    const receiverDoc = isAdminOverride ? null : {
+      retrievedAt: record.retrievedAt || now,
+      retrievedBy: record.retrievedBy,
+      qualityScoreAtRetrieval: record.qualityScoreAtRetrieval,
+      receiverImageBase64: record.receiverImageBase64 || null,
+      receiverImageUrl: receiverImageUrl || record.receiverImage || null
+    };
+
+    // ── 3. Update existing donations/ document ──
+    await withTimeout(
+      setDoc(
+        doc(db, "donations", record.donationId),
+        {
+          status: finalStatus,
+          _updatedAt: serverTimestamp(),
+          receiver: receiverDoc,
+          adminOverride: adminOverrideDoc
+        },
+        { merge: true }
+      )
+    ).catch(() => {});
+
+    // ── 4. Update the items/ document — permanent lifecycle record ────
+    await withTimeout(
+      setDoc(
+        doc(db, "items", record.donationId),
+        {
+          status: finalStatus,
+          _updatedAt: serverTimestamp(),
+          receiver: receiverDoc ? {
+            name: null,
+            imageUrl: receiverImageUrl || record.receiverImage || null,
+            retrievedAt: receiverDoc.retrievedAt,
+            freshnessAtRetrieval: record.qualityScoreAtRetrieval
+          } : null,
+          adminOverride: adminOverrideDoc ? {
+            adminCredentials: adminOverrideDoc.adminCredentials,
+            overrideAt: adminOverrideDoc.overrideAt,
+            reason: "Spoiled food removed by admin"
+          } : null
+        },
+        { merge: true }
+      )
+    ).catch(() => {});
+
+    // ── 5. Write a retrievals/ document for audit trail ───
+    await withTimeout(
+      setDoc(doc(db, "retrievals", record.id), {
+        ...record,
+        receiverImageUrl: receiverImageUrl || record.receiverImage || null,
+        _syncedAt: serverTimestamp()
+      })
+    ).catch(() => {});
+
+    console.log(`[Sync] ✅ Retrieval synced: lockers/${record.lockerId} is now EMPTY`);
     return true;
   } catch (error) {
     console.error("[Sync] ❌ Retrieval sync failed:", error);
