@@ -85,32 +85,33 @@ export function DonorPage() {
             className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto"
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 15 }}
+              initial={{ scale: 0.92, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 15 }}
-              transition={{ type: "spring", damping: 26, stiffness: 320 }}
-              className="w-full max-w-lg p-5 sm:p-6 rounded-[2rem] bg-panel/95 border border-accent/40 shadow-2xl flex flex-col items-center text-center space-y-4 my-auto max-h-[95vh] overflow-y-auto"
+              exit={{ scale: 0.92, opacity: 0, y: 10 }}
+              transition={{ type: "spring", damping: 28, stiffness: 340 }}
+              className="w-full max-w-md sm:max-w-lg p-3.5 sm:p-5 rounded-[1.75rem] bg-panel/95 border border-accent/40 shadow-2xl flex flex-col items-center text-center space-y-2.5 my-auto max-h-[96vh] overflow-y-auto"
             >
-              <div className="relative">
-                <div className="absolute inset-0 bg-accent/25 blur-2xl rounded-full scale-125 animate-pulse" />
-                <div className="relative w-14 h-14 rounded-2xl bg-accent/10 border border-accent/30 flex items-center justify-center text-accent">
-                  <Package className="w-7 h-7 animate-bounce" />
+              {/* Compact Header */}
+              <div className="w-full flex items-center justify-between gap-3 px-1 pb-1.5 border-b border-line/20">
+                <div className="flex items-center gap-2 text-left">
+                  <div className="w-8 h-8 rounded-xl bg-accent/15 border border-accent/30 flex items-center justify-center text-accent shrink-0">
+                    <Package className="w-4 h-4 animate-bounce" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                        Solenoid Unlocked
+                      </span>
+                    </div>
+                    <h3 className="text-sm sm:text-base font-black text-text leading-tight">
+                      Place Food in Chamber & Take Photo
+                    </h3>
+                  </div>
                 </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-accent/15 border border-accent/30">
-                  <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
-                  <span className="text-[11px] font-black uppercase tracking-widest text-accent">
-                    Solenoid Unlocked
-                  </span>
+                <div className="text-[10px] font-mono font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
+                  Locker #1
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-text">
-                  Place Food & Click Photo
-                </h3>
-                <p className="text-xs text-text-muted max-w-sm mx-auto leading-relaxed">
-                  Open the door, place your food inside the chamber, and click "Take Photo of Donated Food" to verify.
-                </p>
               </div>
 
               {/* ── Live Chamber Vision HUD ── */}

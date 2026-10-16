@@ -10,7 +10,7 @@
  *   - Quick QR Code pairing modal for mounting phone inside locker
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import QRCode from "qrcode";
 import { 
@@ -68,6 +68,7 @@ export function ChamberVisionHud({
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   const [resolvedPhoneUrl, setResolvedPhoneUrl] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Snapshot Capture & In-Chamber Verification States
   const [capturedSnapshot, setCapturedSnapshot] = useState<string | null>(null);
@@ -112,9 +113,12 @@ export function ChamberVisionHud({
     let snapshot = providedImage || "";
 
     // 1. Capture snapshot from active video stream if playing
-    if (!snapshot && videoRef.current && videoRef.current.readyState >= 2) {
+    if (!snapshot && videoRef.current) {
       try {
-        snapshot = yoloVisionEngine.captureSnapshot(videoRef.current, 0.85, 640);
+        const v = videoRef.current;
+        if (v.videoWidth > 0 && v.videoHeight > 0) {
+          snapshot = yoloVisionEngine.captureSnapshot(v, 0.85, 640);
+        }
       } catch (e) {
         console.warn("[HUD] captureSnapshot video error:", e);
       }
@@ -125,13 +129,24 @@ export function ChamberVisionHud({
       snapshot = lastFrameDataUrl;
     }
 
+    // 3. Fallback: if simulator preset active, use preset SVG
+    if (!snapshot && presets && presets[activePresetIndex]?.svg) {
+      const svg = presets[activePresetIndex].svg;
+      snapshot = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    }
+
+    // 4. Fallback: if no camera feed is running, prompt device camera immediately
     if (!snapshot) {
       setIsAnalyzing(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+        return;
+      }
       setVerificationResult({
         isFood: false,
         label: "Camera Unready",
         confidence: 0,
-        errorReason: "Optical stream not ready yet. Please ensure camera is connected or upload a photo."
+        errorReason: "Optical stream initializing. Tap 'Open Phone Camera' below to take a photo."
       });
       return;
     }
@@ -289,7 +304,11 @@ export function ChamberVisionHud({
       </div>
 
       {/* ── Live Viewfinder / Snapshot Container ── */}
-      <div className="relative aspect-[16/10] bg-slate-950 flex items-center justify-center overflow-hidden">
+      <div 
+        onClick={() => !isAnalyzing && handleCaptureAndVerify()}
+        className="relative aspect-[16/10] max-h-[220px] bg-slate-950 flex items-center justify-center overflow-hidden cursor-pointer group"
+        title="Click viewfinder to take photo"
+      >
         {/* If user clicked snapshot: Display the captured photo */}
         {capturedSnapshot ? (
           <img
@@ -324,16 +343,24 @@ export function ChamberVisionHud({
 
             {/* Standby screen when phone is not yet streaming */}
             {!isStreaming && !lastFrameDataUrl && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center gap-2 bg-slate-950 z-10">
-                <Camera className="w-8 h-8 text-emerald-400/40 animate-pulse" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center gap-1.5 bg-slate-950 z-10">
+                <Camera className="w-7 h-7 text-emerald-400/50 animate-pulse" />
                 <div className="text-xs font-mono font-bold text-slate-300">
-                  In-Chamber Optical Sensor Standby
+                  Chamber Optical Lens Ready
                 </div>
                 <p className="text-[10px] font-mono text-slate-500 max-w-xs">
-                  Positioned in Locker #1 • Place food inside and capture photo
+                  Place food inside chamber & tap below to capture photo
                 </p>
               </div>
             )}
+
+            {/* Click to capture overlay badge */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/85 border border-emerald-500/40 text-emerald-300 font-mono text-[10px] shadow-lg backdrop-blur-sm group-hover:border-emerald-400 group-hover:scale-105 transition-all">
+                <Camera className="w-3 h-3 text-emerald-400 animate-pulse" />
+                <span>Tap Viewfinder to Take Photo</span>
+              </div>
+            </div>
           </>
         )}
 
@@ -498,30 +525,49 @@ export function ChamberVisionHud({
 
       {/* ── Interactive Photo Capture & Verification Control Bar ── */}
       {isDonorMode && (
-        <div className="border-t border-slate-800 bg-slate-900/95 p-3 space-y-2.5">
+        <div className="border-t border-slate-800 bg-slate-900/95 p-3 space-y-2">
           {!capturedSnapshot ? (
             <>
-              <div className="flex items-center gap-2 text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-3 py-2 rounded-xl border border-emerald-500/20">
-                <Camera className="w-4 h-4 shrink-0 text-emerald-400 animate-pulse" />
-                <span>Place food inside the chamber & tap below to take a photo.</span>
-              </div>
-
+              {/* Primary In-Chamber Lens Capture Button */}
               <button
                 type="button"
-                onClick={() => handleCaptureAndVerify()}
+                id="take-food-photo-btn"
+                data-testid="take-food-photo-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCaptureAndVerify();
+                }}
                 disabled={isAnalyzing}
-                className="w-full py-3.5 px-4 rounded-xl font-black text-xs sm:text-sm tracking-wider uppercase transition-all duration-200 flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:brightness-110 text-slate-950 shadow-[0_0_25px_rgba(16,185,129,0.35)] active:scale-[0.98]"
+                className="w-full py-3.5 px-4 rounded-xl font-black text-xs sm:text-sm tracking-wider uppercase transition-all duration-200 flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:brightness-110 active:scale-[0.98] text-slate-950 shadow-[0_0_25px_rgba(16,185,129,0.4)] cursor-pointer select-none"
               >
-                <Camera className="w-4 h-4 text-slate-950" />
+                <Camera className="w-5 h-5 text-slate-950 shrink-0" />
                 <span>Take Photo of Donated Food</span>
               </button>
 
-              <div className="flex items-center justify-center pt-0.5">
-                <label className="text-[10px] font-mono text-slate-400 hover:text-emerald-400 cursor-pointer flex items-center gap-1.5 transition-colors">
-                  <Smartphone className="w-3.5 h-3.5" />
-                  <span>Or snap / upload with phone camera</span>
-                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileUpload} />
-                </label>
+              {/* Direct Native Camera & Upload Secondary Button */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  id="open-camera-device-btn"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="flex-1 py-2 px-3 rounded-lg text-[11px] font-mono text-emerald-300 hover:text-white bg-slate-800/90 hover:bg-slate-800 border border-slate-700 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Snap with Phone Camera</span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
               </div>
             </>
           ) : isAnalyzing ? (
@@ -562,54 +608,69 @@ export function ChamberVisionHud({
                 <button
                   type="button"
                   onClick={handleRetake}
-                  className="flex-1 py-2.5 px-3 rounded-xl font-bold text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 active:scale-[0.98]"
+                  className="flex-1 py-2.5 px-3 rounded-xl font-bold text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 active:scale-[0.98] cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Retake Photo</span>
                 </button>
-                <label className="py-2.5 px-3 rounded-xl font-bold text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer active:scale-[0.98]">
-                  <Smartphone className="w-3.5 h-3.5" />
-                  <span>Upload</span>
-                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileUpload} />
-                </label>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="py-2.5 px-3.5 rounded-xl font-bold text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer active:scale-[0.98]"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Use Camera</span>
+                </button>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* ── Dual-Redundant Sensor Status Footer ── */}
-      <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-900/70 border-t border-slate-800 text-xs">
-        {/* Primary: YOLO Vision */}
-        <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-950/60 border border-slate-800/80">
-          <div className={`w-2.5 h-2.5 rounded-full ${verificationResult?.isFood || isFoodPresent ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] text-slate-400 font-mono">PRIMARY: YOLO VISION</div>
-            <div className="font-bold text-emerald-400 text-[11px] truncate">
-              {verificationResult?.isFood
-                ? `Photo Verified (${verificationResult.confidence}%)`
-                : capturedSnapshot
-                ? "Verification Failed"
-                : isFoodPresent
-                ? `Ready to Click (${Math.round(confidence * 100)}%)`
-                : "Awaiting Photo Capture"}
-            </div>
+      {/* ── Sensor Status Footer ── */}
+      {isDonorMode ? (
+        <div className="flex items-center justify-between px-3.5 py-1.5 bg-slate-900/80 border-t border-slate-800 text-[10px] font-mono">
+          <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>AI Optical Node: {verificationResult?.isFood ? "Food Verified" : capturedSnapshot ? "Verification Failed" : "Ready"}</span>
+          </div>
+          <div className="text-slate-400">
+            {typeof ultrasonicDistCm === "number" && ultrasonicDistCm > 0 ? `Locker #1 • ${ultrasonicDistCm.toFixed(1)} cm` : "Chamber #1"}
           </div>
         </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-900/70 border-t border-slate-800 text-xs">
+          {/* Primary: YOLO Vision */}
+          <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-950/60 border border-slate-800/80">
+            <div className={`w-2.5 h-2.5 rounded-full ${verificationResult?.isFood || isFoodPresent ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] text-slate-400 font-mono">PRIMARY: YOLO VISION</div>
+              <div className="font-bold text-emerald-400 text-[11px] truncate">
+                {verificationResult?.isFood
+                  ? `Photo Verified (${verificationResult.confidence}%)`
+                  : capturedSnapshot
+                  ? "Verification Failed"
+                  : isFoodPresent
+                  ? `Ready to Click (${Math.round(confidence * 100)}%)`
+                  : "Awaiting Photo Capture"}
+              </div>
+            </div>
+          </div>
 
-        {/* Backup: Ultrasonic Sensor */}
-        <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-950/60 border border-slate-800/80">
-          <div className={`w-2.5 h-2.5 rounded-full ${isUltrasonicConfirmed ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] text-slate-400 font-mono">BACKUP: ULTRASONIC</div>
-            <div className="font-bold text-slate-300 text-[11px] truncate font-mono">
-              {typeof ultrasonicDistCm === "number" && ultrasonicDistCm > 0 
-                ? `${ultrasonicDistCm.toFixed(1)} cm ${isUltrasonicConfirmed ? '(Echo Confirmed)' : '(Standby)'}` 
-                : "Armed / Standby"}
+          {/* Backup: Ultrasonic Sensor */}
+          <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-950/60 border border-slate-800/80">
+            <div className={`w-2.5 h-2.5 rounded-full ${isUltrasonicConfirmed ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] text-slate-400 font-mono">BACKUP: ULTRASONIC</div>
+              <div className="font-bold text-slate-300 text-[11px] truncate font-mono">
+                {typeof ultrasonicDistCm === "number" && ultrasonicDistCm > 0 
+                  ? `${ultrasonicDistCm.toFixed(1)} cm ${isUltrasonicConfirmed ? '(Echo Confirmed)' : '(Standby)'}` 
+                  : "Armed / Standby"}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ── QR Code Pairing Modal ── */}
       <AnimatePresence>
